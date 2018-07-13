@@ -30,7 +30,7 @@ void Shape::loadMesh(const string &meshName, string *mtlpath, unsigned char *(lo
 	}
 	else if (shapes.size())
 	{
-		obj_count = shapes.size();
+		obj_count = int(shapes.size());
 		posBuf = new std::vector<float>[shapes.size()];
 		norBuf = new std::vector<float>[shapes.size()];
 		texBuf = new std::vector<float>[shapes.size()];
@@ -65,17 +65,15 @@ void Shape::loadMesh(const string &meshName, string *mtlpath, unsigned char *(lo
 	for (int i = 0; i < objMaterials.size(); i++)
 		if (objMaterials[i].diffuse_texname.size()>0)
 		{
-			char filepath[1000];
 			int width, height, channels;
 			string filename = objMaterials[i].ambient_texname;
-			int subdir = filename.rfind("\\");
+			int subdir = int(filename.rfind("\\"));
 			if (subdir > 0)
 				filename = filename.substr(subdir + 1);
-			string str = *mtlpath + filename;
-			strcpy(filepath, str.c_str());
+			string filepath = *mtlpath + filename;
 			//stbi_load(char const *filename, int *x, int *y, int *comp, int req_comp)
 
-			unsigned char* data = loadimage(filepath, &width, &height, &channels, 4);
+			unsigned char* data = loadimage(filepath.c_str(), &width, &height, &channels, 4);
 			glGenTextures(1, &textureIDs[i]);
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, textureIDs[i]);
