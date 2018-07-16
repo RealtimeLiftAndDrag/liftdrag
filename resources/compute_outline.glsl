@@ -13,7 +13,7 @@ uniform uint swap;
 layout (r32ui, binding = 2) uniform uimage2D img_flag;									
 layout (rgba8, binding = 3) uniform image2D img_FBO;	
 layout (rgba32f, binding = 4) uniform image2D img_geo;	
-layout (std430, binding=0) restrict buffer ssbo_geopixels { 
+layout (std430, binding = 0) restrict buffer ssbo_geopixels { 
     uint geo_count;
     uint test;
     uint out_count[2];
@@ -35,8 +35,8 @@ void main() {
     
     for(int ii = 0; ii < cs_workload_per_shader; ii++) {
         int work_on = index + shadernum * ii;
-        if (work_on>=MSIZE) break;
-        if (work_on>=geopix.geo_count) break;
+        if (work_on >= MSIZE) break;
+        if (work_on >= geopix.geo_count) break;
 
         vec3 worldpos = imageLoad(img_geo,ivec2(work_on, 0)).xyz;
         vec2 texpos = imageLoad(img_geo,ivec2(work_on, 1)).xy;
@@ -65,7 +65,7 @@ void main() {
                 if (index < 1)
                     break;
                     
-                //atomicAdd(geopix.test,1);
+                //atomicAdd(geopix.test, 1);
                 //break;
                 float distance_lift = float(steps);
                 float backforce = distance_lift / 700.0f;
@@ -76,12 +76,12 @@ void main() {
                 
                 //not sure:
                 /*
-                vec3 liftforce = distance_lift*geo_normal*f;
-                vec3 center_grav=...
-                vec3 r = worldpos -center_grav;
-                vec3 torque_pix = cross(liftforce,r);
-                atomicAdd(geopix.momentum.xyz,torque_pix);
-                atomicAdd(geopix.force.xyz,liftforce);
+                vec3 liftforce = distance_lift * geo_normal * f;
+                vec3 center_grav = ...
+                vec3 r = worldpos - center_grav;
+                vec3 torque_pix = cross(liftforce, r);
+                atomicAdd(geopix.momentum.xyz, torque_pix);
+                atomicAdd(geopix.force.xyz, liftforce);
                 */
                 break;
             }
