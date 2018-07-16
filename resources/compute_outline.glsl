@@ -1,7 +1,7 @@
 ﻿#version 450 
 #extension GL_ARB_shader_storage_buffer_object : require
 
-#define MSIZE 4096 * 8
+#define MSIZE 4096 * 2
 #define ESTIMATEMAXOUTLINEPIXELS 4096
 #define STEPMAX 50
 

@@ -382,7 +382,7 @@ class Application : public EventCallbacks {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         int mx = 0;
         glGetIntegerv(GL_MAX_TEXTURE_SIZE, &mx);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ESTIMATEMAXGEOPIXELS * 8, 3, 0, GL_BGRA, GL_FLOAT, NULL); // Texture width is too big, this causes error!!!
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ESTIMATEMAXGEOPIXELS * 2, 3, 0, GL_BGRA, GL_FLOAT, NULL); // Texture width is too big, this causes error!!!
         glActiveTexture(GL_TEXTURE4);
         glBindImageTexture(4, geo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         
