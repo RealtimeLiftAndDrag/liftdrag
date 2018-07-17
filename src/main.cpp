@@ -24,6 +24,7 @@ extern "C" {
 #include "WindowManager.h"
 #include "Shape.h"
 #include "glm/gtc/matrix_transform.hpp"
+#include "Results.hpp"
 
 #define ESTIMATEMAXGEOPIXELS 16384
 #define ESTIMATEMAXGEOPIXELSROWS 27
@@ -166,7 +167,7 @@ class Application : public EventCallbacks {
     WindowManager * windowManager = nullptr;
 
     // Our shader program
-    std::shared_ptr<Program> prog, progfoil, progfb;
+    std::shared_ptr<Program> progfoil, progfb;
     //framebuffer
     GLuint FBOtex, FrameBufferObj, depth_rb, FlagTex;
     GLuint FlagBuff, FlagBuffTex;
@@ -250,12 +251,12 @@ class Application : public EventCallbacks {
     }
 
     // Note that any gl calls must always happen after a GL state is initialized
-    void initGeom() {
-        std::string resourceDirectory = "../resources";
+    void initGeom(const std::string & resourcesDir) {
+        std::string objsDir = resourcesDir + "/objs";
         // Initialize mesh.
         shape = std::make_shared<Shape>();
         //shape->loadMesh(resourceDirectory + "/t800.obj");
-        shape->loadMesh(resourceDirectory + "/a12.obj");
+        shape->loadMesh(objsDir + "/a12.obj");
         //shape->loadMesh(resourceDirectory + "/sphere.obj");
         shape->resize();
         shape->init();
@@ -438,8 +439,9 @@ class Application : public EventCallbacks {
         glUniform1i(Tex1Location, 0);
     }
 
-    //General OGL initialization - set OGL state here
-    void init(const std::string & resourceDirectory) {
+    bool init(const std::string & resourcesDir) {
+        std::string shadersDir(resourcesDir + "/shaders");
+
         GLSL::checkVersion();
 
         // Set background color.
@@ -447,29 +449,13 @@ class Application : public EventCallbacks {
         // Enable z-buffer test.
         glEnable(GL_DEPTH_TEST);
         //glDisable(GL_DEPTH_TEST);
-        // Initialize the GLSL program.
-        prog = std::make_shared<Program>();
-        prog->setVerbose(true);
-        prog->setShaderNames(resourceDirectory + "/shader_vertex.glsl", resourceDirectory + "/shader_fragment.glsl");
-        if (!prog->init()) {
-            std::cerr << "One or more shaders failed to compile... exiting!" << std::endl;
-            exit(1);
-        }
-        prog->addUniform("P");
-        prog->addUniform("V");
-        prog->addUniform("M");
-        prog->addUniform("campos");
-        prog->addAttribute("vertPos");
-        prog->addAttribute("vertNor");
-        prog->addAttribute("vertTex");
-        prog->addAttribute("InstancePos");
 
         progfoil = std::make_shared<Program>();
         progfoil->setVerbose(true);
-        progfoil->setShaderNames(resourceDirectory + "/vs.glsl", resourceDirectory + "/fs.glsl");
+        progfoil->setShaderNames(shadersDir + "/vs.glsl", shadersDir + "/fs.glsl");
         if (!progfoil->init()) {
-            std::cerr << "One or more shaders failed to compile... exiting!" << std::endl;
-            exit(1);
+            std::cerr << "Failed to initialize foil shader" << std::endl;
+            return false;
         }
         progfoil->addUniform("P");
         progfoil->addUniform("V");
@@ -482,16 +468,16 @@ class Application : public EventCallbacks {
 
         progfb = std::make_shared<Program>();
         progfb->setVerbose(true);
-        progfb->setShaderNames(resourceDirectory + "/fbvertex.glsl", resourceDirectory + "/fbfrag.glsl");
+        progfb->setShaderNames(shadersDir + "/fbvertex.glsl", shadersDir + "/fbfrag.glsl");
         if (!progfb->init()) {
-            std::cerr << "One or more shaders failed to compile... exiting!" << std::endl;
-            exit(1);
+            std::cerr << "Failed to initialize fb shader" << std::endl;
+            return false;
         }
         progfb->addAttribute("vertPos");
         progfb->addAttribute("vertTex");
 
         // load the compute shader OUTLINE
-        std::string ShaderString = readFileAsString("../resources/compute_outline.glsl");
+        std::string ShaderString = readFileAsString(shadersDir + "/compute_outline.glsl");
         const char *shader = ShaderString.c_str();
         GLuint computeShader = glCreateShader(GL_COMPUTE_SHADER);
         glShaderSource(computeShader, 1, &shader, nullptr);
@@ -500,17 +486,23 @@ class Application : public EventCallbacks {
         CHECKED_GL_CALL(glGetShaderiv(computeShader, GL_COMPILE_STATUS, &rc));
         if (!rc) { //error compiling the shader file
             GLSL::printShaderInfoLog(computeShader);
-            std::cout << "Error compiling fragment shader " << std::endl;
-            exit(1);
+            std::cout << "Failed to compile outline shader" << std::endl;
+            return false;
         }
         computeprog_outline = glCreateProgram();
         glAttachShader(computeprog_outline, computeShader);
         glLinkProgram(computeprog_outline);
+        glGetProgramiv(computeprog_outline, GL_LINK_STATUS, &rc);
+        if (!rc) {
+            GLSL::printProgramInfoLog(computeprog_outline);
+            std::cout << "Failed to link outline shader" << std::endl;
+            return false;
+        }
         glUseProgram(computeprog_outline);
         uniform_location_swap_out = glGetUniformLocation(computeprog_outline, "swap");
 
         //load the compute shader MOVE
-        ShaderString = readFileAsString("../resources/compute_move.glsl");
+        ShaderString = readFileAsString(shadersDir + "/compute_move.glsl");
         shader = ShaderString.c_str();
         computeShader = glCreateShader(GL_COMPUTE_SHADER);
         glShaderSource(computeShader, 1, &shader, nullptr);
@@ -519,17 +511,23 @@ class Application : public EventCallbacks {
         CHECKED_GL_CALL(glGetShaderiv(computeShader, GL_COMPILE_STATUS, &rc));
         if (!rc) { //error compiling the shader file
             GLSL::printShaderInfoLog(computeShader);
-            std::cout << "Error compiling fragment shader " << std::endl;
-            exit(1);
+            std::cout << "Failed to compile move shader" << std::endl;
+            return false;
         }
         computeprog_move = glCreateProgram();
         glAttachShader(computeprog_move, computeShader);
         glLinkProgram(computeprog_move);
+        glGetProgramiv(computeprog_move, GL_LINK_STATUS, &rc);
+        if (!rc) {
+            GLSL::printProgramInfoLog(computeprog_move);
+            std::cout << "Failed to link move shader" << std::endl;
+            return false;
+        }
         glUseProgram(computeprog_move);
         uniform_location_swap_move = glGetUniformLocation(computeprog_move, "swap");
 
         //load the compute shader DRAW (outline)
-        ShaderString = readFileAsString("../resources/compute_draw.glsl");
+        ShaderString = readFileAsString(shadersDir + "/compute_draw.glsl");
         shader = ShaderString.c_str();
         computeShader = glCreateShader(GL_COMPUTE_SHADER);
         glShaderSource(computeShader, 1, &shader, nullptr);
@@ -538,12 +536,18 @@ class Application : public EventCallbacks {
         CHECKED_GL_CALL(glGetShaderiv(computeShader, GL_COMPILE_STATUS, &rc));
         if (!rc) { //error compiling the shader file
             GLSL::printShaderInfoLog(computeShader);
-            std::cout << "Error compiling fragment shader " << std::endl;
-            exit(1);
+            std::cout << "Failed to compile draw shader" << std::endl;
+            return false;
         }
         computeprog_draw = glCreateProgram();
         glAttachShader(computeprog_draw, computeShader);
         glLinkProgram(computeprog_draw);
+        glGetProgramiv(computeprog_draw, GL_LINK_STATUS, &rc);
+        if (!rc) {
+            GLSL::printProgramInfoLog(computeprog_draw);
+            std::cout << "Failed to link draw shader" << std::endl;
+            return false;
+        }
         glUseProgram(computeprog_draw);
         uniform_location_swap_draw = glGetUniformLocation(computeprog_draw, "swap");
 
@@ -551,10 +555,12 @@ class Application : public EventCallbacks {
         int width, height;
         glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
 
-        nulldata = new unsigned int[width*height];
-        for (int ii = 0; ii < width*height; ii++) {
+        nulldata = new unsigned int[width * height];
+        for (int ii = 0; ii < width * height; ii++) {
             nulldata[ii] = 0;
         }
+
+        return true;
     }
 
     void debug_buff(unsigned int swap) {
@@ -802,6 +808,7 @@ int main(int argc, char **argv) {
     if (argc >= 2)  {
         resourceDir = argv[1];
     }
+    std::string shadersDir = resourceDir + "/shaders";
 
     Application *application = new Application();
     /* your main will always include a similar set up to establish your window
@@ -817,9 +824,19 @@ int main(int argc, char **argv) {
     /* This is the code that will likely change program to program as you
     may need to initialize or set up different data and state */
     // Initialize scene.
-    application->init(resourceDir);
-    application->initGeom();
-    application->init_framebuffer();
+    if (!application->init(resourceDir)) {
+        std::cerr << "Failed to initialize application" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    application->initGeom(resourceDir);
+    application->init_framebuffer();    
+
+    // Results Window
+    if (!results::setup()) {
+        std::cerr << "Failed to setup results" << std::endl;
+        return false;
+    }
+
     unsigned int swap = 1;
     // Loop until the user closes the window.
     while (!glfwWindowShouldClose(windowManager->getHandle())) {
@@ -849,5 +866,7 @@ int main(int argc, char **argv) {
 
     // Quit program.
     windowManager->shutdown();
+    results::cleanup();
+
     return 0;
 }
