@@ -1,9 +1,30 @@
 ﻿#version 450 
 #extension GL_ARB_shader_storage_buffer_object : require
 
-#define MSIZE 4096 * 2
-#define ESTIMATEMAXOUTLINEPIXELS 4096
 #define STEPMAX 50
+
+#define WORLDPOSOFF 0
+#define MOMENTUMOFF 1
+#define TEXPOSOFF 2
+
+#define ESTIMATEMAXGEOPIXELS 16384
+#define ESTIMATEMAXGEOPIXELSROWS 27
+#define ESTIMATEMAXGEOPIXELSSUM ESTIMATEMAXGEOPIXELS * (ESTIMATEMAXGEOPIXELSROWS / 3)
+
+ivec2 load_geo(uint index, int init_offset) { // with init_offset being 0, 1, or 2 (world, momentum, tex)
+    uint off = index % ESTIMATEMAXGEOPIXELS;
+    uint mul = index / ESTIMATEMAXGEOPIXELS;
+    return ivec2(off, init_offset + 3 * mul);
+}
+
+#define ESTIMATEMAXOUTLINEPIXELS 16384
+#define ESTIMATEMAXOUTLINEPIXELSROWS 54 // with half half 27
+ivec2 loadstore_outline(uint index, int init_offset, uint swapval) { // with init_offset being 0, 1, or 2 (world, momentum, tex)
+    uint off = index % ESTIMATEMAXOUTLINEPIXELS;
+    uint mul = index / ESTIMATEMAXOUTLINEPIXELS;
+    int halfval = ESTIMATEMAXOUTLINEPIXELSROWS / 2;
+    return ivec2(off, init_offset + 3 * mul + swapval * halfval);
+}
 
 layout (local_size_x = 1, local_size_y = 1) in;
 
@@ -13,15 +34,13 @@ uniform uint swap;
 layout (r32ui, binding = 2) uniform uimage2D img_flag;									
 layout (rgba8, binding = 3) uniform image2D img_FBO;	
 layout (rgba32f, binding = 4) uniform image2D img_geo;	
+layout (rgba32f, binding = 5) uniform image2D img_outline;	
 layout (std430, binding = 0) restrict buffer ssbo_geopixels { 
     uint geo_count;
     uint test;
     uint out_count[2];
     vec4 momentum;
     vec4 force;
-    vec4 out_worldpos[2][ESTIMATEMAXOUTLINEPIXELS];
-    vec4 out_momentum[2][ESTIMATEMAXOUTLINEPIXELS];
-    vec4 out_texpos[2][ESTIMATEMAXOUTLINEPIXELS];
     ivec4 debugshit[4096];
 } geopix;
 
@@ -35,12 +54,12 @@ void main() {
     
     for(int ii = 0; ii < cs_workload_per_shader; ii++) {
         int work_on = index + shadernum * ii;
-        if (work_on >= MSIZE) break;
+        if (work_on >= ESTIMATEMAXGEOPIXELSSUM) break;
         if (work_on >= geopix.geo_count) break;
 
-        vec3 worldpos = imageLoad(img_geo,ivec2(work_on, 0)).xyz;
-        vec2 texpos = imageLoad(img_geo,ivec2(work_on, 1)).xy;
-        vec3 normal = imageLoad(img_geo,ivec2(work_on, 2)).xyz;
+        vec3 worldpos = imageLoad(img_geo,load_geo(work_on, WORLDPOSOFF)).xyz;
+        vec2 texpos =	imageLoad(img_geo,load_geo(work_on, MOMENTUMOFF)).xy;
+        vec3 normal =	imageLoad(img_geo,load_geo(work_on, TEXPOSOFF)).xyz;
     
         normal = normalize(normal);
         vec3 geo_normal = normal;
@@ -62,17 +81,19 @@ void main() {
                 uint index = imageAtomicAdd(img_flag, ivec2(ntexpos), uint(0));
                 if (index > 0) index--;					
                 
-                if (index < 1)
+                if (index < 1) {
                     break;
+                }
                     
                 //atomicAdd(geopix.test, 1);
                 //break;
                 float distance_lift = float(steps);
-                float backforce = distance_lift / 700.0f;
-                vec3 momentum = geopix.out_momentum[swap][index].xyz;
+                float backforce = distance_lift / 600.0f;
+
+                vec3 momentum = imageLoad(img_outline,loadstore_outline(index, MOMENTUMOFF,swap)).xyz;
                 vec2 backforce_direction = normalize(ntexpos - texpos) * backforce;
                 momentum.xy += backforce_direction;
-                geopix.out_momentum[swap][index] = vec4(momentum, 0.0f);
+                imageStore(img_outline, loadstore_outline(index, MOMENTUMOFF,swap), vec4(momentum, 0.0f));
                 
                 //not sure:
                 /*
@@ -93,8 +114,9 @@ void main() {
         if (steps == STEPMAX && normal.z < 0.0f) {
             ntexpos = texpos - normal.xy * 5.5f;
             uint current_array_pos = atomicAdd(geopix.out_count[swap], 1);
-            geopix.out_texpos[swap][current_array_pos] = vec4(ntexpos, 0.0f, 0.0f);
-            geopix.out_momentum[swap][current_array_pos] = vec4(normal, 0.0f);
+           
+            imageStore(img_outline, loadstore_outline(current_array_pos, TEXPOSOFF, swap), vec4(ntexpos, 0.0f, 0.0f));   
+            imageStore(img_outline, loadstore_outline(current_array_pos, MOMENTUMOFF, swap), vec4(normal, 0.0f));            
         }
     }
 }
