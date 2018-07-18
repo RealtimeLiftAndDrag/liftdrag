@@ -501,7 +501,7 @@ class Application : public EventCallbacks {
         glUseProgram(computeprog_outline);
         uniform_location_swap_out = glGetUniformLocation(computeprog_outline, "swap");
 
-        //load the compute shader MOVE
+        // load the compute shader MOVE
         ShaderString = readFileAsString(shadersDir + "/compute_move.glsl");
         shader = ShaderString.c_str();
         computeShader = glCreateShader(GL_COMPUTE_SHADER);
@@ -793,6 +793,10 @@ class Application : public EventCallbacks {
         glBindVertexArray(VertexArrayID);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
         progfb->unbind();
+
+        // Results window
+        results::render();
+        glfwMakeContextCurrent(windowManager->getHandle());
     }
 
 };
@@ -803,12 +807,11 @@ class Application : public EventCallbacks {
 
 
 
-int main(int argc, char **argv) {
+int main(int argc, char ** argv) {
     std::string resourceDir = "../resources"; // Where the resources are loaded from
     if (argc >= 2)  {
         resourceDir = argv[1];
     }
-    std::string shadersDir = resourceDir + "/shaders";
 
     Application *application = new Application();
     /* your main will always include a similar set up to establish your window
@@ -832,10 +835,11 @@ int main(int argc, char **argv) {
     application->init_framebuffer();    
 
     // Results Window
-    if (!results::setup()) {
+    if (!results::setup(resourceDir)) {
         std::cerr << "Failed to setup results" << std::endl;
-        return false;
+        std::exit(EXIT_FAILURE);
     }
+    glfwMakeContextCurrent(windowManager->getHandle());
 
     unsigned int swap = 1;
     // Loop until the user closes the window.
@@ -853,7 +857,16 @@ int main(int argc, char **argv) {
         application->compute_draw_outline(!swap);
         application->compute_reset(!swap); 
         application->debug_buff(swap);
-        //render from the side here ...
+        //render from the side here ...        
+
+        // Add some dummy values into results to test if working
+        static float angle(-90.0f), offset(0.0f);
+        results::submit(angle, std::sin(angle / 90.0f * glm::pi<float>() + offset), std::cos(angle / 90.0f * glm::pi<float>() + offset));
+        angle += 5;
+        if (angle > 90.0f) {
+            angle = -90.0f;
+            offset += 0.25f;
+        }
 
         //get the whole thing on the screen
         application->render();
