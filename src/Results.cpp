@@ -47,6 +47,8 @@ bool setup(const std::string & resourcesDir) {
 
     glfwMakeContextCurrent(f_window);
 
+    glPointSize(4.0f);
+
     f_liftCurve.reset(new Graph(int(180.0f * k_invGranularity) + 1));
     if (!f_liftCurve->setup(resourcesDir)) {
         std::cerr << "Failed to setup lift graph" << std::endl;

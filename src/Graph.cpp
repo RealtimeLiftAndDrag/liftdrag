@@ -170,8 +170,11 @@ void Graph::refresh() {
     }
     glm::vec2 size(m_max - m_min);
     glm::vec2 padding(size * 0.1f);
+    if (padding.x == 0.0f) padding.x = 0.1f;
+    if (padding.y == 0.0f) padding.y = 0.1f;
     m_min -= padding;
-    m_max += padding;   
+    m_max += padding;
+    size = m_max - m_min;
 
     m_gridSize.x = detGridSize(size.x);
     m_gridSize.y = detGridSize(size.y);
