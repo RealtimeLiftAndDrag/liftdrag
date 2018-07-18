@@ -693,7 +693,7 @@ class Application : public EventCallbacks {
         int width, height;
         glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
         float aspect = width / (float)height;
-        glViewport(0, 0, width, height);
+        glViewport(0, height/4.0f, width/2.0, height/2.0);
 
         // Clear framebuffer.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -766,6 +766,22 @@ class Application : public EventCallbacks {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         shape->draw(progfoil, false);
         progfoil->unbind();
+
+		glViewport(width / 2.0, height / 4.0f, width/2, height/2);
+		V = glm::rotate(glm::mat4(1),0.23f, glm::vec3(0, 1, 0));
+		progfoil->bind();
+		glUniformMatrix4fv(progfoil->getUniform("V"), 1, GL_FALSE, &V[0][0]);
+		shape->draw(progfoil, false);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		shape->draw(progfoil, false);
+		progfoil->unbind();
+		//glLineWidth(2.5);
+		//glColor3f(1.0, 0.0, 0.0);
+		//glBegin(GL_LINES);
+		//glVertex3f(0.0, 0.0, 0.0);
+		//glVertex3f(15, 0, 0);
+		//glEnd();
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         //glBindTexture(GL_TEXTURE_2D, FBOtex);
         //glGenerateMipmap(GL_TEXTURE_2D);
