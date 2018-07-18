@@ -70,7 +70,7 @@ bool doStaticSetup(const std::string & resourcesDir) {
     return true;
 }
 
-float getNiceVal(float v) {
+float detGridSize(float v) {
     return std::pow(10.0f, std::round(std::log10(v)) - 1.0f);
 }
 
@@ -133,7 +133,7 @@ void Graph::render() const {
     glUniform2f(f_linesProg->getUniform("u_min"), m_min.x, m_min.y);
     glUniform2f(f_linesProg->getUniform("u_max"), m_max.x, m_max.y);
     glUniform2f(f_linesProg->getUniform("u_viewSize"), 400.0f, 300.0f);
-    glUniform2f(f_linesProg->getUniform("u_gridSize"), 30.0f, 0.2f);
+    glUniform2f(f_linesProg->getUniform("u_gridSize"), m_gridSize.x, m_gridSize.y);
     glBindVertexArray(f_squareVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -171,7 +171,10 @@ void Graph::refresh() {
     glm::vec2 size(m_max - m_min);
     glm::vec2 padding(size * 0.1f);
     m_min -= padding;
-    m_max += padding;    
+    m_max += padding;   
+
+    m_gridSize.x = detGridSize(size.x);
+    m_gridSize.y = detGridSize(size.y);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_curveVBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, glm::min(int(m_points.size()), m_maxNPoints) * sizeof(glm::vec2), m_points.data());

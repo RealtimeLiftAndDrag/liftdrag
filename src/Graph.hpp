@@ -16,6 +16,7 @@ class Graph {
     std::vector<glm::vec2> m_points;
     int m_maxNPoints;
     glm::vec2 m_min, m_max;
+    glm::vec2 m_gridSize;
     unsigned int m_curveVAO, m_curveVBO;
 
     public:
