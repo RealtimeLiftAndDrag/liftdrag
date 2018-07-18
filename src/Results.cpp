@@ -33,9 +33,6 @@ bool f_isChange;
 
 std::unique_ptr<Graph> f_liftCurve;
 
-GLuint f_squareVBO;
-GLuint f_squareVAO;
-
 
 
 }
@@ -51,33 +48,8 @@ bool setup(const std::string & resourcesDir) {
     glfwMakeContextCurrent(f_window);
 
     f_liftCurve.reset(new Graph(int(180.0f * k_invGranularity) + 1));
-    f_liftCurve->setup(resourcesDir);
-
-    glm::vec2 locs[6]{
-        { -1.0f, -1.0f },
-        {  1.0f, -1.0f },
-        {  1.0f,  1.0f },
-        {  1.0f,  1.0f },
-        { -1.0f,  1.0f },
-        { -1.0f, -1.0f }
-    };
-    
-    glGenVertexArrays(1, &f_squareVAO);
-    glBindVertexArray(f_squareVAO);
-    
-    glGenBuffers(1, &f_squareVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, f_squareVBO);
-    glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(glm::vec3), locs, GL_STATIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-
-    glBindVertexArray(0);
-    glDisableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    if (glGetError() != GL_NO_ERROR) {
-        std::cerr << "OpenGL error" << std::endl;
+    if (!f_liftCurve->setup(resourcesDir)) {
+        std::cerr << "Failed to setup lift graph" << std::endl;
         return false;
     }
 
@@ -86,11 +58,6 @@ bool setup(const std::string & resourcesDir) {
 
 void cleanup() {
     f_liftCurve->cleanup();
-
-    glDeleteVertexArrays(1, &f_squareVAO);
-    f_squareVAO = 0;
-    glDeleteBuffers(1, &f_squareVBO);
-    f_squareVBO = 0;
 
     glfwDestroyWindow(f_window);
 }

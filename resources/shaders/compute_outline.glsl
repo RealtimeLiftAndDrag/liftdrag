@@ -90,7 +90,7 @@ void main() {
                 float distance_lift = float(steps);
                 float backforce = distance_lift / 600.0f;
 
-                vec3 momentum = imageLoad(img_outline,loadstore_outline(index, MOMENTUMOFF,swap)).xyz;
+                vec3 momentum = imageLoad(img_outline, loadstore_outline(index, MOMENTUMOFF, swap)).xyz;
                 vec2 backforce_direction = normalize(ntexpos - texpos) * backforce;
                 momentum.xy += backforce_direction;
                 imageStore(img_outline, loadstore_outline(index, MOMENTUMOFF,swap), vec4(momentum, 0.0f));
