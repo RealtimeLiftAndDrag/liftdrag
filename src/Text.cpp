@@ -94,7 +94,6 @@ bool Text::setup(const std::string & resourcesDir) {
     f_prog->bind();
     glUniform2f(f_prog->getUniform("u_fontSize"), float(f_fontSize.x), float(f_fontSize.y));
     glUniform2f(f_prog->getUniform("u_viewSize"), 400.0f, 300.0f);
-    glUniform2f(f_prog->getUniform("u_linePos"), 10.0f, 10.0f);
     glUniform1i(f_prog->getUniform("u_tex"), 0);
     f_prog->unbind();
 
@@ -106,23 +105,22 @@ bool Text::setup(const std::string & resourcesDir) {
     return true;
 }
 
-Text::Text(const glm::vec3 & color) :
-    m_string(),
-    m_color(color),
-    m_isStringChange(false), m_isColorChange(true),
-    m_vao(0), m_charVBO(0)
-{}
-
-Text::Text(const std::string & string, const glm::vec3 & color) :
+Text::Text(const std::string & string, const glm::ivec2 & position, const glm::vec3 & color) :
     m_string(string),
+    m_position(position),
     m_color(color),
-    m_isStringChange(!m_string.empty()), m_isColorChange(true),
+    m_isStringChange(!m_string.empty()), m_isPositionChange(true), m_isColorChange(true),
     m_vao(0), m_charVBO(0)
 {}
 
 void Text::string(const std::string & string) {
     m_string = string;
     m_isStringChange = true;
+}
+
+void Text::position(const glm::ivec2 & position) {
+    m_position = position;
+    m_isPositionChange = true;
 }
 
 void Text::color(const glm::vec3 & color) {
@@ -151,8 +149,14 @@ void Text::render() const {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, f_fontTex);
 
+    if (m_isPositionChange) {
+        glUniform2f(f_prog->getUniform("u_linePos"), float(m_position.x), float(m_position.y));
+        m_isPositionChange = false;
+    }
+
     if (m_isColorChange) {
         glUniform3f(f_prog->getUniform("u_color"), m_color.r, m_color.g, m_color.b);
+        m_isColorChange = false;
     }
 
     glBindVertexArray(m_vao);
