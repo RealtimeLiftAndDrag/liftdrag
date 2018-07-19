@@ -50,7 +50,7 @@ bool doStaticSetup(const std::string & resourcesDir) {
         {  1.0f,  1.0f },
         { -1.0f,  1.0f },
         { -1.0f, -1.0f }
-    };    
+    };
     glGenVertexArrays(1, &f_squareVAO);
     glBindVertexArray(f_squareVAO);    
     glGenBuffers(1, &f_squareVBO);

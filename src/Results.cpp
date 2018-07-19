@@ -11,6 +11,7 @@
 #include "GLSL.h"
 #include "Program.h"
 #include "Graph.hpp"
+#include "Text.hpp"
 
 
 
@@ -33,6 +34,8 @@ bool f_isChange;
 
 std::unique_ptr<Graph> f_liftCurve;
 
+std::unique_ptr<Text> f_text;
+
 
 
 }
@@ -46,7 +49,12 @@ bool setup(const std::string & resourcesDir) {
     }
 
     glfwMakeContextCurrent(f_window);
-
+    
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
     glPointSize(4.0f);
 
     f_liftCurve.reset(new Graph(int(180.0f * k_invGranularity) + 1));
@@ -54,6 +62,12 @@ bool setup(const std::string & resourcesDir) {
         std::cerr << "Failed to setup lift graph" << std::endl;
         return false;
     }
+
+    if (!Text::setup(resourcesDir)) {
+        std::cerr << "Failed to setup text" << std::endl;
+        return false;
+    }
+    f_text.reset(new Text("abc", glm::vec3(0.0f, 0.0f, 1.0f)));
 
     return true;
 }
@@ -82,6 +96,8 @@ void render() {
     }
 
     f_liftCurve->render();
+
+    f_text->render();
 
     glfwSwapBuffers(f_window);
 }
