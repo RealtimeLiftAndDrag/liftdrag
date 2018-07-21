@@ -11,26 +11,44 @@
 
 class Graph {
 
+    public:
+
+    static bool setup(const std::string & resourceDir);
+
     private:
 
     std::vector<glm::vec2> m_points;
     int m_maxNPoints;
-    glm::vec2 m_min, m_max;
+    glm::vec2 m_viewMin, m_viewMax;
     glm::vec2 m_gridSize;
     unsigned int m_curveVAO, m_curveVBO;
+    bool m_isPointChange;
 
     public:
 
-    Graph(int maxNPoints);
-
-    bool setup(const std::string & resourcesDir);
+    Graph(const glm::vec2 & viewMin, const glm::vec2 & viewMax, int maxNPoints);
 
     void cleanup();
 
-    void render() const;
+    void render(const glm::ivec2 & viewportSize);
 
-    std::vector<glm::vec2> & accessPoints();
+    const std::vector<glm::vec2> & accessPoints() const;
 
-    void refresh();
+    std::vector<glm::vec2> & mutatePoints();
+
+    const glm::vec2 & viewMin() const { return m_viewMin; }
+    const glm::vec2 & viewMax() const { return m_viewMax; }
+
+    void setView(const glm::vec2 & min, const glm::vec2 & max);
+
+    void zoomView(float factor);
+
+    void moveView(const glm::vec2 & delta);
+
+    private:
+
+    bool prepare();
+    
+    void upload();
 
 };

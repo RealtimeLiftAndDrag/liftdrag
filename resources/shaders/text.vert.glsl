@@ -6,7 +6,7 @@ layout (location = 1) in uint in_char;
 out vec2 v2f_texCoords;
 
 uniform vec2 u_fontSize;
-uniform vec2 u_viewSize;
+uniform vec2 u_viewportSize;
 uniform vec2 u_linePos;
 
 void main() {
@@ -18,6 +18,6 @@ void main() {
     pos.x += gl_InstanceID;
     pos *= u_fontSize;
     pos += u_linePos;
-    pos /= u_viewSize;
+    pos /= u_viewportSize;
     gl_Position = vec4(pos * 2.0f - 1.0f, 0.0f, 1.0f);
 }

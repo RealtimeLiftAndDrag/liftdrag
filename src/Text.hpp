@@ -19,8 +19,8 @@ class Text {
     std::string m_string;
     glm::ivec2 m_position;
     glm::vec3 m_color;
-    mutable bool m_isStringChange, m_isPositionChange, m_isColorChange;
-    mutable unsigned int m_vao, m_charVBO;
+    bool m_isStringChange;
+    unsigned int m_vao, m_charVBO;
 
     public:
 
@@ -35,11 +35,12 @@ class Text {
     void color(const glm::vec3 & color);
     const glm::vec3 & color() const { return m_color; }
 
-    void render() const;
+    void render(const glm::ivec2 & viewportSize);
 
     private:
 
-    bool prepare() const;
-    void upload() const;
+    bool prepare();
+
+    void upload();
 
 };

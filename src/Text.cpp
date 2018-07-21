@@ -27,7 +27,7 @@ std::unique_ptr<Program> f_prog;
 
 
 
-bool Text::setup(const std::string & resourcesDir) {
+bool Text::setup(const std::string & resourceDir) {
 
     // Setup square vao
 
@@ -52,7 +52,7 @@ bool Text::setup(const std::string & resourcesDir) {
     // Setup font texture
 
     int texWidth(0), texHeight(0), texChannels(0);
-    unsigned char * texData(stbi_load((resourcesDir + "/" + k_fontTextureFilename).c_str(), &texWidth, &texHeight, &texChannels, 1));
+    unsigned char * texData(stbi_load((resourceDir + "/" + k_fontTextureFilename).c_str(), &texWidth, &texHeight, &texChannels, 1));
     if (!texData) {
         std::cerr << stbi_failure_reason() << std::endl;
         std::cerr << "Failed to load font texture" << std::endl;
@@ -81,19 +81,18 @@ bool Text::setup(const std::string & resourcesDir) {
     // Setup shader
 
     f_prog.reset(new Program());
-    f_prog->setShaderNames(resourcesDir + "/shaders/" + k_vertFilename, resourcesDir + "/shaders/" + k_fragFilename);
+    f_prog->setShaderNames(resourceDir + "/shaders/" + k_vertFilename, resourceDir + "/shaders/" + k_fragFilename);
     if (!f_prog->init()) {
         std::cerr << "Failed to initialize program" << std::endl;
         return false;
     }
     f_prog->addUniform("u_fontSize");
-    f_prog->addUniform("u_viewSize");
+    f_prog->addUniform("u_viewportSize");
     f_prog->addUniform("u_linePos");
     f_prog->addUniform("u_tex");
     f_prog->addUniform("u_color");
     f_prog->bind();
     glUniform2f(f_prog->getUniform("u_fontSize"), float(f_fontSize.x), float(f_fontSize.y));
-    glUniform2f(f_prog->getUniform("u_viewSize"), 400.0f, 300.0f);
     glUniform1i(f_prog->getUniform("u_tex"), 0);
     f_prog->unbind();
 
@@ -109,7 +108,7 @@ Text::Text(const std::string & string, const glm::ivec2 & position, const glm::v
     m_string(string),
     m_position(position),
     m_color(color),
-    m_isStringChange(!m_string.empty()), m_isPositionChange(true), m_isColorChange(true),
+    m_isStringChange(!m_string.empty()),
     m_vao(0), m_charVBO(0)
 {}
 
@@ -120,23 +119,21 @@ void Text::string(const std::string & string) {
 
 void Text::position(const glm::ivec2 & position) {
     m_position = position;
-    m_isPositionChange = true;
 }
 
 void Text::color(const glm::vec3 & color) {
     m_color = color;
-    m_isColorChange = true;
 }
 
-void Text::render() const {
-    if (m_string.empty()) {
-        return;
-    }
-
+void Text::render(const glm::ivec2 & viewportSize) {
     if (m_vao == 0) {
         if (!prepare()) {
             return;
         }
+    }
+
+    if (m_string.empty()) {
+        return;
     }
 
     if (m_isStringChange) {
@@ -149,15 +146,9 @@ void Text::render() const {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, f_fontTex);
 
-    if (m_isPositionChange) {
-        glUniform2f(f_prog->getUniform("u_linePos"), float(m_position.x), float(m_position.y));
-        m_isPositionChange = false;
-    }
-
-    if (m_isColorChange) {
-        glUniform3f(f_prog->getUniform("u_color"), m_color.r, m_color.g, m_color.b);
-        m_isColorChange = false;
-    }
+    glUniform2f(f_prog->getUniform("u_linePos"), float(m_position.x), float(m_position.y));
+    glUniform3f(f_prog->getUniform("u_color"), m_color.r, m_color.g, m_color.b);
+    glUniform2f(f_prog->getUniform("u_viewportSize"), float(viewportSize.x), float(viewportSize.y));
 
     glBindVertexArray(m_vao);
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, int(m_string.length()));
@@ -166,7 +157,7 @@ void Text::render() const {
     f_prog->unbind();
 }
 
-bool Text::prepare() const {    
+bool Text::prepare() {    
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_charVBO);
 
@@ -192,11 +183,8 @@ bool Text::prepare() const {
     return true;
 }
 
-void Text::upload() const {
+void Text::upload() {
     glBindBuffer(GL_ARRAY_BUFFER, m_charVBO);
-    glBufferData(GL_ARRAY_BUFFER, m_string.length(), m_string.c_str(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, m_string.length(), m_string.c_str(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    if (glGetError() != GL_NO_ERROR) {
-        int x = 9;
-    }
 }

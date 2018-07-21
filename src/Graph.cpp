@@ -15,31 +15,40 @@ namespace {
 const std::string k_curveVertFilename("graph_curve.vert.glsl"), k_curveFragFilename("graph_curve.frag.glsl");
 const std::string k_linesVertFilename("graph_lines.vert.glsl"), k_linesFragFilename("graph_lines.frag.glsl");
 
-bool isStaticSetup(false);
 std::unique_ptr<Program> f_curveProg, f_linesProg;
 GLuint f_squareVAO, f_squareVBO;
 
-bool doStaticSetup(const std::string & resourcesDir) {
+float detGridSize(float v) {
+    return std::pow(10.0f, std::round(std::log10(v)) - 1.0f);
+}
+
+
+
+}
+
+
+
+bool Graph::setup(const std::string & resourceDir) {
     // Setup curve shader
     f_curveProg.reset(new Program());
-    f_curveProg->setShaderNames(resourcesDir + "/shaders/" + k_curveVertFilename, resourcesDir + "/shaders/" + k_curveFragFilename);
+    f_curveProg->setShaderNames(resourceDir + "/shaders/" + k_curveVertFilename, resourceDir + "/shaders/" + k_curveFragFilename);
     if (!f_curveProg->init()) {
         std::cerr << "Failed to initialize curve program" << std::endl;
         return false;
     }
-    f_curveProg->addUniform("u_min");
-    f_curveProg->addUniform("u_max");
+    f_curveProg->addUniform("u_viewMin");
+    f_curveProg->addUniform("u_viewMax");
 
     // Setup lines shader
     f_linesProg.reset(new Program());
-    f_linesProg->setShaderNames(resourcesDir + "/shaders/" + k_linesVertFilename, resourcesDir + "/shaders/" + k_linesFragFilename);
+    f_linesProg->setShaderNames(resourceDir + "/shaders/" + k_linesVertFilename, resourceDir + "/shaders/" + k_linesFragFilename);
     if (!f_linesProg->init()) {
         std::cerr << "Failed to initialize lines program" << std::endl;
         return false;
     }
-    f_linesProg->addUniform("u_min");
-    f_linesProg->addUniform("u_max");
-    f_linesProg->addUniform("u_viewSize");
+    f_linesProg->addUniform("u_viewMin");
+    f_linesProg->addUniform("u_viewMax");
+    f_linesProg->addUniform("u_viewportSize");
     f_linesProg->addUniform("u_gridSize");
 
     // Setup square vao
@@ -70,34 +79,94 @@ bool doStaticSetup(const std::string & resourcesDir) {
     return true;
 }
 
-float detGridSize(float v) {
-    return std::pow(10.0f, std::round(std::log10(v)) - 1.0f);
-}
-
-
-
-}
-
-
-
-Graph::Graph(int maxNPoints) :
+Graph::Graph(const glm::vec2 & viewMin, const glm::vec2 & viewMax, int maxNPoints) :
     m_points(),
     m_maxNPoints(maxNPoints),
-    m_min(), m_max(),
-    m_curveVAO(0), m_curveVBO(0)
+    m_viewMin(viewMin), m_viewMax(viewMax),
+    m_gridSize(detGridSize(m_viewMax.x - m_viewMin.x), detGridSize(m_viewMax.y - m_viewMin.y)),
+    m_curveVAO(0), m_curveVBO(0),
+    m_isPointChange(false)
 {
     m_points.reserve(m_maxNPoints);
 }
 
-bool Graph::setup(const std::string & resourcesDir) {
-    if (!isStaticSetup) {
-        if (!doStaticSetup(resourcesDir)) {
-            std::cerr << "Failed static setup" << std::endl;
-            return false;
+void Graph::cleanup() {
+    glDeleteVertexArrays(1, &m_curveVAO);
+    m_curveVAO = 0;
+    glDeleteBuffers(1, &m_curveVBO);
+    m_curveVBO = 0;
+}
+
+void Graph::render(const glm::ivec2 & viewportSize) {
+    if (m_curveVAO == 0) {
+        if (!prepare()) {
+            return;
         }
-        isStaticSetup = true;
     }
 
+    if (m_points.empty()) {
+        return;
+    }
+
+    if (m_isPointChange) {
+        upload();
+        m_isPointChange = false;
+    }
+
+    // Render lines    
+    f_linesProg->bind();
+    glUniform2f(f_linesProg->getUniform("u_viewMin"), m_viewMin.x, m_viewMin.y);
+    glUniform2f(f_linesProg->getUniform("u_viewMax"), m_viewMax.x, m_viewMax.y);
+    glUniform2f(f_linesProg->getUniform("u_gridSize"), m_gridSize.x, m_gridSize.y);
+    glUniform2f(f_linesProg->getUniform("u_viewportSize"), float(viewportSize.x), float(viewportSize.y));
+    glBindVertexArray(f_squareVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    // Render curve    
+    if (m_points.size() > 0) {
+        f_curveProg->bind();
+        glUniform2f(f_curveProg->getUniform("u_viewMin"), m_viewMin.x, m_viewMin.y);
+        glUniform2f(f_curveProg->getUniform("u_viewMax"), m_viewMax.x, m_viewMax.y);
+        glBindVertexArray(m_curveVAO);
+        if (m_points.size() == 1) {
+            glDrawArrays(GL_POINTS, 0, 1);
+        }
+        else {
+            glDrawArrays(GL_LINE_STRIP, 0, glm::min(int(m_points.size()), m_maxNPoints));
+        }
+    }
+
+    glUseProgram(0);
+    glBindVertexArray(0);
+}
+
+const std::vector<glm::vec2> & Graph::accessPoints() const {
+    return m_points;
+}
+
+std::vector<glm::vec2> & Graph::mutatePoints() {
+    m_isPointChange = true;
+    return m_points;
+}
+
+void Graph::setView(const glm::vec2 & min, const glm::vec2 & max) {
+    m_viewMin = min;
+    m_viewMax = max;
+    m_gridSize.x = detGridSize(m_viewMax.x - m_viewMin.x);
+    m_gridSize.y = detGridSize(m_viewMax.y - m_viewMin.y);
+}
+
+void Graph::zoomView(float factor) {
+    glm::vec2 viewSize(m_viewMax - m_viewMin);
+    glm::vec2 viewSizeDelta(viewSize * (factor - 1.0f));
+    setView(m_viewMin - viewSizeDelta * 0.5f, m_viewMax + viewSizeDelta * 0.5f);
+}
+
+void Graph::moveView(const glm::vec2 & delta) {
+    setView(m_viewMin + delta, m_viewMax + delta);
+}
+
+bool Graph::prepare() {
     // Setup curve vao
     glGenVertexArrays(1, &m_curveVAO);
     glBindVertexArray(m_curveVAO);    
@@ -113,72 +182,13 @@ bool Graph::setup(const std::string & resourcesDir) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     if (glGetError() != GL_NO_ERROR) {
-        std::cerr << "OpenGL error" << std::endl;
         return false;
     }
 
     return true;
 }
 
-void Graph::cleanup() {
-    glDeleteVertexArrays(1, &m_curveVAO);
-    m_curveVAO = 0;
-    glDeleteBuffers(1, &m_curveVBO);
-    m_curveVBO = 0;
-}
-
-void Graph::render() const {
-    // Render lines    
-    f_linesProg->bind();
-    glUniform2f(f_linesProg->getUniform("u_min"), m_min.x, m_min.y);
-    glUniform2f(f_linesProg->getUniform("u_max"), m_max.x, m_max.y);
-    glUniform2f(f_linesProg->getUniform("u_viewSize"), 400.0f, 300.0f);
-    glUniform2f(f_linesProg->getUniform("u_gridSize"), m_gridSize.x, m_gridSize.y);
-    glBindVertexArray(f_squareVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    // Render curve    
-    if (m_points.size() > 0) {
-        f_curveProg->bind();
-        glUniform2f(f_curveProg->getUniform("u_min"), m_min.x, m_min.y);
-        glUniform2f(f_curveProg->getUniform("u_max"), m_max.x, m_max.y);        
-        glBindVertexArray(m_curveVAO);
-        if (m_points.size() == 1) {
-            glDrawArrays(GL_POINTS, 0, 1);
-        }
-        else {
-            glDrawArrays(GL_LINE_STRIP, 0, glm::min(int(m_points.size()), m_maxNPoints));
-        }
-    }
-
-    glUseProgram(0);
-    glBindVertexArray(0);
-}
-
-std::vector<glm::vec2> & Graph::accessPoints() {
-    return m_points;
-}
-
-void Graph::refresh() {
-    m_min.x = m_min.y = std::numeric_limits<float>::infinity();
-    m_max.x = m_max.y = -std::numeric_limits<float>::infinity();
-    for (const auto & p : m_points) {
-        if (p.x < m_min.x) m_min.x = p.x;
-        if (p.x > m_max.x) m_max.x = p.x;
-        if (p.y < m_min.y) m_min.y = p.y;
-        if (p.y > m_max.y) m_max.y = p.y;
-    }
-    glm::vec2 size(m_max - m_min);
-    glm::vec2 padding(size * 0.1f);
-    if (padding.x == 0.0f) padding.x = 0.1f;
-    if (padding.y == 0.0f) padding.y = 0.1f;
-    m_min -= padding;
-    m_max += padding;
-    size = m_max - m_min;
-
-    m_gridSize.x = detGridSize(size.x);
-    m_gridSize.y = detGridSize(size.y);
-
+void Graph::upload() {
     glBindBuffer(GL_ARRAY_BUFFER, m_curveVBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, glm::min(int(m_points.size()), m_maxNPoints) * sizeof(glm::vec2), m_points.data());
     glBindBuffer(GL_ARRAY_BUFFER, 0);
