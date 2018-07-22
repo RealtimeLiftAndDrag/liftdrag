@@ -20,6 +20,7 @@ GLuint f_squareVBO;
 GLuint f_fontTex;
 glm::ivec2 f_fontSize;
 std::unique_ptr<Program> f_prog;
+glm::vec2 f_charTexCoords[256];
 
 
 
@@ -88,7 +89,6 @@ bool Text::setup(const std::string & resourceDir) {
     }
     f_prog->addUniform("u_fontSize");
     f_prog->addUniform("u_viewportSize");
-    f_prog->addUniform("u_linePos");
     f_prog->addUniform("u_tex");
     f_prog->addUniform("u_color");
     f_prog->bind();
@@ -101,15 +101,25 @@ bool Text::setup(const std::string & resourceDir) {
         return false;
     }
 
+    // Precalculate character texture coordinates;
+
+    for (int i(0); i < 256; ++i) {
+        glm::ivec2 cell(i & 0xF, i >> 4);
+        f_charTexCoords[i].x = float(cell.x) * (1.0f / 16.0f);
+        f_charTexCoords[i].y = float(cell.y) * (1.0f / 16.0f);
+    }
+
     return true;
 }
 
-Text::Text(const std::string & string, const glm::ivec2 & position, const glm::vec3 & color) :
+Text::Text(const std::string & string, const glm::ivec2 & position, const glm::ivec2 & align, const glm::vec3 & color) :
     m_string(string),
     m_position(position),
+    m_align(align),
     m_color(color),
     m_isStringChange(!m_string.empty()),
-    m_vao(0), m_charVBO(0)
+    m_vao(0), m_charVBO(0),
+    m_charData()
 {}
 
 void Text::string(const std::string & string) {
@@ -137,6 +147,7 @@ void Text::render(const glm::ivec2 & viewportSize) {
     }
 
     if (m_isStringChange) {
+        detCharData();
         upload();
         m_isStringChange = false;
     }
@@ -146,7 +157,6 @@ void Text::render(const glm::ivec2 & viewportSize) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, f_fontTex);
 
-    glUniform2f(f_prog->getUniform("u_linePos"), float(m_position.x), float(m_position.y));
     glUniform3f(f_prog->getUniform("u_color"), m_color.r, m_color.g, m_color.b);
     glUniform2f(f_prog->getUniform("u_viewportSize"), float(viewportSize.x), float(viewportSize.y));
 
@@ -165,13 +175,16 @@ bool Text::prepare() {
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
 
     glBindBuffer(GL_ARRAY_BUFFER, f_squareVBO);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_charVBO);
-    glVertexAttribIPointer(1, 1, GL_UNSIGNED_BYTE, 0, 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(glm::vec2), 0);
     glVertexAttribDivisor(1, 1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(glm::vec2), reinterpret_cast<void *>(sizeof(glm::vec2)));
+    glVertexAttribDivisor(2, 1);
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -183,8 +196,46 @@ bool Text::prepare() {
     return true;
 }
 
+void Text::detCharData() {
+    m_lineEndIndices.clear();
+    for (int i(0); i < m_string.length(); ++i) {
+        if (m_string[i] == '\n') {
+            m_lineEndIndices.push_back(i);
+        }
+    }
+    m_lineEndIndices.push_back(int(m_string.length()));
+    int nLines(int(m_lineEndIndices.size()));
+    int totalHeight(nLines * f_fontSize.y);
+
+    m_charData.clear();
+
+    glm::ivec2 charPos;
+    charPos.y = m_position.y - f_fontSize.y;
+    if (m_align.y < 0) charPos.y += totalHeight;
+    else if (m_align.y == 0) charPos.y += totalHeight / 2;
+
+    for (int lineI(0), strI(0); lineI < nLines; ++lineI) {
+        int lineLength(m_lineEndIndices[lineI] - strI);
+        int lineWidth(lineLength * f_fontSize.x);
+
+        charPos.x = m_position.x;
+        if (m_align.x < 0) charPos.x -= lineWidth;
+        else if (m_align.x == 0) charPos.x -= lineWidth / 2;
+
+        for (int i(0); i < lineLength; ++i) {        
+            m_charData.emplace_back(charPos);
+            m_charData.emplace_back(f_charTexCoords[m_string[strI + i]]);
+
+            charPos.x += f_fontSize.x;            
+        }
+
+        charPos.y -= f_fontSize.y;
+        strI += lineLength + 1;
+    }
+}
+
 void Text::upload() {
     glBindBuffer(GL_ARRAY_BUFFER, m_charVBO);
-    glBufferData(GL_ARRAY_BUFFER, m_string.length(), m_string.c_str(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, m_charData.size() * sizeof(glm::vec2), m_charData.data(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }

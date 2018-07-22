@@ -124,7 +124,7 @@ bool setup(const std::string & resourcesDir) {
         std::cerr << "Failed to setup text" << std::endl;
         return false;
     }
-    f_text.reset(new Text("abc", glm::ivec2(10, 60), glm::vec3(0.0f, 0.0f, 1.0f)));
+    f_text.reset(new Text("abc\nde\n\nf", glm::ivec2(40, 40), glm::ivec2(0, 0), glm::vec3(0.5f, 0.5f, 1.0f)));
 
     return true;
 }
