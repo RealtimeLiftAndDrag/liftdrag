@@ -41,6 +41,8 @@ class Text {
 
     void render(const glm::ivec2 & viewportSize);
 
+    void cleanup();
+
     private:
 
     bool prepare();

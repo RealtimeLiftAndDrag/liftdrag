@@ -31,8 +31,6 @@ class Graph {
 
     Graph(const glm::vec2 & viewMin, const glm::vec2 & viewMax, const glm::vec3 & color, int maxNPoints);
 
-    void cleanup();
-
     void render(const glm::ivec2 & viewportSize);
 
     const std::vector<glm::vec2> & accessPoints() const;
@@ -54,6 +52,8 @@ class Graph {
     void removeFocusPoint();
 
     const glm::vec2 & gridSize() const { return m_gridSize; }
+
+    void cleanup();
 
     private:
 

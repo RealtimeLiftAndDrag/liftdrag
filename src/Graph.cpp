@@ -90,13 +90,6 @@ Graph::Graph(const glm::vec2 & viewMin, const glm::vec2 & viewMax, const glm::ve
     m_points.reserve(m_maxNPoints);
 }
 
-void Graph::cleanup() {
-    glDeleteVertexArrays(1, &m_curveVAO);
-    m_curveVAO = 0;
-    glDeleteBuffers(1, &m_curveVBO);
-    m_curveVBO = 0;
-}
-
 void Graph::render(const glm::ivec2 & viewportSize) {
     if (m_curveVAO == 0) {
         if (!prepare()) {
@@ -177,6 +170,13 @@ void Graph::focusPoint(const glm::vec2 & point) {
 
 void Graph::removeFocusPoint() {
     m_isFocusPoint = false;
+}
+
+void Graph::cleanup() {
+    glDeleteVertexArrays(1, &m_curveVAO);
+    m_curveVAO = 0;
+    glDeleteBuffers(1, &m_curveVBO);
+    m_curveVBO = 0;
 }
 
 bool Graph::prepare() {

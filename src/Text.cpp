@@ -161,6 +161,13 @@ void Text::render(const glm::ivec2 & viewportSize) {
     f_prog->unbind();
 }
 
+void Text::cleanup() {
+    glDeleteVertexArrays(1, &m_vao);
+    m_vao = 0;
+    glDeleteBuffers(1, &m_charVBO);
+    m_charVBO = 0;
+}
+
 bool Text::prepare() {    
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_charVBO);
