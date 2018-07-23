@@ -115,8 +115,10 @@ Text::Text(const std::string & string, const glm::ivec2 & position, const glm::i
 {}
 
 void Text::string(const std::string & string) {
-    m_string = string;
-    m_isStringChange = true;
+    if (string != m_string) {
+        m_string = string;
+        m_isStringChange = true;
+    }
 }
 
 void Text::position(const glm::ivec2 & position) {
