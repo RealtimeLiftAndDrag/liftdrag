@@ -3,6 +3,7 @@
 #include <iostream>
 #include <memory>
 #include <map>
+#include <sstream>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
@@ -25,6 +26,7 @@ static constexpr float k_initGraphRangeMin(-1.0f), k_initGraphRangeMax(1.0f);
 static constexpr float k_granularity(1.0f); // results kept in increments of this many degrees
 static constexpr float k_invGranularity(1.0f / k_granularity);
 static constexpr float k_zoomFactor(1.1f);
+static constexpr int k_leftMargin(80), k_rightMargin(k_leftMargin / 2), k_bottomMargin(20), k_topMargin(k_bottomMargin / 2);
 
 static GLFWwindow * f_window;
 static glm::ivec2 f_windowSize;
@@ -37,24 +39,55 @@ static bool f_isChange;
 static std::unique_ptr<Graph> f_liftGraph;
 static glm::ivec2 f_liftGraphPos, f_liftGraphSize;
 
-static std::unique_ptr<Text> f_text;
+static std::unique_ptr<Text> f_liftDomainMinText, f_liftDomainMaxText;
+static std::unique_ptr<Text> f_liftRangeMinText, f_liftRangeMaxText;
 
 
 
 static void detLiftGraphBounds() {
-    f_liftGraphPos.x = 40;
-    f_liftGraphPos.y = 40;
-    f_liftGraphSize = f_windowSize - f_liftGraphPos - 10;
+    f_liftGraphPos.x = k_leftMargin;
+    f_liftGraphPos.y = k_bottomMargin;
+    f_liftGraphSize = f_windowSize - f_liftGraphPos;
+    f_liftGraphSize.x -= k_rightMargin;
+    f_liftGraphSize.y -= k_topMargin;
+}
+
+static std::string toString(float v) {
+    std::stringstream ss;
+    ss.precision(3);
+    ss << v;
+    return ss.str();
+}
+
+static void updateText() {
+    glm::vec2 gridMin(glm::ceil(f_liftGraph->viewMin() / f_liftGraph->gridSize()) * f_liftGraph->gridSize());
+    glm::vec2 gridMax(glm::floor(f_liftGraph->viewMax() / f_liftGraph->gridSize()) * f_liftGraph->gridSize());
+    glm::vec2 invViewSize(1.0f / (f_liftGraph->viewMax() - f_liftGraph->viewMin()));
+    glm::vec2 graphSize(f_liftGraphSize);
+    glm::ivec2 gridMinPos(glm::round((gridMin - f_liftGraph->viewMin()) * invViewSize * graphSize));
+    glm::ivec2 gridMaxPos(glm::round((gridMax - f_liftGraph->viewMin()) * invViewSize * graphSize));
+    
+    f_liftDomainMinText->position(glm::ivec2(f_liftGraphPos.x + gridMinPos.x, f_liftGraphPos.y));
+    f_liftDomainMinText->string(toString(gridMin.x));
+    f_liftDomainMaxText->position(glm::ivec2(f_liftGraphPos.x + gridMaxPos.x, f_liftGraphPos.y));
+    f_liftDomainMaxText->string(toString(gridMax.x));
+
+    f_liftRangeMinText->position(glm::ivec2(f_liftGraphPos.x, f_liftGraphPos.y + gridMinPos.y));
+    f_liftRangeMinText->string(toString(gridMin.y));
+    f_liftRangeMaxText->position(glm::ivec2(f_liftGraphPos.x, f_liftGraphPos.y + gridMaxPos.y));
+    f_liftRangeMaxText->string(toString(gridMax.y));
 }
 
 static void framebufferSizeCallback(GLFWwindow * window, int width, int height) {
     f_windowSize.x = width; f_windowSize.y = height;
     detLiftGraphBounds();
+    updateText();
 }
 
 static void scrollCallback(GLFWwindow * window, double x, double y) {
     if (y < 0.0f) f_liftGraph->zoomView(k_zoomFactor);
     else if (y > 0.0f) f_liftGraph->zoomView(1.0f / k_zoomFactor);
+    updateText();
 }
 
 static void cursorPosCallback(GLFWwindow * window, double x, double y) {
@@ -64,6 +97,7 @@ static void cursorPosCallback(GLFWwindow * window, double x, double y) {
     if (f_mouseButtonDown) {
         glm::vec2 factor((f_liftGraph->viewMax() - f_liftGraph->viewMin()) / glm::vec2(f_liftGraphSize));
         f_liftGraph->moveView(factor * glm::vec2(-delta.x, delta.y));
+        updateText();
     }
 
     f_mousePos += delta;
@@ -112,11 +146,9 @@ bool setup(const std::string & resourcesDir) {
         std::cerr << "Failed to setup graph" << std::endl;
         return false;
     }
-    glm::vec2 graphSize(k_initGraphDomainMax - k_initGraphDomainMin, k_initGraphRangeMax - k_initGraphRangeMin);
-    glm::vec2 padding;//(graphSize * 0.05f);
     f_liftGraph.reset(new Graph(
-        glm::vec2(k_initGraphDomainMin - padding.x, k_initGraphRangeMin - padding.y),
-        glm::vec2(k_initGraphDomainMax + padding.x, k_initGraphRangeMax + padding.y),
+        glm::vec2(k_initGraphDomainMin, k_initGraphRangeMin),
+        glm::vec2(k_initGraphDomainMax, k_initGraphRangeMax),
         int(180.0f * k_invGranularity) + 1
     ));
 
@@ -124,7 +156,11 @@ bool setup(const std::string & resourcesDir) {
         std::cerr << "Failed to setup text" << std::endl;
         return false;
     }
-    f_text.reset(new Text("abc\nde\n\nf", glm::ivec2(40, 40), glm::ivec2(0, 0), glm::vec3(0.5f, 0.5f, 1.0f)));
+    f_liftDomainMinText.reset(new Text("", glm::ivec2(), glm::ivec2(0, 1), glm::vec3(1.0f)));
+    f_liftDomainMaxText.reset(new Text("", glm::ivec2(), glm::ivec2(0, 1), glm::vec3(1.0f)));
+    f_liftRangeMinText.reset(new Text("", glm::ivec2(), glm::ivec2(-1, 0), glm::vec3(1.0f)));
+    f_liftRangeMaxText.reset(new Text("", glm::ivec2(), glm::ivec2(-1, 0), glm::vec3(1.0f)));
+    updateText();
 
     return true;
 }
@@ -155,7 +191,10 @@ void render() {
     f_liftGraph->render(f_liftGraphSize);
     glViewport(0, 0, f_windowSize.x, f_windowSize.y);
 
-    f_text->render(f_windowSize);
+    f_liftDomainMinText->render(f_windowSize);
+    f_liftDomainMaxText->render(f_windowSize);
+    f_liftRangeMinText->render(f_windowSize);
+    f_liftRangeMaxText->render(f_windowSize);
 
     glfwSwapBuffers(f_window);
 }

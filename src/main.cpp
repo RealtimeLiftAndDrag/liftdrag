@@ -33,13 +33,9 @@ extern "C" {
 
 
 
-namespace {
-
-
-
-std::shared_ptr<Shape> shape;
-int sweep = 0;
-int progress = 0;
+static std::shared_ptr<Shape> shape;
+static int sweep = 0;
+static int progress = 0;
 
 
 
@@ -113,7 +109,7 @@ class ssbo_object {
 
 };*/
 
-double get_last_elapsed_time() {
+static double get_last_elapsed_time() {
     static double lasttime = glfwGetTime();
     double actualtime = glfwGetTime();
     double difference = actualtime - lasttime;
@@ -158,7 +154,7 @@ class Camera {
     }
 };
 
-Camera mycam;
+static Camera mycam;
 
 class Application : public EventCallbacks {
 
@@ -816,10 +812,6 @@ class Application : public EventCallbacks {
     }
 
 };
-
-
-
-}
 
 
 

@@ -45,6 +45,8 @@ class Graph {
 
     void moveView(const glm::vec2 & delta);
 
+    const glm::vec2 & gridSize() const { return m_gridSize; }
+
     private:
 
     bool prepare();

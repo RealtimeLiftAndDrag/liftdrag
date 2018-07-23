@@ -9,22 +9,14 @@
 
 
 
-namespace {
+static const std::string k_fontTextureFilename("ubuntu_mono.png");
+static const std::string k_vertFilename("text.vert.glsl"), k_fragFilename("text.frag.glsl");
 
-
-
-const std::string k_fontTextureFilename("ubuntu_mono.png");
-const std::string k_vertFilename("text.vert.glsl"), k_fragFilename("text.frag.glsl");
-
-GLuint f_squareVBO;
-GLuint f_fontTex;
-glm::ivec2 f_fontSize;
-std::unique_ptr<Program> f_prog;
-glm::vec2 f_charTexCoords[256];
-
-
-
-}
+static GLuint f_squareVBO;
+static GLuint f_fontTex;
+static glm::ivec2 f_fontSize;
+static std::unique_ptr<Program> f_prog;
+static glm::vec2 f_charTexCoords[256];
 
 
 

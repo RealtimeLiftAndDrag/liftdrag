@@ -8,22 +8,17 @@
 
 
 
-namespace {
+static const std::string k_curveVertFilename("graph_curve.vert.glsl"), k_curveFragFilename("graph_curve.frag.glsl");
+static const std::string k_linesVertFilename("graph_lines.vert.glsl"), k_linesFragFilename("graph_lines.frag.glsl");
 
+static std::unique_ptr<Program> f_curveProg, f_linesProg;
+static GLuint f_squareVAO, f_squareVBO;
 
-
-const std::string k_curveVertFilename("graph_curve.vert.glsl"), k_curveFragFilename("graph_curve.frag.glsl");
-const std::string k_linesVertFilename("graph_lines.vert.glsl"), k_linesFragFilename("graph_lines.frag.glsl");
-
-std::unique_ptr<Program> f_curveProg, f_linesProg;
-GLuint f_squareVAO, f_squareVBO;
-
-float detGridSize(float v) {
-    return std::pow(10.0f, std::round(std::log10(v)) - 1.0f);
-}
-
-
-
+static float detGridSize(float v) {
+    float g(std::pow(10.0f, std::round(std::log10(v)) - 1.0f));
+    float n(v / g);
+    if (n > 10.0f) g *= 2.5f;
+    return g;
 }
 
 
