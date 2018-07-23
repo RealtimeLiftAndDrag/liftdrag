@@ -29,7 +29,7 @@ static constexpr float k_initGraphRangeMin(-1.0f), k_initGraphRangeMax(1.0f);
 static constexpr float k_zoomFactor(1.1f);
 static constexpr int k_leftMargin(80), k_rightMargin(k_leftMargin / 2), k_bottomMargin(20), k_topMargin(k_bottomMargin / 2);
 static constexpr int k_valTextPrecision(3);
-static constexpr int k_cursorTextProximity(10);
+static constexpr int k_cursorTextProximity(20);
 
 
 
@@ -95,6 +95,9 @@ static void updateGridText() {
 }
 
 static void updateCursorText() {
+    f_cursorText->string("");
+    f_liftGraph->removeFocusPoint();
+
     glm::ivec2 relPos(f_mousePos - f_liftGraphPos);
     if (relPos.x >= 0 && relPos.y >= 0 && relPos.x < f_liftGraphSize.x && relPos.y < f_liftGraphSize.y) {
         glm::vec2 point(f_mousePos - f_liftGraphPos);
@@ -104,24 +107,21 @@ static void updateCursorText() {
 
         float lift, drag;
         if (!valAt(point.x, lift, drag)) {
-            f_cursorText->string("");
             return;
         }
+        point.y = lift;
 
-        float screenY(lift - f_liftGraph->viewMin().y);
+        float screenY(point.y - f_liftGraph->viewMin().y);
         screenY /= (f_liftGraph->viewMax().y - f_liftGraph->viewMin().y);
         screenY *= f_liftGraphSize.y;
         screenY += f_liftGraphPos.y;
         if (std::abs(screenY - f_mousePos.y) > k_cursorTextProximity) {
-            f_cursorText->string("");
             return;
         }
 
         f_cursorText->position(glm::ivec2(f_mousePos.x, screenY));
         f_cursorText->string(pointToString(point));
-    }
-    else {
-        f_cursorText->string("");
+        f_liftGraph->focusPoint(point);
     }
 }
 
@@ -197,6 +197,7 @@ bool setup(const std::string & resourcesDir) {
     f_liftGraph.reset(new Graph(
         glm::vec2(k_initGraphDomainMin, k_initGraphRangeMin),
         glm::vec2(k_initGraphDomainMax, k_initGraphRangeMax),
+        glm::vec3(0.0f, 1.0f, 0.0f),
         int(180.0f * k_invGranularity) + 1
     ));
 

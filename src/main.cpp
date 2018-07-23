@@ -870,7 +870,7 @@ int main(int argc, char ** argv) {
         // Add some dummy values into results to test if working
         static float angle(-90.0f), offset(0.0f);
         results::submit(angle, std::sin(angle / 90.0f * glm::pi<float>() + offset), std::cos(angle / 90.0f * glm::pi<float>() + offset));
-        angle += 5;
+        angle += 1;
         if (angle > 90.0f) {
             angle = -90.0f;
             offset += 0.25f;

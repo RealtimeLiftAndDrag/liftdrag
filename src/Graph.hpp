@@ -20,13 +20,16 @@ class Graph {
     std::vector<glm::vec2> m_points;
     int m_maxNPoints;
     glm::vec2 m_viewMin, m_viewMax;
+    glm::vec3 m_color;
+    glm::vec2 m_focusPoint;
+    bool m_isFocusPoint;
     glm::vec2 m_gridSize;
     unsigned int m_curveVAO, m_curveVBO;
     bool m_isPointChange;
 
     public:
 
-    Graph(const glm::vec2 & viewMin, const glm::vec2 & viewMax, int maxNPoints);
+    Graph(const glm::vec2 & viewMin, const glm::vec2 & viewMax, const glm::vec3 & color, int maxNPoints);
 
     void cleanup();
 
@@ -44,6 +47,11 @@ class Graph {
     void zoomView(float factor);
 
     void moveView(const glm::vec2 & delta);
+
+    void focusPoint(const glm::vec2 & point);
+    const glm::vec2 & focusPoint() const { return m_focusPoint; }
+
+    void removeFocusPoint();
 
     const glm::vec2 & gridSize() const { return m_gridSize; }
 

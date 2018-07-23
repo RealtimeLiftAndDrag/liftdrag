@@ -33,6 +33,7 @@ bool Graph::setup(const std::string & resourceDir) {
     }
     f_curveProg->addUniform("u_viewMin");
     f_curveProg->addUniform("u_viewMax");
+    f_curveProg->addUniform("u_color");
 
     // Setup lines shader
     f_linesProg.reset(new Program());
@@ -45,6 +46,9 @@ bool Graph::setup(const std::string & resourceDir) {
     f_linesProg->addUniform("u_viewMax");
     f_linesProg->addUniform("u_viewportSize");
     f_linesProg->addUniform("u_gridSize");
+    f_linesProg->addUniform("u_isFocus");
+    f_linesProg->addUniform("u_focusPoint");
+    f_linesProg->addUniform("u_curveColor");
 
     // Setup square vao
     glm::vec2 locs[6]{
@@ -74,10 +78,11 @@ bool Graph::setup(const std::string & resourceDir) {
     return true;
 }
 
-Graph::Graph(const glm::vec2 & viewMin, const glm::vec2 & viewMax, int maxNPoints) :
+Graph::Graph(const glm::vec2 & viewMin, const glm::vec2 & viewMax, const glm::vec3 & color, int maxNPoints) :
     m_points(),
     m_maxNPoints(maxNPoints),
     m_viewMin(viewMin), m_viewMax(viewMax),
+    m_color(color),
     m_gridSize(detGridSize(m_viewMax.x - m_viewMin.x), detGridSize(m_viewMax.y - m_viewMin.y)),
     m_curveVAO(0), m_curveVBO(0),
     m_isPointChange(false)
@@ -114,6 +119,9 @@ void Graph::render(const glm::ivec2 & viewportSize) {
     glUniform2f(f_linesProg->getUniform("u_viewMax"), m_viewMax.x, m_viewMax.y);
     glUniform2f(f_linesProg->getUniform("u_gridSize"), m_gridSize.x, m_gridSize.y);
     glUniform2f(f_linesProg->getUniform("u_viewportSize"), float(viewportSize.x), float(viewportSize.y));
+    glUniform1i(f_linesProg->getUniform("u_isFocus"), m_isFocusPoint);
+    if (m_isFocusPoint) glUniform2f(f_linesProg->getUniform("u_focusPoint"), m_focusPoint.x, m_focusPoint.y);
+    glUniform3f(f_linesProg->getUniform("u_curveColor"), m_color.r, m_color.g, m_color.b);
     glBindVertexArray(f_squareVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -122,6 +130,7 @@ void Graph::render(const glm::ivec2 & viewportSize) {
         f_curveProg->bind();
         glUniform2f(f_curveProg->getUniform("u_viewMin"), m_viewMin.x, m_viewMin.y);
         glUniform2f(f_curveProg->getUniform("u_viewMax"), m_viewMax.x, m_viewMax.y);
+        glUniform3f(f_curveProg->getUniform("u_color"), m_color.r, m_color.g, m_color.b);
         glBindVertexArray(m_curveVAO);
         if (m_points.size() == 1) {
             glDrawArrays(GL_POINTS, 0, 1);
@@ -159,6 +168,15 @@ void Graph::zoomView(float factor) {
 
 void Graph::moveView(const glm::vec2 & delta) {
     setView(m_viewMin + delta, m_viewMax + delta);
+}
+
+void Graph::focusPoint(const glm::vec2 & point) {
+    m_focusPoint = point;
+    m_isFocusPoint = true;
+}
+
+void Graph::removeFocusPoint() {
+    m_isFocusPoint = false;
 }
 
 bool Graph::prepare() {
