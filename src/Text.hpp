@@ -21,7 +21,7 @@ class Text {
     glm::ivec2 m_position;
     glm::ivec2 m_align;
     glm::vec3 m_color;
-    bool m_isStringChange;
+    bool m_isStringChange, m_isPositionChange;
     unsigned int m_vao, m_charVBO;
     std::vector<glm::vec2> m_charData;
     std::vector<int> m_lineEndIndices;

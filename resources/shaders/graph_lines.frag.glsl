@@ -12,8 +12,8 @@ uniform bool u_isFocus;
 uniform vec2 u_focusPoint;
 uniform vec3 u_curveColor;
 
-const vec3 k_gridColor = vec3(0.25f);
-const vec3 k_axisColor = vec3(0.5f);
+const vec3 k_gridColor = vec3(0.15f);
+const vec3 k_axisColor = vec3(0.3f);
 const vec3 k_backColor = vec3(0.0f);
 const float k_focusSize = 2.5f;
 const float k_focusSizeSquared = k_focusSize * k_focusSize;

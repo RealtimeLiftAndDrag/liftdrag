@@ -110,6 +110,7 @@ Text::Text(const std::string & string, const glm::ivec2 & position, const glm::i
     m_align(align),
     m_color(color),
     m_isStringChange(!m_string.empty()),
+    m_isPositionChange(true),
     m_vao(0), m_charVBO(0),
     m_charData()
 {}
@@ -122,7 +123,10 @@ void Text::string(const std::string & string) {
 }
 
 void Text::position(const glm::ivec2 & position) {
-    m_position = position;
+    if (position != m_position) {
+        m_position = position;
+        m_isPositionChange = true;
+    }
 }
 
 void Text::color(const glm::vec3 & color) {
@@ -140,10 +144,11 @@ void Text::render(const glm::ivec2 & viewportSize) {
         return;
     }
 
-    if (m_isStringChange) {
+    if (m_isStringChange || m_isPositionChange) {
         detCharData();
         upload();
         m_isStringChange = false;
+        m_isPositionChange = false;
     }
 
     f_prog->bind();
@@ -225,7 +230,7 @@ void Text::detCharData() {
 
         for (int i(0); i < lineLength; ++i) {        
             m_charData.emplace_back(charPos);
-            m_charData.emplace_back(f_charTexCoords[m_string[strI + i]]);
+            m_charData.emplace_back(f_charTexCoords[unsigned char(m_string[strI + i])]);
 
             charPos.x += f_fontSize.x;            
         }
