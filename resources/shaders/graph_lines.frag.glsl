@@ -8,15 +8,13 @@ uniform vec2 u_viewMin;
 uniform vec2 u_viewMax;
 uniform vec2 u_gridSize;
 uniform vec2 u_viewportSize;
-uniform bool u_isFocus;
-uniform vec2 u_focusPoint;
-uniform vec3 u_curveColor;
+uniform bool u_isFocusX;
+uniform float u_focusX;
 
+const vec3 k_backColor = vec3(0.0f);
 const vec3 k_gridColor = vec3(0.15f);
 const vec3 k_axisColor = vec3(0.3f);
-const vec3 k_backColor = vec3(0.0f);
-const float k_focusSize = 2.5f;
-const float k_focusSizeSquared = k_focusSize * k_focusSize;
+const vec3 k_focusColor = vec3(0.5f);
 
 void main() {
     vec2 viewSize = u_viewMax - u_viewMin;
@@ -29,14 +27,14 @@ void main() {
 
     vec2 g = p / u_gridSize; // point in grid space
     g = round(g);
-    vec2 gridDist = abs(p - g * u_gridSize) * graphToPixelSpace;
-    if (gridDist.x < 1.0f || gridDist.y < 1.0f) out_color.rgb = k_gridColor;
+    vec2 gridDist = (p - g * u_gridSize) * graphToPixelSpace;
+    if (gridDist.x > 0.0f && gridDist.x < 1.0f || gridDist.y > 0.0f && gridDist.y < 1.0f) out_color.rgb = k_gridColor;
 
-    vec2 axisDist = abs(p) * graphToPixelSpace;
-    if (axisDist.x < 1.0f || axisDist.y < 1.0f) out_color.rgb = k_axisColor;
+    vec2 axisDist = p * graphToPixelSpace;
+    if (axisDist.x > 0.0f && axisDist.x < 1.0f || axisDist.y > 0.0f && axisDist.y < 1.0f) out_color.rgb = k_axisColor;
 
-    if (u_isFocus) {
-        vec2 focusDist = (p - u_focusPoint) * graphToPixelSpace;
-        if (dot(focusDist, focusDist) <= k_focusSizeSquared) out_color.rgb = u_curveColor;
+    if (u_isFocusX) {
+        float focusDist = (p.x - u_focusX) * graphToPixelSpace.x;
+        if (focusDist > 0.0f && focusDist < 1.0f) out_color.rgb = k_focusColor;
     }
 }

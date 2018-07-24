@@ -23,6 +23,53 @@ static float detGridSize(float v) {
 
 
 
+Graph::Curve::Curve(const glm::vec3 & color, int maxNPoints) :
+    points(),
+    color(color),
+    maxNPoints(maxNPoints),
+    vao(0), vbo(0),
+    isSetup(false), isChange(false)
+{
+    points.reserve(maxNPoints);
+}
+
+bool Graph::Curve::setup() {
+    // Setup curve vao
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);    
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, maxNPoints * sizeof(glm::vec2), nullptr, GL_DYNAMIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+    glBindVertexArray(0);
+    glDisableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    if (glGetError() != GL_NO_ERROR) {
+        return false;
+    }
+
+    return true;
+}
+
+void Graph::Curve::upload() {
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, glm::min(int(points.size()), maxNPoints) * sizeof(glm::vec2), points.data());
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void Graph::Curve::cleanup() {
+    glDeleteVertexArrays(1, &vao);
+    vao = 0;
+    glDeleteBuffers(1, &vbo);
+    vbo = 0;
+}
+
+
+
 bool Graph::setup(const std::string & resourceDir) {
     // Setup curve shader
     f_curveProg.reset(new Program());
@@ -46,9 +93,8 @@ bool Graph::setup(const std::string & resourceDir) {
     f_linesProg->addUniform("u_viewMax");
     f_linesProg->addUniform("u_viewportSize");
     f_linesProg->addUniform("u_gridSize");
-    f_linesProg->addUniform("u_isFocus");
-    f_linesProg->addUniform("u_focusPoint");
-    f_linesProg->addUniform("u_curveColor");
+    f_linesProg->addUniform("u_isFocusX");
+    f_linesProg->addUniform("u_focusX");
 
     // Setup square vao
     glm::vec2 locs[6]{
@@ -78,58 +124,59 @@ bool Graph::setup(const std::string & resourceDir) {
     return true;
 }
 
-Graph::Graph(const glm::vec2 & viewMin, const glm::vec2 & viewMax, const glm::vec3 & color, int maxNPoints) :
-    m_points(),
-    m_maxNPoints(maxNPoints),
+Graph::Graph(const glm::vec2 & viewMin, const glm::vec2 & viewMax) :
     m_viewMin(viewMin), m_viewMax(viewMax),
-    m_color(color),
     m_gridSize(detGridSize(m_viewMax.x - m_viewMin.x), detGridSize(m_viewMax.y - m_viewMin.y)),
-    m_curveVAO(0), m_curveVBO(0),
-    m_isPointChange(false)
-{
-    m_points.reserve(m_maxNPoints);
+    m_isFocusX(false),
+    m_focusX()
+{}
+
+void Graph::addCurve(const glm::vec3 & color, int maxNPoints) {
+    m_curves.emplace_back(color, maxNPoints);
 }
 
 void Graph::render(const glm::ivec2 & viewportSize) {
-    if (m_curveVAO == 0) {
-        if (!prepare()) {
-            return;
-        }
-    }
+    // Render lines
 
-    if (m_points.empty()) {
-        return;
-    }
-
-    if (m_isPointChange) {
-        upload();
-        m_isPointChange = false;
-    }
-
-    // Render lines    
     f_linesProg->bind();
     glUniform2f(f_linesProg->getUniform("u_viewMin"), m_viewMin.x, m_viewMin.y);
     glUniform2f(f_linesProg->getUniform("u_viewMax"), m_viewMax.x, m_viewMax.y);
     glUniform2f(f_linesProg->getUniform("u_gridSize"), m_gridSize.x, m_gridSize.y);
     glUniform2f(f_linesProg->getUniform("u_viewportSize"), float(viewportSize.x), float(viewportSize.y));
-    glUniform1i(f_linesProg->getUniform("u_isFocus"), m_isFocusPoint);
-    if (m_isFocusPoint) glUniform2f(f_linesProg->getUniform("u_focusPoint"), m_focusPoint.x, m_focusPoint.y);
-    glUniform3f(f_linesProg->getUniform("u_curveColor"), m_color.r, m_color.g, m_color.b);
+    glUniform1i(f_linesProg->getUniform("u_isFocusX"), m_isFocusX);
+    if (m_isFocusX) glUniform1f(f_linesProg->getUniform("u_focusX"), m_focusX);
     glBindVertexArray(f_squareVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    // Render curve    
-    if (m_points.size() > 0) {
-        f_curveProg->bind();
-        glUniform2f(f_curveProg->getUniform("u_viewMin"), m_viewMin.x, m_viewMin.y);
-        glUniform2f(f_curveProg->getUniform("u_viewMax"), m_viewMax.x, m_viewMax.y);
-        glUniform3f(f_curveProg->getUniform("u_color"), m_color.r, m_color.g, m_color.b);
-        glBindVertexArray(m_curveVAO);
-        if (m_points.size() == 1) {
+    // Render curves
+
+    f_curveProg->bind();
+    glUniform2f(f_curveProg->getUniform("u_viewMin"), m_viewMin.x, m_viewMin.y);
+    glUniform2f(f_curveProg->getUniform("u_viewMax"), m_viewMax.x, m_viewMax.y);
+
+    for (Curve & curve : m_curves) {
+        if (!curve.isSetup) {
+            if (!curve.setup()) {
+                continue;
+            }
+        }
+
+        if (curve.points.empty()) {
+            continue;
+        }
+
+        if (curve.isChange) {
+            curve.upload();
+            curve.isChange = false;
+        }
+
+        glUniform3f(f_curveProg->getUniform("u_color"), curve.color.r, curve.color.g, curve.color.b);
+        glBindVertexArray(curve.vao);
+        if (curve.points.size() == 1) {
             glDrawArrays(GL_POINTS, 0, 1);
         }
         else {
-            glDrawArrays(GL_LINE_STRIP, 0, glm::min(int(m_points.size()), m_maxNPoints));
+            glDrawArrays(GL_LINE_STRIP, 0, glm::min(int(curve.points.size()), curve.maxNPoints));
         }
     }
 
@@ -137,13 +184,13 @@ void Graph::render(const glm::ivec2 & viewportSize) {
     glBindVertexArray(0);
 }
 
-const std::vector<glm::vec2> & Graph::accessPoints() const {
-    return m_points;
+const std::vector<glm::vec2> & Graph::accessPoints(int curveI) const {
+    return m_curves[curveI].points;
 }
 
-std::vector<glm::vec2> & Graph::mutatePoints() {
-    m_isPointChange = true;
-    return m_points;
+std::vector<glm::vec2> & Graph::mutatePoints(int curveI) {
+    m_curves[curveI].isChange = true;
+    return m_curves[curveI].points;
 }
 
 void Graph::setView(const glm::vec2 & min, const glm::vec2 & max) {
@@ -163,46 +210,15 @@ void Graph::moveView(const glm::vec2 & delta) {
     setView(m_viewMin + delta, m_viewMax + delta);
 }
 
-void Graph::focusPoint(const glm::vec2 & point) {
-    m_focusPoint = point;
-    m_isFocusPoint = true;
+void Graph::focusX(float x) {
+    m_focusX = x;
+    m_isFocusX = true;
 }
 
-void Graph::removeFocusPoint() {
-    m_isFocusPoint = false;
+void Graph::removeFocusX() {
+    m_isFocusX = false;
 }
 
 void Graph::cleanup() {
-    glDeleteVertexArrays(1, &m_curveVAO);
-    m_curveVAO = 0;
-    glDeleteBuffers(1, &m_curveVBO);
-    m_curveVBO = 0;
-}
-
-bool Graph::prepare() {
-    // Setup curve vao
-    glGenVertexArrays(1, &m_curveVAO);
-    glBindVertexArray(m_curveVAO);    
-    glGenBuffers(1, &m_curveVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, m_curveVBO);
-    glBufferData(GL_ARRAY_BUFFER, m_maxNPoints * sizeof(glm::vec2), nullptr, GL_DYNAMIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-
-    glBindVertexArray(0);
-    glDisableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    if (glGetError() != GL_NO_ERROR) {
-        return false;
-    }
-
-    return true;
-}
-
-void Graph::upload() {
-    glBindBuffer(GL_ARRAY_BUFFER, m_curveVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, glm::min(int(m_points.size()), m_maxNPoints) * sizeof(glm::vec2), m_points.data());
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    for (Curve & curve : m_curves) curve.cleanup();
 }
