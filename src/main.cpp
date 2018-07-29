@@ -31,28 +31,34 @@ extern "C" {
 #define ESTIMATEMAXOUTLINEPIXELS 16384
 #define ESTIMATEMAXOUTLINEPIXELSROWS 54
 
+#define WORLDSPACE_WIDTH 2.0f
+#define WORLDSPACE_HEIGHT 2.0f
+
 
 
 static std::shared_ptr<Shape> shape;
 static int sweep = 0;
+static int end = 0;
 static int progress = 0;
+static float angle_of_attack = 0.3f;
 
 
 
-class ssbo_geopixels {
+class ssbo_liftdrag {
 
     public:
 
     unsigned int geo_count;
     unsigned int test;
     unsigned int out_count[2];
+    glm::vec4 screenratio; //x .. (resolution x / world_width), y .. (resolution y / world_height), z.. xresolution, w .. y resolution,
     glm::vec4 momentum;
     glm::vec4 force;
     glm::ivec4 debugshit[4096];
 
-    ssbo_geopixels() {
+    ssbo_liftdrag() {
         geo_count = test = out_count[0] = out_count[1] = 0;
-        momentum = force = glm::ivec4();
+        screenratio = momentum = force = glm::ivec4();
         reset_geo(2);
         for (int ii = 0; ii < 4096; ii++) {
             debugshit[ii] = glm::ivec4();
@@ -175,7 +181,7 @@ class Application : public EventCallbacks {
     GLuint VertexBufferID, VertexNormDBox, VertexTexBox, IndexBufferIDBox, InstanceBuffer;
 
     //ssbos
-    ssbo_geopixels geometry_ssbo;
+    ssbo_liftdrag liftdrag_ssbo;
     GLuint geo_tex; //texture holding the pixels of the geometry (its a buffer rather than a texture)
     GLuint outline_tex; //texture holding the pixels of the outline (its a buffer rather than a texture)
     GLuint ac_buffer = 0;
@@ -227,6 +233,12 @@ class Application : public EventCallbacks {
         else if (key == GLFW_KEY_K && action == GLFW_PRESS) {
             sweep--;
             std::cout << sweep << std::endl;
+        }
+        else if (key == GLFW_KEY_N && action == GLFW_PRESS) {
+            angle_of_attack -= 0.05f;
+        }
+        else if (key == GLFW_KEY_M && action == GLFW_PRESS) {
+            angle_of_attack += 0.05f;
         }
     }
 
@@ -313,9 +325,15 @@ class Application : public EventCallbacks {
 
         glGenBuffers(1, &ssbo_geo);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo_geo);
-        geometry_ssbo.geo_count = 0;
+        liftdrag_ssbo.geo_count = 0;
+        int width, height;
+        glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
+        liftdrag_ssbo.screenratio.x = width / WORLDSPACE_WIDTH;
+        liftdrag_ssbo.screenratio.y = height / WORLDSPACE_HEIGHT;
+        liftdrag_ssbo.screenratio.z = width;
+        liftdrag_ssbo.screenratio.w = height;
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo_geo);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_geopixels), &geometry_ssbo, GL_DYNAMIC_COPY);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_liftdrag), &liftdrag_ssbo, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         //glGenBuffers(1, &ssbo_out);
@@ -339,15 +357,16 @@ class Application : public EventCallbacks {
 
     void init_framebuffer() {
         int width, height;
-        // flag texture
         glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
+
+        // flag texture
         glGenTextures(1, &FlagTex);
         glBindTexture(GL_TEXTURE_2D, FlagTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height * 2, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
         glActiveTexture(GL_TEXTURE2);
         glBindImageTexture(2, FlagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
@@ -551,8 +570,8 @@ class Application : public EventCallbacks {
         int width, height;
         glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
 
-        nulldata = new unsigned int[width * height];
-        for (int ii = 0; ii < width * height; ii++) {
+        nulldata = new unsigned int[width * height * 2];
+        for (int ii = 0; ii < width * height * 2; ii++) {
             nulldata[ii] = 0;
         }
 
@@ -562,10 +581,11 @@ class Application : public EventCallbacks {
     void debug_buff(unsigned int swap) {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo_geo);
         GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
-        int siz = sizeof(ssbo_geopixels);
-        ssbo_geopixels test;
+        int siz = sizeof(ssbo_liftdrag);
+        ssbo_liftdrag test;
         memcpy(&test, p, siz);
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        //std::cout << test.geo_count << " , " << test.debugshit[0].x << " , " << test.debugshit[0].y << " , " << test.debugshit[0].z  << " , " << test.debugshit[0].w << std::endl;
 
         //static unsigned int pboID = 0;
         //if (pboID == 0) {
@@ -623,6 +643,8 @@ class Application : public EventCallbacks {
         glBindImageTexture(2, FlagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
         glActiveTexture(GL_TEXTURE3);
         glBindImageTexture(3, FBOtex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+        glActiveTexture(GL_TEXTURE4);
+        glBindImageTexture(4, geo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glActiveTexture(GL_TEXTURE5);
         glBindImageTexture(5, outline_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
@@ -670,13 +692,13 @@ class Application : public EventCallbacks {
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo_geo);
         GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
-        int siz = sizeof(ssbo_geopixels);
-        memcpy(&geometry_ssbo, p, siz);
+        int siz = sizeof(ssbo_liftdrag);
+        memcpy(&liftdrag_ssbo, p, siz);
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-        geometry_ssbo.reset_geo(swap);
+        liftdrag_ssbo.reset_geo(swap);
         // reset pixel ssbo and flag_img
-        //static ssbo_geopixels temp;
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_geopixels), &geometry_ssbo, GL_DYNAMIC_COPY);
+        //static ssbo_liftdrag temp;
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_liftdrag), &liftdrag_ssbo, GL_DYNAMIC_COPY);
         int width, height;
         glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
         glBindTexture(GL_TEXTURE_2D, FlagTex);
@@ -695,7 +717,8 @@ class Application : public EventCallbacks {
         int width, height;
         glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
         float aspect = width / (float)height;
-        glViewport(0, height / 4, width / 2, height / 2);
+
+        glViewport(0, 0, width, height);
 
         // Clear framebuffer.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -711,12 +734,13 @@ class Application : public EventCallbacks {
         float stepwidth = 0.01f;
 
         static float counttime = 0.0f;
-        if (counttime > 0.2f) {
+        //if (counttime > 0.2f) {
             sweep++;
             counttime = 0.0f;
             progress = 1;
-        }
+        //}
         if (sweep > 50)  {
+            end = 1;
             sweep = 0;
         }
 
@@ -745,30 +769,33 @@ class Application : public EventCallbacks {
         GLuint ssbo_binding_point_index = 0;
         glShaderStorageBlockBinding(progfoil->pid, block_index, ssbo_binding_point_index);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding_point_index, ssbo_geo);
-        //
+        
         glActiveTexture(GL_TEXTURE2);
         glBindImageTexture(2, FlagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
-        //
+        
         glActiveTexture(GL_TEXTURE4);
         glBindImageTexture(4, geo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        //
+        
         glUniformMatrix4fv(progfoil->getUniform("P"), 1, GL_FALSE, &P[0][0]);
         glUniformMatrix4fv(progfoil->getUniform("V"), 1, GL_FALSE, &V[0][0]);
         glUniform3fv(progfoil->getUniform("campos"), 1, &mycam.pos[0]);
+
         w = glm::pi<float>() / 2.0f;
-        glm::mat4 Ry = glm::rotate(glm::mat4(1.0f), w, glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 Rx = glm::rotate(glm::mat4(1.0f), angle_of_attack, glm::vec3(1.0f, 0.0f, 0.0f));
         S = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 5.0f, 1.0f));
-        //
+        
         glm::mat4 MR(1);
         glUniformMatrix4fv(progfoil->getUniform("MR"), 1, GL_FALSE, &MR[0][0]);
-        M = TransZ * S;
+        M = TransZ * Rx * S;
         glUniformMatrix4fv(progfoil->getUniform("M"), 1, GL_FALSE, &M[0][0]);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         shape->draw(progfoil, false);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         shape->draw(progfoil, false);
+
         progfoil->unbind();
 
+        /*
         glViewport(width / 2, height / 4, width / 2, height / 2);
         V = glm::rotate(glm::mat4(1),0.23f, glm::vec3(0, 1, 0));
         progfoil->bind();
@@ -777,12 +804,14 @@ class Application : public EventCallbacks {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         shape->draw(progfoil, false);
         progfoil->unbind();
+        
         //glLineWidth(2.5);
         //glColor3f(1.0, 0.0, 0.0);
         //glBegin(GL_LINES);
         //glVertex3f(0.0, 0.0, 0.0);
         //glVertex3f(15, 0, 0);
         //glEnd();
+        */
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         //glBindTexture(GL_TEXTURE_2D, FBOtex);
@@ -878,6 +907,11 @@ int main(int argc, char ** argv) {
 
         //get the whole thing on the screen
         application->render();
+
+        static int yy = 0;
+        if (end == 1) {
+            application->debug_buff(swap);
+        }
 
         // Swap front and back buffers.
         glfwSwapBuffers(windowManager->getHandle());
