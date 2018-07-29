@@ -330,8 +330,8 @@ class Application : public EventCallbacks {
         glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
         liftdrag_ssbo.screenratio.x = width / WORLDSPACE_WIDTH;
         liftdrag_ssbo.screenratio.y = height / WORLDSPACE_HEIGHT;
-        liftdrag_ssbo.screenratio.z = width;
-        liftdrag_ssbo.screenratio.w = height;
+        liftdrag_ssbo.screenratio.z = float(width);
+        liftdrag_ssbo.screenratio.w = float(height);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo_geo);
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_liftdrag), &liftdrag_ssbo, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);

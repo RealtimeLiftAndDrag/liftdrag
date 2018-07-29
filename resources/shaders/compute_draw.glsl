@@ -4,25 +4,17 @@
 #define WORLDPOSOFF 0
 #define MOMENTUMOFF 1
 
-
 #define ESTIMATEMAXOUTLINEPIXELS 16384
 #define ESTIMATEMAXOUTLINEPIXELSROWS 54
-#define ESTIMATEMAXOUTLINEPIXELSSUM ESTIMATEMAXOUTLINEPIXELS *(ESTIMATEMAXOUTLINEPIXELSROWS/(2*3))
-layout (local_size_x = 1, local_size_y = 1) in;
+#define ESTIMATEMAXOUTLINEPIXELSSUM ESTIMATEMAXOUTLINEPIXELS * (ESTIMATEMAXOUTLINEPIXELSROWS / (2 * 3))
 
-ivec2 loadstore_outline(uint index, int init_offset, uint swapval)//with init_offset being 0,1 or 2  (world, momentum, tex)
-    {
-    uint off = index%ESTIMATEMAXOUTLINEPIXELS;
-    uint mul = index/ESTIMATEMAXOUTLINEPIXELS;
-    int halfval = ESTIMATEMAXOUTLINEPIXELSROWS/2;
-    return ivec2(off ,init_offset + 3*mul + swapval*halfval);
-    }
+layout (local_size_x = 1, local_size_y = 1) in;
 
 uniform uint swap;
 // local group of shaders
 // compute buffers
 layout (r32ui, binding = 2) uniform uimage2D img_flag;									
-layout (rgba8, binding = 3) uniform image2D img_FBO; //framebuffer
+layout (rgba8, binding = 3) uniform image2D img_FBO; // framebuffer
 layout (rgba32f, binding = 5) uniform image2D img_outline;	
 layout (std430, binding = 0) restrict buffer ssbo_geopixels { 
     uint geo_count;
@@ -34,6 +26,13 @@ layout (std430, binding = 0) restrict buffer ssbo_geopixels {
     ivec4 debugshit[4096];
 } geopix;
 //layout (binding = 1, offset = 0) uniform atomic_uint ac;
+
+ivec2 loadstore_outline(uint index, int init_offset, uint swapval) { // with init_offset being 0,1 or 2  (world, momentum, tex)
+    uint off = index%ESTIMATEMAXOUTLINEPIXELS;
+    uint mul = index/ESTIMATEMAXOUTLINEPIXELS;
+    int halfval = ESTIMATEMAXOUTLINEPIXELSROWS/2;
+    return ivec2(off ,init_offset + 3*mul + swapval*halfval);
+}
 
 void main() {
     int counterswap =  abs(int(swap) - 1);
@@ -55,13 +54,13 @@ void main() {
         
         //worldpos.xy = vec2(0,0);
         vec2 w2t = worldpos.xy;
-        w2t.x *= geopix.screenratio.x*(2./3.);
+        w2t.x *= geopix.screenratio.x * (2.0f / 3.0f);
         w2t.y *= geopix.screenratio.y;
-        w2t.x+=geopix.screenratio.z/2.;
-        w2t.y+=geopix.screenratio.w/2.;
+        w2t.x += geopix.screenratio.z / 2.0f;
+        w2t.y += geopix.screenratio.w / 2.0f;
         
-        vec4 original_color = imageLoad(img_FBO,ivec2(w2t));
-        original_color.b=1;
+        vec4 original_color = imageLoad(img_FBO, ivec2(w2t));
+        original_color.b = 1.0f;
 
         imageStore(img_FBO, ivec2(w2t), original_color);
         imageAtomicExchange(img_flag, ivec2(w2t), uint(work_on + 1));
