@@ -2,11 +2,15 @@
 
 
 
+struct GLFWwindow;
+
+
+
 namespace results {
 
 
 
-bool setup(const std::string & resourcesDir);
+bool setup(const std::string & resourcesDir, GLFWwindow * mainWindow);
 
 void cleanup();
 

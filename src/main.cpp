@@ -872,7 +872,7 @@ int main(int argc, char ** argv) {
     application->init_framebuffer();    
 
     // Results Window
-    if (!results::setup(resourceDir)) {
+    if (!results::setup(resourceDir, windowManager->getHandle())) {
         std::cerr << "Failed to setup results" << std::endl;
         std::exit(EXIT_FAILURE);
     }
