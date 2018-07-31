@@ -18,7 +18,6 @@ in vec2 frag_tex;
 
 out vec4 color;
 
-uniform vec3 campos;
 uniform sampler2D tex;
 uniform sampler2D tex2;
 //compute buffers

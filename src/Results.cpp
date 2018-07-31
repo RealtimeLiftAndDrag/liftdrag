@@ -24,7 +24,7 @@ static constexpr float k_granularity(1.0f); // results kept in increments of thi
 static constexpr float k_invGranularity(1.0f / k_granularity);
 
 static constexpr float k_initGraphDomainMin(-90.0f), k_initGraphDomainMax(90.0f);
-static constexpr float k_initGraphRangeMin(-1.0f), k_initGraphRangeMax(1.0f);
+static constexpr float k_initGraphRangeMin(-50.0f), k_initGraphRangeMax(150.0f);
 static constexpr float k_zoomFactor(1.1f);
 static constexpr int k_leftMargin(80), k_rightMargin(140), k_bottomMargin(60), k_topMargin(30);
 static const glm::ivec2 k_initGraphSize(300, 200);

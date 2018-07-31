@@ -47,7 +47,7 @@ void main() {
     for (int ii = 0; ii < cs_workload_per_shader; ii++) {
         int work_on = index+shadernum * ii;
         if (work_on >= ESTIMATEMAXOUTLINEPIXELSSUM) break;
-        if(work_on>=geopix.out_count[counterswap]) break;
+        if(work_on >= geopix.out_count[counterswap]) break;
 
         vec3 norm = imageLoad(img_outline,loadstore_outline(work_on, MOMENTUMOFF,counterswap)).xyz;
         vec3 worldpos = imageLoad(img_outline,loadstore_outline(work_on, WORLDPOSOFF,counterswap)).xyz;

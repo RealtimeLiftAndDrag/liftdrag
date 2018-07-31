@@ -33,8 +33,8 @@ layout (std430, binding = 0) restrict buffer ssbo_geopixels {
 //layout (binding = 1, offset = 0) uniform atomic_uint ac;
 
 ivec2 load_geo(uint index,int init_offset) { // with init_offset being 0,1 or 2 (world, momentum, tex)
-    uint off = index%ESTIMATEMAXGEOPIXELS;
-    uint mul = index/ESTIMATEMAXGEOPIXELS;
+    uint off = index % ESTIMATEMAXGEOPIXELS;
+    uint mul = index / ESTIMATEMAXGEOPIXELS;
     return ivec2(off, init_offset + 3 * mul);
 }
 
@@ -51,17 +51,17 @@ void main() {
     uint iac = geopix.out_count[swap];
     float f_cs_workload_per_shader = ceil(float(iac) / float(shadernum));
     int cs_workload_per_shader = int(f_cs_workload_per_shader);
-    int counterswap =  abs(int(swap) - 1);
+    int counterswap = abs(int(swap) - 1);
     if (swap == 0) counterswap = 1;
     else counterswap = 0;
     for (int ii = 0; ii < cs_workload_per_shader; ii++) {
-        int work_on = index+shadernum * ii;
+        int work_on = index + shadernum * ii;
         if (work_on >= ESTIMATEMAXOUTLINEPIXELSSUM) break;
         if (work_on >= geopix.out_count[swap]) break;
 
-        vec3 worldpos = imageLoad(img_outline,loadstore_outline(work_on, WORLDPOSOFF,swap)).xyz;    
+        vec3 worldpos = imageLoad(img_outline, loadstore_outline(work_on, WORLDPOSOFF, swap)).xyz;    
 
-        vec3 normal = imageLoad(img_outline,loadstore_outline(work_on, MOMENTUMOFF,swap)).xyz;        
+        vec3 normal = imageLoad(img_outline, loadstore_outline(work_on, MOMENTUMOFF, swap)).xyz;        
 
         normal.z = 0.0f;
         vec3 winddirection = vec3(0.0f, 0.0f, 1.0f);
@@ -88,20 +88,20 @@ void main() {
             vec2 nextpos = w2t;	
             nextpos = floor(nextpos) + vec2(0.5f, 0.5f) + normalize(vec2(world_direction.x, -world_direction.y));
             vec4 nextcol = imageLoad(img_FBO, ivec2(nextpos) );			
-            if(nextcol.r > 0.5f) {
+            if (nextcol.r > 0.5f) {
                 continue;
             }
 
             uint geo_index = imageAtomicAdd(img_flag, ivec2(w2t) + ivec2(0, geopix.screenratio.w), uint(0));
-            vec3 geo_worldpos = imageLoad(img_geo,load_geo(geo_index, WORLDPOSOFF)).xyz;
-            vec2 geo_normal = imageLoad(img_geo,load_geo(geo_index, MOMENTUMOFF)).xy;
+            vec3 geo_worldpos = imageLoad(img_geo, load_geo(geo_index, WORLDPOSOFF)).xyz;
+            vec2 geo_normal = imageLoad(img_geo, load_geo(geo_index, MOMENTUMOFF)).xy;
 
             vec3 dir_geo_out = newworldpos - geo_worldpos;
             if (dot(dir_geo_out.xy, geo_normal) < 0)
                 continue;
         }       
        
-        if(col.b > 0.5f) 
+        if (col.b > 0.5f) 
             continue; // merge!!!
 
         // if (col.b < 0.1f && col.g < 0.1f && col.r < 0.1f) {
@@ -109,9 +109,9 @@ void main() {
             if(current_array_pos >= ESTIMATEMAXOUTLINEPIXELSSUM)
                 break;
 
-            //imageStore(img_outline, loadstore_outline(current_array_pos, TEXPOSOFF,counterswap), vec4(newtexpos, 0.0f, 0.0f));   
-            imageStore(img_outline, loadstore_outline(current_array_pos, MOMENTUMOFF,counterswap), vec4(direction_result, 0.0f));
-            imageStore(img_outline, loadstore_outline(current_array_pos, WORLDPOSOFF,counterswap), vec4(newworldpos, 0.0f));
+            //imageStore(img_outline, loadstore_outline(current_array_pos, TEXPOSOFF, counterswap), vec4(newtexpos, 0.0f, 0.0f));   
+            imageStore(img_outline, loadstore_outline(current_array_pos, MOMENTUMOFF, counterswap), vec4(direction_result, 0.0f));
+            imageStore(img_outline, loadstore_outline(current_array_pos, WORLDPOSOFF, counterswap), vec4(newworldpos, 0.0f));
         //}
     }        
 }

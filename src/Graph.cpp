@@ -159,6 +159,7 @@ void Graph::render(const glm::ivec2 & viewportSize) {
             if (!curve.setup()) {
                 continue;
             }
+            curve.isSetup = true;
         }
 
         if (curve.points.empty()) {
