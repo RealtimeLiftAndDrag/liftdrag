@@ -70,7 +70,7 @@ void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mod
     }
     // If ctrl-space is pressed, will automatically move on to the next angle
     else if (key == GLFW_KEY_SPACE && action == GLFW_PRESS && (mods & GLFW_MOD_CONTROL)) {
-        f_shouldAutoProgress = true;
+        f_shouldAutoProgress = !f_shouldAutoProgress;
     }
     // If tab is pressed, toggle rendering of simulation to screen
     else if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
@@ -123,6 +123,7 @@ int main(int argc, char ** argv) {
         std::exit(EXIT_FAILURE);
     }
     glfwMakeContextCurrent(f_mainWindow);
+    glfwFocusWindow(f_mainWindow);
 
     // Loop until the user closes the window.
     while (!glfwWindowShouldClose(f_mainWindow)) {
@@ -142,7 +143,7 @@ int main(int argc, char ** argv) {
                 f_shouldSweep = false;
                 float angle(simulation::getAngleOfAttack());
                 glm::vec3 lift(simulation::getLift());
-                std::cout << "lift: " << lift.x << std::endl;
+                std::cout << "angle: " << angle << ", lift: " << lift.x << std::endl;
                 results::submit(simulation::getAngleOfAttack(), lift.x, 0.0f);
 
                 if (f_shouldAutoProgress) {
