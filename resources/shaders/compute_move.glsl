@@ -25,7 +25,7 @@ layout (std430, binding = 0) restrict buffer ssbo_geopixels {
     uint geo_count;
     uint test;
     uint out_count[2];
-    vec4 screenratio;
+    vec4 screenSpec;
     ivec4 momentum;
     ivec4 force;
     ivec4 debugshit[4096];
@@ -45,15 +45,22 @@ ivec2 loadstore_outline(uint index, int init_offset, uint swapval) { // with ini
     return ivec2(off, init_offset + 3 * mul + swapval * halfval);
 }
 
+vec2 world_to_screen(vec3 world) {
+	vec2 texPos = world.xy;
+	texPos *= geopix.screenSpec.zw; //changes to be a square in texture space
+	texPos += 1.0f; //centers
+	texPos *= 0.5f;
+	texPos *= geopix.screenSpec.xy; //change range to a centered box in texture space
+	return texPos;
+}
+
 void main() {
     int index = int(gl_GlobalInvocationID.x);
     int shadernum = 1024;
     uint iac = geopix.out_count[swap];
     float f_cs_workload_per_shader = ceil(float(iac) / float(shadernum));
     int cs_workload_per_shader = int(f_cs_workload_per_shader);
-    int counterswap = abs(int(swap) - 1);
-    if (swap == 0) counterswap = 1;
-    else counterswap = 0;
+    uint counterswap = 1 - swap;
     for (int ii = 0; ii < cs_workload_per_shader; ii++) {
         int work_on = index + shadernum * ii;
         if (work_on >= ESTIMATEMAXOUTLINEPIXELSSUM) break;
@@ -61,38 +68,36 @@ void main() {
 
         vec3 worldpos = imageLoad(img_outline, loadstore_outline(work_on, WORLDPOSOFF, swap)).xyz;    
 
-        vec3 normal = imageLoad(img_outline, loadstore_outline(work_on, MOMENTUMOFF, swap)).xyz;        
+        vec3 vel = imageLoad(img_outline, loadstore_outline(work_on, MOMENTUMOFF, swap)).xyz;        
 
-        normal.z = 0.0f;
+        vel.z = 0.0f;
         vec3 winddirection = vec3(0.0f, 0.0f, 1.0f);
-        vec3 direction_result = normalize(normal + winddirection);
+        vec3 direction_result = normalize(vel + winddirection);
       
         vec3 world_direction = direction_result * 5.5f;
 
-        world_direction.x /= geopix.screenratio.x;
-        world_direction.y /= geopix.screenratio.y;
+        world_direction.x /= geopix.screenSpec.x / 2.f;
+        world_direction.y /= geopix.screenSpec.y / 2.f;
 
+		//TODO Sacriligious programming stuff going on here this is so wrong. Why would y be flipped?
+		world_direction.y *= -1.f;
         vec3 newworldpos = worldpos;
-        newworldpos.xy = newworldpos.xy - world_direction.xy;
-        vec2 w2t = newworldpos.xy;
-        w2t.x *= geopix.screenratio.x * (2.0f / 3.0f);
-        w2t.y *= geopix.screenratio.y;
-        w2t.x += geopix.screenratio.z / 2.0f;
-        w2t.y += geopix.screenratio.w / 2.0f;
+		newworldpos.xy += world_direction.xy;
+        vec2 texPos = world_to_screen(newworldpos);
 
-        vec4 col = imageLoad(img_FBO, ivec2(w2t));
+        vec4 col = imageLoad(img_FBO, ivec2(texPos));
 
        // col = imageLoad(img_FBO, ivec2(newtexpos));
 
        if (col.r > 0.5f) { //its geo!
-            vec2 nextpos = w2t;	
+            vec2 nextpos = texPos;	
             nextpos = floor(nextpos) + vec2(0.5f, 0.5f) + normalize(vec2(world_direction.x, -world_direction.y));
             vec4 nextcol = imageLoad(img_FBO, ivec2(nextpos) );			
             if (nextcol.r > 0.5f) {
                 continue;
             }
 
-            uint geo_index = imageAtomicAdd(img_flag, ivec2(w2t) + ivec2(0, geopix.screenratio.w), uint(0));
+            uint geo_index = imageAtomicAdd(img_flag, ivec2(texPos) + ivec2(0, geopix.screenSpec.y), uint(0));
             vec3 geo_worldpos = imageLoad(img_geo, load_geo(geo_index, WORLDPOSOFF)).xyz;
             vec2 geo_normal = imageLoad(img_geo, load_geo(geo_index, MOMENTUMOFF)).xy;
 
@@ -104,14 +109,12 @@ void main() {
         if (col.b > 0.5f) 
             continue; // merge!!!
 
-        // if (col.b < 0.1f && col.g < 0.1f && col.r < 0.1f) {
-            uint current_array_pos = atomicAdd(geopix.out_count[counterswap], 1);
-            if(current_array_pos >= ESTIMATEMAXOUTLINEPIXELSSUM)
-                break;
+        uint current_array_pos = atomicAdd(geopix.out_count[counterswap], 1);
+        if(current_array_pos >= ESTIMATEMAXOUTLINEPIXELSSUM)
+            break;
 
-            //imageStore(img_outline, loadstore_outline(current_array_pos, TEXPOSOFF, counterswap), vec4(newtexpos, 0.0f, 0.0f));   
-            imageStore(img_outline, loadstore_outline(current_array_pos, MOMENTUMOFF, counterswap), vec4(direction_result, 0.0f));
-            imageStore(img_outline, loadstore_outline(current_array_pos, WORLDPOSOFF, counterswap), vec4(newworldpos, 0.0f));
-        //}
+        //imageStore(img_outline, loadstore_outline(current_array_pos, TEXPOSOFF, counterswap), vec4(newtexpos, 0.0f, 0.0f));   
+        imageStore(img_outline, loadstore_outline(current_array_pos, MOMENTUMOFF, counterswap), vec4(direction_result, 0.0f));
+        imageStore(img_outline, loadstore_outline(current_array_pos, WORLDPOSOFF, counterswap), vec4(newworldpos, 0.0f));
     }        
 }

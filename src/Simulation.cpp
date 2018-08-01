@@ -31,16 +31,17 @@ struct ssbo_liftdrag {
     unsigned int geo_count;
     unsigned int test;
     unsigned int out_count[2];
-    glm::vec4 screenRatio; //x .. (resolution x / world_width), y .. (resolution y / world_height), z.. xresolution, w .. y resolution,
+    glm::vec4 screenSpec; // screen width, screen height, x aspect factor, y aspect factor
     glm::ivec4 momentum;
     glm::ivec4 force;
     glm::ivec4 debugshit[4096];
+	glm::vec4 sideview[50][2];
 
     ssbo_liftdrag() :
         geo_count(0),
         test(0),
         out_count{0, 0},
-        screenRatio(),
+        screenSpec(),
         momentum(),
         force()
     {
@@ -86,7 +87,7 @@ static GLuint flag_tex;
 static GLuint vertexArrayID;
 
 // Data necessary to give our box to OpenGL
-static GLuint vertexBufferID, vertexTexBox, indexBufferIDBox;
+static GLuint vertexBufferID, vertexTexBox, indexBufferIDBox, sideviewVBO;
 
 //ssbos
 static ssbo_liftdrag liftdrag_ssbo;
@@ -100,6 +101,7 @@ static GLuint computeprog_move;
 static GLuint computeprog_draw;
 static GLuint computeprog_outline;
 static GLuint uniform_location_swap_out;
+static GLuint uniform_location_slice;
 static GLuint uniform_location_swap_move;
 static GLuint uniform_location_swap_draw;
 
@@ -163,6 +165,7 @@ static bool setupShaders(const std::string & resourcesDir) {
         return false;
     }
     uniform_location_swap_out = glGetUniformLocation(computeprog_outline, "swap");
+	uniform_location_slice = glGetUniformLocation(computeprog_outline, "slice");
     
     // Move Compute Shader -----------------------------------------------------
 
@@ -226,6 +229,9 @@ static bool setupGeom(const std::string & resourcesDir) {
     shape->resize();
     shape->init();
 
+	//generate VBO for sideview
+	glGenBuffers(1, &sideviewVBO);
+
     // generate the VAO
     glGenVertexArrays(1, &vertexArrayID);
     glBindVertexArray(vertexArrayID);
@@ -254,10 +260,10 @@ static bool setupGeom(const std::string & resourcesDir) {
     // color
     glm::vec2 cube_tex[] = {
         // front colors
-        glm::vec2(0.0f, 1.0f),
-        glm::vec2(1.0f, 1.0f),
-        glm::vec2(1.0f, 0.0f),
         glm::vec2(0.0f, 0.0f),
+        glm::vec2(1.0f, 0.0f),
+        glm::vec2(1.0f, 1.0f),
+        glm::vec2(0.0f, 1.0f),
     };
     glGenBuffers(1, &vertexTexBox);
     // set the current state to focus on our vertex buffer
@@ -271,7 +277,7 @@ static bool setupGeom(const std::string & resourcesDir) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferIDBox);
     GLushort cube_elements[] = {
         // front
-        1, 0, 2,
+        0, 1, 2,
         2, 3, 0,
     };
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_elements), cube_elements, GL_STATIC_DRAW);
@@ -371,7 +377,8 @@ static void compute_generate_outline(unsigned int swap) {
     glActiveTexture(GL_TEXTURE5);
     glBindImageTexture(5, outline_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    glUniform1ui(uniform_location_swap_out, swap);
+	glUniform1ui(uniform_location_swap_out, swap);
+	glUniform1ui(uniform_location_slice, currentSlice);
     //start compute shader program		
     glDispatchCompute((GLuint)1024, (GLuint)1, 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -448,6 +455,7 @@ static void compute_reset(unsigned int swap) {
     GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
     int siz = sizeof(ssbo_liftdrag);
     memcpy(&liftdrag_ssbo, p, siz);
+
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
     // TODO: is this okay?
@@ -489,7 +497,9 @@ static void render_to_framebuffer() {
     M = glm::mat4(1);
 
     float zNear = k_sliceSize * (float)(currentSlice + 28);
-    P = glm::ortho(-aspect, aspect, -1.0f, 1.0f, zNear, zNear + k_sliceSize);
+    P = glm::ortho(	-1.f/liftdrag_ssbo.screenSpec.z, 1.f / liftdrag_ssbo.screenSpec.z, //left and right
+					-1.f / liftdrag_ssbo.screenSpec.w, 1.f / liftdrag_ssbo.screenSpec.w, //bottom and top
+					zNear, zNear + k_sliceSize); //near and far
 
     //animation with the model matrix:
     glm::mat4 TransZ = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -0.5f));
@@ -578,10 +588,16 @@ bool setup(const std::string & resourceDir) {
     liftdrag_ssbo.geo_count = 0;
     int width, height;
     glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
-    liftdrag_ssbo.screenRatio.x = float(width) / 2.0f;
-    liftdrag_ssbo.screenRatio.y = float(height) / 2.0f;
-    liftdrag_ssbo.screenRatio.z = float(width);
-    liftdrag_ssbo.screenRatio.w = float(height);
+    liftdrag_ssbo.screenSpec.x = float(width);
+    liftdrag_ssbo.screenSpec.y = float(height);
+	if (width >= height) {
+		liftdrag_ssbo.screenSpec.z = float(height) / float(width);
+		liftdrag_ssbo.screenSpec.w = 1.0f;
+	}
+	else {
+		liftdrag_ssbo.screenSpec.z = 1.0f;
+		liftdrag_ssbo.screenSpec.w = float(width) / float(height);
+	}
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo_geo);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_liftdrag), &liftdrag_ssbo, GL_DYNAMIC_COPY);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -664,16 +680,12 @@ bool step() {
 
     render_to_framebuffer();
 
-    // TODO: clean this up !!!
-    if (true) {
-        compute_move_outline(swap);
-        compute_draw_outline(swap);
-        swap = !swap;
-        compute_generate_outline(swap);
-    }
-    compute_draw_outline(!swap);
-    compute_reset(!swap); 
+    compute_move_outline(swap); //move current slice
+    compute_draw_outline(swap); //draw current slice
+    compute_generate_outline(!swap); //generate next slice outline
+    compute_reset(swap); //reset current slice
     //debug_buff(swap);
+	swap = !swap; //set next slice to current slice
 
     if (++currentSlice >= k_nSlices) {
         currentSlice = 0;
@@ -732,6 +744,9 @@ glm::vec3 getDrag() {
     return glm::vec3();
 }
 
+std::pair<glm::vec3, glm::vec3> getSideviewOutline(){
+	 return std::make_pair(glm::vec3(liftdrag_ssbo.sideview[currentSlice][0]), glm::vec3(liftdrag_ssbo.sideview[currentSlice][1]));
+}
 
 
 }

@@ -7,7 +7,7 @@
 
 #define ESTIMATEMAXGEOPIXELS 16384
 #define ESTIMATEMAXGEOPIXELSROWS 27
-#define ESTIMATEMAXGEOPIXELSSUM ESTIMATEMAXGEOPIXELS * (ESTIMATEMAXGEOPIXELSROWS / 3)
+#define ESTIMATEMAXGEOPIXELSSUM ESTIMATEMAXGEOPIXELS * (ESTIMATEMAXGEOPIXELSROWS / (2*3))
 
 #define ESTIMATEMAXOUTLINEPIXELS 16384
 #define ESTIMATEMAXOUTLINEPIXELSROWS 54 // with half half 27
@@ -15,6 +15,8 @@
 layout (local_size_x = 1, local_size_y = 1) in;
 
 uniform uint swap;
+uniform uint slice;
+
 // local group of shaders
 // compute buffers
 layout (r32ui, binding = 2) uniform uimage2D img_flag;									
@@ -25,10 +27,11 @@ layout (std430, binding = 0) restrict buffer ssbo_geopixels {
     uint geo_count;
     uint test;
     uint out_count[2];
-    vec4 screenratio;
+    vec4 screenSpec;
     ivec4 momentum;
     ivec4 force;
     ivec4 debugshit[4096];
+	vec4 sideview[50][2];
 } geopix;
 
 ivec2 load_geo(uint index,int init_offset) { // with init_offset being 0, 1, or 2 (world, momentum, tex)
@@ -41,17 +44,47 @@ ivec2 loadstore_outline(uint index, int init_offset, uint swapval) { // with ini
     uint off = index % ESTIMATEMAXOUTLINEPIXELS;
     uint mul = index / ESTIMATEMAXOUTLINEPIXELS;
     int halfval = ESTIMATEMAXOUTLINEPIXELSROWS / 2;
-    return ivec2(off, init_offset + 3 * mul + swapval * halfval);
+    return ivec2(off, init_offset + (3 * mul) + (swapval * halfval));
 }
 
 vec2 world_to_screen(vec3 world) {
-    vec2 screen = vec2(world.x * geopix.screenratio.x,world.y * geopix.screenratio.y);
-    return screen;
+	vec2 texPos = world.xy;
+	texPos *= geopix.screenSpec.zw; //changes to be a square in texture space
+	texPos += 1.0f; //centers
+	texPos *= 0.5f;
+	texPos *= geopix.screenSpec.xy; //change range to a centered box in texture space
+	return texPos;
 }
 
-vec2 screen_to_world(vec3 screen) {
-    vec2 world = vec2(screen.x / geopix.screenratio.x,screen.y / geopix.screenratio.y);
-    return world;
+
+void drawToSideView(vec3 pos)
+{
+    if (pos.x > -0.2 && pos.x < 0.2)
+    {
+        if (pos.y < 0 && geopix.sideview[slice][0].w == 0)
+        {
+            geopix.sideview[slice][0].x = float(slice);
+            geopix.sideview[slice][0].y = pos.y;
+            geopix.sideview[slice][0].w = 1;
+        }
+        else if (pos.y > 0 && geopix.sideview[slice][1].w == 0)
+        {
+            geopix.sideview[slice][1].x = slice;
+            geopix.sideview[slice][1].y = pos.y;
+            geopix.sideview[slice][1].w = 1;
+        }
+        if (slice == 0)
+        {
+            geopix.sideview[49][0].w = 0;
+
+            geopix.sideview[49][1].w = 0;
+        }
+        else
+        {
+            geopix.sideview[slice - 1][0].w = 0;
+            geopix.sideview[slice - 1][1].w = 0;
+        }
+    }
 }
 
 void main() {
@@ -69,40 +102,37 @@ void main() {
         vec3 geo_worldpos = imageLoad(img_geo, load_geo(work_on, WORLDPOSOFF)).xyz;
         vec3 normal = imageLoad(img_geo, load_geo(work_on, MOMENTUMOFF )).xyz;
 
-        vec2 w2t = geo_worldpos.xy;
-        w2t.x *= geopix.screenratio.x * (2.0f / 3.0f);
-        w2t.y *= geopix.screenratio.y;
-        w2t.x += geopix.screenratio.z / 2.0;
-        w2t.y += geopix.screenratio.w / 2.0;
-         
-        vec2 texpos=w2t;
+		vec2 texPos = world_to_screen(geo_worldpos);
     
         normal = normalize(normal);
         vec3 geo_normal = normal;
 
-        if (abs(normal.y) < 0.01f) break;
+        if (abs(normal.y) < 0.01f) continue;
         // finding an possible outline / calculate density        
         
-        int steps = 0;
-        vec2 ntexpos = texpos;
+        vec2 ntexPos = texPos;
         vec4 col = vec4(0.0f);
 
         vec2 pixdirection = normalize(normal.xy);
-        pixdirection.y *= -1.0f;
 
-        for(; steps < STEPMAX; steps++) {           
-            col = imageLoad(img_FBO, ivec2(ntexpos));
-            if (col.b > 0.5f) { // we found an outline pixel  
-                uint index = imageAtomicAdd(img_flag, ivec2(ntexpos), uint(0));
+		//TODO Sacriligious programming stuff going on here this is so wrong. Why would y be flipped?
+		pixdirection.y *= -1.f;
+		bool pixelFound = false;
+        for(int steps = 0; steps < STEPMAX; steps++) {
+            col = imageLoad(img_FBO, ivec2(ntexPos));
+            if (col.b > 0.f) { // we found an outline pixel  
+				pixelFound = true;
+                uint index = imageAtomicAdd(img_flag, ivec2(ntexPos), uint(0));
                 if (index > 0) index--;					
                 
-                if (index < 1)
+                if (index < 1){					
                     break;
+				}
                     
                 vec3 out_worldpos = imageLoad(img_outline,loadstore_outline(index, WORLDPOSOFF,swap)).xyz;
 
                 vec3 backforce_direction = out_worldpos - geo_worldpos;
-                backforce_direction *= 1;
+                backforce_direction *= 1; //modifier constant
                 vec3 momentum = imageLoad(img_outline,loadstore_outline(index, MOMENTUMOFF,swap)).xyz;				
                 momentum.xy += backforce_direction.xy;				
                 imageStore(img_outline, loadstore_outline(index, MOMENTUMOFF,swap), vec4(momentum, 0.0f));
@@ -111,49 +141,43 @@ void main() {
                 float liftforce = pow(backforce_direction.y, 2) * 1e6;
                 int i_liftforce = int(liftforce);				  
                 atomicAdd(geopix.force.x, i_liftforce);
-                
-                //not sure:
-                /*
-                vec3 liftforce = distance_lift * geo_normal * f;
-                vec3 center_grav = ...
-                vec3 r = worldpos - center_grav;
-                vec3 torque_pix = cross(liftforce, r);
-                atomicAdd(geopix.momentum.xyz, torque_pix);
-                atomicAdd(geopix.force.xyz, liftforce);
-                */
-                //atomicAdd(geopix.debugshit[0].y, 1);
+                drawToSideView(out_worldpos);
             
                 break;
             }
            
-            if (col.r > 0.5f) {
-                vec2 nextpos = ntexpos;	
-                nextpos = floor(nextpos) + vec2(0.5, 0.5) + normalize(pixdirection);
+            if (col.r > 0.f) {
+                vec2 nextpos = floor(ntexPos) + vec2(0.5, 0.5) + pixdirection;
                 vec4 nextcol = imageLoad(img_FBO, ivec2(nextpos) );
-                if(nextcol.r > 0.5) {
+                if(nextcol.r > 0.f) {
+					pixelFound = true;
                     break;
                 }
             }
             
-            ntexpos += pixdirection;
+            ntexPos += pixdirection;
         }
     
-        if (steps == STEPMAX && normal.z < 0.0f) { //make a new outline
+        if (!pixelFound && normal.z < 0.0f) { //make a new outline
             atomicAdd(geopix.debugshit[0].w, 1);
-            // ntexpos = texpos - normal.xy * 20.5f;
+            // ntexPos = texPos - normal.xy * 20.5f;
 
             vec2 world_normal = normal.xy;// * .5f;
-            world_normal.x /= geopix.screenratio.x;
-            world_normal.y /= geopix.screenratio.y;
+
+            world_normal.x /= geopix.screenSpec.x / 2.f;
+            world_normal.y /= geopix.screenSpec.y / 2.f;
 
             vec3 out_worldpos = geo_worldpos;
-            out_worldpos.xy = out_worldpos.xy - (world_normal.xy);
+            out_worldpos.xy += (world_normal.xy * 0.1);
 
             uint current_array_pos = atomicAdd(geopix.out_count[swap], 1);
            
-            //imageStore(img_outline, loadstore_outline(current_array_pos, TEXPOSOFF, swap), vec4(ntexpos, 0.0f, 0.0f));   
+            //imageStore(img_outline, loadstore_outline(current_array_pos, texPosOFF, swap), vec4(ntexPos, 0.0f, 0.0f));   
             imageStore(img_outline, loadstore_outline(current_array_pos, MOMENTUMOFF, swap), vec4(normal, 0.0f));
-            imageStore(img_outline, loadstore_outline(current_array_pos, WORLDPOSOFF, swap), vec4(out_worldpos, 0.0f));            
+            imageStore(img_outline, loadstore_outline(current_array_pos, WORLDPOSOFF, swap), vec4(out_worldpos, 0.0f));     
+			
+            drawToSideView(out_worldpos);
+
         }
     }
 }

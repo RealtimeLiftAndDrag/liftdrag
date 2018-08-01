@@ -46,6 +46,8 @@ glm::vec3 getLift();
 // Returns the drag of the previous sweep
 glm::vec3 getDrag();
 
+std::pair<glm::vec3, glm::vec3> getSideviewOutline();
+
 
 
 }

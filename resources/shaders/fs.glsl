@@ -27,7 +27,7 @@ layout (std430, binding = 0) restrict buffer ssbo_geopixels {
     uint geo_count;
     uint test;
     uint out_count[2];
-    vec4 screenratio;
+    vec4 screenSpec;
     ivec4 momentum;
     ivec4 force;
     ivec4 debugshit[4096];
@@ -61,6 +61,6 @@ void main() {
         }		
         //outlinecount = current_array_pos;
 
-        //imageAtomicExchange(img_flag, ivec2(gl_FragCoord.xy) + ivec2(0,geopix.screenratio.w), current_array_pos);
+        //imageAtomicExchange(img_flag, ivec2(gl_FragCoord.xy) + ivec2(0,geopix.screenSpec.w), current_array_pos);
     }
 }

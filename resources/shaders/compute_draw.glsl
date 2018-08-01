@@ -20,7 +20,7 @@ layout (std430, binding = 0) restrict buffer ssbo_geopixels {
     uint geo_count;
     uint test;
     uint out_count[2];
-    vec4 screenratio;
+    vec4 screenSpec;
     ivec4 momentum;
     ivec4 force;
     ivec4 debugshit[4096];
@@ -34,6 +34,16 @@ ivec2 loadstore_outline(uint index, int init_offset, uint swapval) { // with ini
     return ivec2(off ,init_offset + 3*mul + swapval*halfval);
 }
 
+
+vec2 world_to_screen(vec3 world) {
+	vec2 texPos = world.xy;
+	texPos *= geopix.screenSpec.zw; //changes to be a square in texture space
+	texPos += 1.0f; //centers
+	texPos *= 0.5f;
+	texPos *= geopix.screenSpec.xy; //change range to a centered box in texture space
+	return texPos;
+}
+
 void main() {
     int counterswap =  abs(int(swap) - 1);
     if (swap == 0) counterswap = 1;
@@ -45,24 +55,19 @@ void main() {
     float f_cs_workload_per_shader = ceil(float(iac) / float(shadernum));
     int cs_workload_per_shader = int(f_cs_workload_per_shader);
     for (int ii = 0; ii < cs_workload_per_shader; ii++) {
-        int work_on = index+shadernum * ii;
+        int work_on = index + (shadernum * ii);
         if (work_on >= ESTIMATEMAXOUTLINEPIXELSSUM) break;
         if(work_on >= geopix.out_count[counterswap]) break;
 
-        vec3 norm = imageLoad(img_outline,loadstore_outline(work_on, MOMENTUMOFF,counterswap)).xyz;
+        //vec3 norm = imageLoad(img_outline,loadstore_outline(work_on, MOMENTUMOFF,counterswap)).xyz;
         vec3 worldpos = imageLoad(img_outline,loadstore_outline(work_on, WORLDPOSOFF,counterswap)).xyz;
         
-        //worldpos.xy = vec2(0,0);
-        vec2 w2t = worldpos.xy;
-        w2t.x *= geopix.screenratio.x * (2.0f / 3.0f);
-        w2t.y *= geopix.screenratio.y;
-        w2t.x += geopix.screenratio.z / 2.0f;
-        w2t.y += geopix.screenratio.w / 2.0f;
+        vec2 texPos = world_to_screen(worldpos);
         
-        vec4 original_color = imageLoad(img_FBO, ivec2(w2t));
+        vec4 original_color = imageLoad(img_FBO, ivec2(texPos));
         original_color.b = 1.0f;
 
-        imageStore(img_FBO, ivec2(w2t), original_color);
-        imageAtomicExchange(img_flag, ivec2(w2t), uint(work_on + 1));
+        imageStore(img_FBO, ivec2(texPos), original_color);
+        imageAtomicExchange(img_flag, ivec2(texPos), uint(work_on + 1));
     }        
 }

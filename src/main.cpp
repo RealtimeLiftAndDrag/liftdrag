@@ -21,6 +21,7 @@ extern "C" {
 
 #include "Simulation.hpp"
 #include "Results.hpp"
+#include "SideView.hpp"
 
 
 
@@ -33,8 +34,8 @@ static constexpr float k_maxAngleOfAttack(90.0f);
 static std::string f_resourceDir(k_defResourceDir);
 static GLFWwindow * f_mainWindow;
 static bool f_shouldStep(false);
-static bool f_shouldSweep(true);
-static bool f_shouldAutoProgress(true);
+static bool f_shouldSweep(false);
+static bool f_shouldAutoProgress(false);
 static bool f_shouldRender(true);
 static float f_nextAngleOfAttack(0.0f); // in degrees
 static bool f_angleOfAttackChanged;
@@ -122,6 +123,13 @@ int main(int argc, char ** argv) {
         std::cerr << "Failed to setup results" << std::endl;
         std::exit(EXIT_FAILURE);
     }
+
+	//Side view Window
+	if (!sideview::setup(f_resourceDir, simulation::getWindow())) {
+		std::cerr << "Failed to setup results" << std::endl;
+		std::exit(EXIT_FAILURE);
+	}
+
     glfwMakeContextCurrent(f_mainWindow);
     glfwFocusWindow(f_mainWindow);
 
@@ -158,6 +166,7 @@ int main(int argc, char ** argv) {
 
         if (f_shouldRender) {
             simulation::render();
+			//sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
         }
 
         // Results -------------------------------------------------------------

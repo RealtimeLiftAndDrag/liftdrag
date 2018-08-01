@@ -30,7 +30,7 @@ WindowManager::~WindowManager()
 	}
 }
 
-bool WindowManager::init(int const width, int const height)
+bool WindowManager::init(int const width, int const height, GLFWwindow* share)
 {
 	glfwSetErrorCallback(error_callback);
 
@@ -47,7 +47,7 @@ bool WindowManager::init(int const width, int const height)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
 
 	// Create a windowed mode window and its OpenGL context.
-	windowHandle = glfwCreateWindow(width, height, "hello triangle", nullptr, nullptr);
+	windowHandle = glfwCreateWindow(width, height, "hello triangle", nullptr, share);
 	if (! windowHandle)
 	{
 		glfwTerminate();
