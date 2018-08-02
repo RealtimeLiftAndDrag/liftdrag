@@ -126,7 +126,7 @@ int main(int argc, char ** argv) {
     }
 
 	//Side view Window
-	if (!sideview::setup(f_resourceDir, simulation::getWindow())) {
+	if (!sideview::setup(f_resourceDir, simulation::getSideTextureID(), simulation::getWindow())) {
 		std::cerr << "Failed to setup results" << std::endl;
 		std::exit(EXIT_FAILURE);
 	}

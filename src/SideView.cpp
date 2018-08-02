@@ -15,8 +15,10 @@ namespace sideview {
 	static constexpr int k_width(720), k_height(480);
 	static WindowManager * windowManager = nullptr;
 	static unsigned int * nulldata;
-	static std::shared_ptr<Program> outlineProg;
+	static GLuint side_geo_tex;
+	static std::shared_ptr<Program> outlineProg, texProg;
 	GLuint outlineTopVAO, outlineBotVAO, outlineTopVBO, outlineBotVBO;
+	GLuint boardVAO, boardVBO, boardTexVBO, boardIndVBO;
 	glm::vec3 outlineTopVerts[k_nSlices];
 	glm::vec3 outlineBotVerts[k_nSlices];
 	glm::vec4 screenSpec; // screen width, screen height, x aspect factor, y aspect factor
@@ -38,17 +40,28 @@ namespace sideview {
 		outlineProg->addUniform("P");
 		outlineProg->addUniform("V");
 		outlineProg->addUniform("M");
+
+		// FB Shader ---------------------------------------------------------------
+		texProg = std::make_shared<Program>();
+		texProg->setVerbose(true);
+		texProg->setShaderNames(shadersDir + "/fbvertex.glsl", shadersDir + "/fbfrag.glsl");
+		if (!texProg->init()) {
+			std::cerr << "Failed to initialize fb shader" << std::endl;
+			return false;
+		}
+		texProg->addUniform("tex");
+		glUseProgram(texProg->pid);
+		glUniform1i(texProg->getUniform("tex"), 0);
+		glUseProgram(0);
 	}
 
-	bool setup(const std::string & resourcesDir, GLFWwindow * mainWindow) {
+	bool setup(const std::string & resourcesDir, int sideTexID, GLFWwindow * mainWindow) {
 		windowManager = new WindowManager();
 		if (!windowManager->init(k_width, k_height)) {
 			std::cerr << "Failed to initialize window manager" << std::endl;
 			return false;
 		}
-
-		// Initialize nulldata
-		nulldata = new unsigned int[k_width * k_height * 2]{}; // zero initialization
+		side_geo_tex = sideTexID;
 
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glEnable(GL_DEPTH_TEST);
@@ -75,12 +88,15 @@ namespace sideview {
 			screenSpec.w = float(k_width) / float(k_height);
 		}
 
+		
+
+
 		initGeom();
 
 		return true;
 	}
 
-	void initGeom() {
+	bool initGeom() {
 		glGenVertexArrays(1, &outlineTopVAO);
 		glBindVertexArray(outlineTopVAO);
 		glGenBuffers(1, &outlineTopVBO);
@@ -99,9 +115,55 @@ namespace sideview {
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);;
+
+		glGenVertexArrays(1, &boardVAO);
+		glBindVertexArray(boardVAO);
+
+		glGenBuffers(1, &boardVBO);
+		glBindBuffer(GL_ARRAY_BUFFER, boardVBO);
+		GLfloat board_vertices[] = {
+			-1.0f, -1.0f, 0.0f, //LD
+			1.0f, -1.0f, 0.0f, //RD
+			1.0f,  1.0f, 0.0f, //RU
+			-1.0f,  1.0f, 0.0f, //LU
+		};
+
+		glBufferData(GL_ARRAY_BUFFER, sizeof(board_vertices), board_vertices, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+
+		// color
+		glm::vec2 board_tex[] = {
+			// front colors
+			glm::vec2(0.0f, 0.0f),
+			glm::vec2(1.0f, 0.0f),
+			glm::vec2(1.0f, 1.0f),
+			glm::vec2(0.0f, 1.0f),
+		};
+		glGenBuffers(1, &boardTexVBO);
+		glBindBuffer(GL_ARRAY_BUFFER, boardTexVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(board_tex), board_tex, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+		glGenBuffers(1, &boardIndVBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, boardIndVBO);
+		GLushort board_elements[] = {
+			// front
+			0, 1, 2,
+			2, 3, 0,
+		};
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(board_elements), board_elements, GL_STATIC_DRAW);
+		glBindVertexArray(0);
+		if (glGetError() != GL_NO_ERROR) {
+			std::cerr << "OpenGL error" << std::endl;
+			return false;
+		}
+		return true;
 	}
 
-	void copyData() {
+	void copyOutlineData() {
 		glBindVertexArray(outlineTopVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, outlineTopVBO);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * k_nSlices, &outlineTopVerts, GL_DYNAMIC_DRAW);
@@ -115,17 +177,27 @@ namespace sideview {
 	}
 
 	void render() {
-		//don't draw anything until we have filled the outline verts at least once
+
+		glfwMakeContextCurrent(windowManager->getHandle());
+		glViewport(0, 0, k_width, k_height);
+		glClearColor(0.f, 0.f, 0.f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		texProg->bind();
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, side_geo_tex);
+		glBindVertexArray(boardVAO);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
+		texProg->unbind();
+
+		//don't draw outline until we have filled the outline verts at least once
 		if (outlineTopVerts[k_nSlices - 1].z != 0)
 			return;
 		if (outlineBotVerts[k_nSlices - 1].z != 0)
 			return;
 		int test;
-		glfwMakeContextCurrent(windowManager->getHandle());
-		glClearColor(0.f, 0.f, 0.f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
 
-		copyData();
+		copyOutlineData();
 
 		glm::mat4 V, M, P;
 

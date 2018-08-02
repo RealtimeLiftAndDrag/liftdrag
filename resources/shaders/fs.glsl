@@ -21,6 +21,7 @@ out vec4 color;
 uniform sampler2D tex;
 uniform sampler2D tex2;
 //compute buffers
+layout (rgba8, binding = 6) uniform image2D img_geo_side;	
 layout (rgba32f, binding = 4) uniform image2D img_geo;	
 layout (r32ui, binding = 2) uniform uimage2D img_flag;									
 layout (std430, binding = 0) restrict buffer ssbo_geopixels { 
@@ -58,6 +59,9 @@ void main() {
             imageStore(img_geo, store_geo(current_array_pos, WORLDPOSOFF), vec4(frag_pos, 0.0f));
             imageStore(img_geo, store_geo(current_array_pos, TEXPOSOFF), vec4(gl_FragCoord.xy, current_array_pos, 0.0f));
             imageStore(img_geo, store_geo(current_array_pos, MOMENTUMOFF), vec4(frag_normal, 0.0f));
+
+			//sideview
+			imageStore(img_geo_side, ivec2(gl_FragCoord.yz), vec4(1.f, 0.f, 0.f, 1.f));
         }		
         //outlinecount = current_array_pos;
 

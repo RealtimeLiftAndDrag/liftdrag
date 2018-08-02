@@ -84,6 +84,7 @@ static GLuint vertexBufferID, vertexTexBox, indexBufferIDBox, sideviewVBO;
 //ssbos
 static ssbo_liftdrag liftdrag_ssbo;
 static GLuint geo_tex; // texture holding the pixels of the geometry
+static GLuint side_geo_tex; // texture holding the pixels of the geometry from the side
 static GLuint outline_tex; // texture holding the pixels of the outline
 //static unsigned int * nulldata;
 static GLuint ssbo_geo;
@@ -284,6 +285,22 @@ static bool setupGeom(const std::string & resourcesDir) {
 }
 
 static bool setupFramebuffer() {
+	//sideview texture
+	glGenTextures(1, &side_geo_tex);
+	glBindTexture(GL_TEXTURE_2D, side_geo_tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// NULL means reserve texture memory, but texels are undefined
+	// Tell OpenGL to reserve level 0
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	// You must reserve memory for other mipmaps levels as well either by making a series of calls to
+	// glTexImage2D or use glGenerateMipmapEXT(GL_TEXTURE_2D).
+	// Here, we'll use :
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+
     // Frame Buffer Object
     // RGBA8 2D texture, 24 bit depth texture, 256x256
     glGenTextures(1, &fbo_tex);
@@ -506,6 +523,9 @@ static void render_to_framebuffer() {
         
     glActiveTexture(GL_TEXTURE4);
     glBindImageTexture(4, geo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+	glActiveTexture(GL_TEXTURE6);
+	glBindImageTexture(6, side_geo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         
     glUniformMatrix4fv(progfoil->getUniform("P"), 1, GL_FALSE, &P[0][0]);
     glUniformMatrix4fv(progfoil->getUniform("V"), 1, GL_FALSE, &V[0][0]);
@@ -673,7 +693,6 @@ bool step() {
 }
 
 void render() {
-    float aspect = float(k_width) / float(k_height);
     glViewport(0, 0, k_width, k_height);
     glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -723,6 +742,10 @@ glm::vec3 getDrag() {
 
 std::pair<glm::vec3, glm::vec3> getSideviewOutline(){
 	 return std::make_pair(glm::vec3(liftdrag_ssbo.sideview[currentSlice-1][0]), glm::vec3(liftdrag_ssbo.sideview[currentSlice-1][1]));
+}
+
+int getSideTextureID() {
+	return (int)side_geo_tex;
 }
 
 
