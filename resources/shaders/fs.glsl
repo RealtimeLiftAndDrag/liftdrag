@@ -77,7 +77,7 @@ void main() {
 			vec2 texPos = world_to_screen(vec3((tmp_frag_pos.z-0.5) * 4, tmp_frag_pos.y*4, 0));
 			//texPos.x += xCoordOffset;
 			//sideview
-			imageStore(img_geo_side, ivec2(texPos), vec4(.25f, 0.f, 0.f, 1.f));
+			imageStore(img_geo_side, ivec2(texPos), vec4(1.f, 0.f, 0.f, 1.f));
         }		
         //outlinecount = current_array_pos;
 

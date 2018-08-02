@@ -88,8 +88,8 @@ void main() {
 //		sideGeoTexPos.x = slice;
         imageStore(img_FBO, ivec2(texPos), original_color);
 		if(worldpos.x < -.1 && worldpos.x > -.2){
-			imageStore(img_geo_side, ivec2(sideTexPos), vec4(0,0,1,1));
-			imageStore(img_geo_side, ivec2(sideGeoTexPos), vec4(1, 0, 0, 1));
+			imageStore(img_geo_side, ivec2(sideTexPos), vec4(0,1,1,1));
+			imageStore(img_geo_side, ivec2(sideGeoTexPos), vec4(1, 1, 0, 1));
 		}
         imageAtomicExchange(img_flag, ivec2(texPos), uint(work_on + 1));
     }        
