@@ -61,7 +61,7 @@ namespace sideview {
 			std::cerr << "Failed to initialize window manager" << std::endl;
 			return false;
 		}
-		side_geo_tex = sideTexID;
+		side_geo_tex = (GLuint)sideTexID;
 
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glEnable(GL_DEPTH_TEST);
