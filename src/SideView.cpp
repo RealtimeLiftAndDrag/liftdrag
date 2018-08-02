@@ -13,6 +13,8 @@
 namespace sideview {
 	static constexpr int k_nSlices = 50;
 	static constexpr int k_width(720), k_height(480);
+	static constexpr float k_sliceSize(0.01f); // z distance between slices
+
 	static WindowManager * windowManager = nullptr;
 	static unsigned int * nulldata;
 	static GLuint side_geo_tex;
@@ -57,7 +59,7 @@ namespace sideview {
 
 	bool setup(const std::string & resourcesDir, int sideTexID, GLFWwindow * mainWindow) {
 		windowManager = new WindowManager();
-		if (!windowManager->init(k_width, k_height)) {
+		if (!windowManager->init(k_width, k_height, mainWindow)) {
 			std::cerr << "Failed to initialize window manager" << std::endl;
 			return false;
 		}
@@ -183,53 +185,62 @@ namespace sideview {
 		glClearColor(0.f, 0.f, 0.f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		texProg->bind();
+		if (glGetError() != GL_NO_ERROR) {
+			std::cerr << "OpenGL error" << std::endl;
+		}
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, side_geo_tex);
+		int x = glGetError();
+		//if (glGetError() != GL_NO_ERROR) {
+			//std::cerr << "OpenGL error: " << glGetError() << std::endl;
+		//}
 		glBindVertexArray(boardVAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
 		texProg->unbind();
-
-		//don't draw outline until we have filled the outline verts at least once
-		if (outlineTopVerts[k_nSlices - 1].z != 0)
-			return;
-		if (outlineBotVerts[k_nSlices - 1].z != 0)
-			return;
-		int test;
 		
 
-		copyOutlineData();
+		////don't draw outline until we have filled the outline verts at least once
+		//if (outlineTopVerts[k_nSlices - 1].z != 0)
+		//	return;
+		//if (outlineBotVerts[k_nSlices - 1].z != 0)
+		//	return;
+		//int test;
+		
 
-		glm::mat4 V, M, P;
+		//copyOutlineData();
 
-		P = glm::ortho(-1.f / screenSpec.z, 1.f / screenSpec.z, //left and right
-			-1.f / screenSpec.w, 1.f / screenSpec.w, //bottom and top
-			-10.f, 10.f); //near and far
+		//glm::mat4 V, M, P;
 
-		V = glm::mat4(1);
-		M = glm::mat4(1);
-		M = glm::translate(glm::mat4(1), glm::vec3(-1, 0, 0));
+		//P = glm::ortho(-1.f / screenSpec.z, 1.f / screenSpec.z, //left and right
+		//	-1.f / screenSpec.w, 1.f / screenSpec.w, //bottom and top
+		//	-10.f, 10.f); //near and far
 
-		outlineProg->bind();
-		glUniformMatrix4fv(outlineProg->getUniform("P"), 1, GL_FALSE, &P[0][0]);
-		glUniformMatrix4fv(outlineProg->getUniform("V"), 1, GL_FALSE, &V[0][0]);
-		glUniformMatrix4fv(outlineProg->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+		//V = glm::mat4(1);
+		//M = glm::mat4(1);
+		//M = glm::translate(glm::mat4(1), glm::vec3(-1, 0, 1));
 
-		glBindVertexArray(outlineBotVAO);
-		glDrawArrays(GL_LINE_STRIP, 0, k_nSlices);
+		//outlineProg->bind();
+		//glUniformMatrix4fv(outlineProg->getUniform("P"), 1, GL_FALSE, &P[0][0]);
+		//glUniformMatrix4fv(outlineProg->getUniform("V"), 1, GL_FALSE, &V[0][0]);
+		//glUniformMatrix4fv(outlineProg->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 
-		glBindVertexArray(outlineTopVAO);
-		glDrawArrays(GL_LINE_STRIP, 0, k_nSlices);
+		//glBindVertexArray(outlineBotVAO);
+		//glDrawArrays(GL_LINE_STRIP, 0, k_nSlices);
+
+		//glBindVertexArray(outlineTopVAO);
+		//glDrawArrays(GL_LINE_STRIP, 0, k_nSlices);
 
 		glBindVertexArray(0);
+		//GLuint clearColor[4]{};
+
 		glfwSwapBuffers(windowManager->getHandle());
-
 	}
 
-	void submitOutline(int sliceNum, std::pair<glm::vec3, glm::vec3> outlinePoints)
+	/*void submitOutline(int sliceNum, std::pair<glm::vec3, glm::vec3> outlinePoints)
 	{
-		outlineTopVerts[sliceNum] = glm::vec3(sliceNum*0.05f, outlinePoints.first.y, 0.f);
-		outlineBotVerts[sliceNum] = glm::vec3(sliceNum*0.05f, outlinePoints.second.y, 0.f);
-	}
+		outlineTopVerts[sliceNum] = glm::vec3(sliceNum*k_sliceSize, outlinePoints.first.y, 0.f);
+		outlineBotVerts[sliceNum] = glm::vec3(sliceNum*k_sliceSize, outlinePoints.second.y, 0.f);
+	}*/
 
 
 }

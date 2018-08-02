@@ -35,7 +35,7 @@ static std::string f_resourceDir(k_defResourceDir);
 static GLFWwindow * f_mainWindow;
 static bool f_shouldStep(false);
 static bool f_shouldSweep(true);
-static bool f_shouldAutoProgress(true);
+static bool f_shouldAutoProgress(false);
 static bool f_shouldRender(true);
 static float f_nextAngleOfAttack(0.0f); // in degrees
 static bool f_angleOfAttackChanged;
@@ -163,7 +163,7 @@ int main(int argc, char ** argv) {
                     f_shouldSweep = true;
                 }
             }
-			sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
+			//sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
             f_shouldStep = false;
         }
 

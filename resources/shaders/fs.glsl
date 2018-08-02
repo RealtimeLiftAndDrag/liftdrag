@@ -18,6 +18,8 @@ in vec2 frag_tex;
 
 out vec4 color;
 
+uniform uint slice;
+
 uniform sampler2D tex;
 uniform sampler2D tex2;
 //compute buffers
@@ -40,6 +42,15 @@ ivec2 store_geo(uint index, int init_offset) { // with init_offset being 0, 1, o
     return ivec2(off, init_offset + 3 * mul);
 }
 
+vec2 world_to_screen(vec3 world) {
+	vec2 texPos = world.xy;
+	texPos *= geopix.screenSpec.zw; //changes to be a square in texture space
+	texPos += 1.0f; //centers
+	texPos *= 0.5f;
+	texPos *= geopix.screenSpec.xy; //change range to a centered box in texture space
+	return texPos;
+}
+
 void main() {
     color.rgb = vec3(1.0f, 0.0f, 0.0f);
     //color.rgb = frag_normal;
@@ -56,12 +67,17 @@ void main() {
         //if (counter<MSIZE)
         //    geopix.worldpos[counter].xyz = vertex_pos;
         if (current_array_pos < ESTIMATEMAXGEOPIXELSSUM) {
-            imageStore(img_geo, store_geo(current_array_pos, WORLDPOSOFF), vec4(frag_pos, 0.0f));
+			vec3 tmp_frag_pos = frag_pos;
+			tmp_frag_pos.z *= -1.f;
+            imageStore(img_geo, store_geo(current_array_pos, WORLDPOSOFF), vec4(tmp_frag_pos, 0.0f));
             imageStore(img_geo, store_geo(current_array_pos, TEXPOSOFF), vec4(gl_FragCoord.xy, current_array_pos, 0.0f));
             imageStore(img_geo, store_geo(current_array_pos, MOMENTUMOFF), vec4(frag_normal, 0.0f));
-
+			
+			uint xCoordOffset = ivec2(world_to_screen(vec3(-1, 0, 0))).x;
+			vec2 texPos = world_to_screen(vec3((tmp_frag_pos.z-0.5) * 4, tmp_frag_pos.y*4, 0));
+			//texPos.x += xCoordOffset;
 			//sideview
-			imageStore(img_geo_side, ivec2(gl_FragCoord.yz), vec4(1.f, 0.f, 0.f, 1.f));
+			imageStore(img_geo_side, ivec2(texPos), vec4(.25f, 0.f, 0.f, 1.f));
         }		
         //outlinecount = current_array_pos;
 
