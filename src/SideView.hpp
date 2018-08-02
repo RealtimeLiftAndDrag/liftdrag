@@ -10,9 +10,7 @@ struct GLFWwindow;
 namespace sideview {
 
 	bool setup(const std::string & resourcesDir, GLFWwindow * mainWindow);
-
-	void cleanup();
-
+	void initGeom();
 	void render();
 	void submitOutline(int sliceNum, std::pair<glm::vec3, glm::vec3> outlinePoints);
 }

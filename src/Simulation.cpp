@@ -656,9 +656,7 @@ bool step() {
 		memset(&liftdrag_ssbo, 0, sizeof(ssbo_liftdrag));
         sweepLift = glm::vec3();
     }
-
     render_to_framebuffer();
-
     compute_move_outline(swap); //move current slice
     compute_draw_outline(swap); //draw current slice
     compute_generate_outline(!swap); //generate next slice outline
@@ -724,7 +722,7 @@ glm::vec3 getDrag() {
 }
 
 std::pair<glm::vec3, glm::vec3> getSideviewOutline(){
-	 return std::make_pair(glm::vec3(liftdrag_ssbo.sideview[currentSlice][0]), glm::vec3(liftdrag_ssbo.sideview[currentSlice][1]));
+	 return std::make_pair(glm::vec3(liftdrag_ssbo.sideview[currentSlice-1][0]), glm::vec3(liftdrag_ssbo.sideview[currentSlice-1][1]));
 }
 
 

@@ -158,17 +158,18 @@ int main(int argc, char ** argv) {
                 if (f_shouldAutoProgress) {
                     angle += k_angleIncrement;
 					angle = ( std::fmod((angle + 90.f),  180.f)) - 90.0f;
-                    //if (angle > k_maxAngleOfAttack) angle = -k_maxAngleOfAttack;
+                    if (angle > k_maxAngleOfAttack) angle = -k_maxAngleOfAttack;
                     simulation::setAngleOfAttack(angle);
                     f_shouldSweep = true;
                 }
             }
+			sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
             f_shouldStep = false;
         }
 
         if (f_shouldRender) {
             simulation::render();
-			//sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
+			sideview::render();
         }
 
         // Results -------------------------------------------------------------
