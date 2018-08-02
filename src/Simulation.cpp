@@ -45,7 +45,6 @@ struct ssbo_liftdrag {
         momentum(),
         force()
     {
-        reset_geo(2);
         for (int ii = 0; ii < 4096; ii++) {
             debugshit[ii] = glm::ivec4();
         }
@@ -56,14 +55,7 @@ struct ssbo_liftdrag {
         for (int ii = 0; ii < 4096; ii++) {
             debugshit[ii] = glm::ivec4();
         }
-        switch (swap) {
-            case 0:	out_count[0] = 0; break;
-            case 1:	out_count[1] = 0; break;
-            case 2:
-                out_count[0] = 0;
-                out_count[1] = 0;
-                break;
-        }
+		out_count[swap] = 0;
     }
 };
 
@@ -93,8 +85,7 @@ static GLuint vertexBufferID, vertexTexBox, indexBufferIDBox, sideviewVBO;
 static ssbo_liftdrag liftdrag_ssbo;
 static GLuint geo_tex; // texture holding the pixels of the geometry
 static GLuint outline_tex; // texture holding the pixels of the outline
-static GLuint ac_buffer;
-static unsigned int * nulldata;
+//static unsigned int * nulldata;
 static GLuint ssbo_geo;
 
 static GLuint computeprog_move;
@@ -303,7 +294,7 @@ static bool setupFramebuffer() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // NULL means reserve texture memory, but texels are undefined
     // Tell OpenGL to reserve level 0
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     // You must reserve memory for other mipmaps levels as well either by making a series of calls to
     // glTexImage2D or use glGenerateMipmapEXT(GL_TEXTURE_2D).
     // Here, we'll use :
@@ -467,10 +458,10 @@ static void compute_reset(unsigned int swap) {
     // reset pixel ssbo and flag_img
     //static ssbo_liftdrag temp;
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_liftdrag), &liftdrag_ssbo, GL_DYNAMIC_COPY);
-    int width, height;
-    glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
-    glBindTexture(GL_TEXTURE_2D, flag_tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
+	GLuint clearColor[4]{};
+	glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
+	//glClearTexSubImage(outline_tex, 0, 0, swap*(k_estimateMaxOutlinePixelsRows / 2), 0, k_estimateMaxOutlinePixels, k_estimateMaxOutlinePixelsRows / 2, 1, GL_RGBA, GL_FLOAT, clearColor);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
 }
 
 static void render_to_framebuffer() {
@@ -481,11 +472,7 @@ static void render_to_framebuffer() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Get current frame buffer size.
-    int width, height;
-    glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
-    float aspect = width / (float)height;
-
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, k_width, k_height);
 
     // Clear framebuffer.
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -507,8 +494,6 @@ static void render_to_framebuffer() {
 
     progfoil->bind();
 
-    //bind compute buffers
-    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 1, ac_buffer);
     
     GLuint block_index = 0;
     block_index = glGetProgramResourceIndex(progfoil->pid, GL_SHADER_STORAGE_BLOCK, "ssbo_geopixels");
@@ -565,7 +550,7 @@ bool setup(const std::string & resourceDir) {
     }    
 
     // Initialize nulldata
-    nulldata = new unsigned int[k_width * k_height * 2]{}; // zero initialization
+    //nulldata = new unsigned int[k_width * k_height * 2]{}; // zero initialization
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glEnable(GL_DEPTH_TEST);
@@ -586,32 +571,19 @@ bool setup(const std::string & resourceDir) {
     glGenBuffers(1, &ssbo_geo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo_geo);
     liftdrag_ssbo.geo_count = 0;
-    int width, height;
-    glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
-    liftdrag_ssbo.screenSpec.x = float(width);
-    liftdrag_ssbo.screenSpec.y = float(height);
-	if (width >= height) {
-		liftdrag_ssbo.screenSpec.z = float(height) / float(width);
+    liftdrag_ssbo.screenSpec.x = float(k_width);
+    liftdrag_ssbo.screenSpec.y = float(k_height);
+	if (k_width >= k_height) {
+		liftdrag_ssbo.screenSpec.z = float(k_height) / float(k_width);
 		liftdrag_ssbo.screenSpec.w = 1.0f;
 	}
 	else {
 		liftdrag_ssbo.screenSpec.z = 1.0f;
-		liftdrag_ssbo.screenSpec.w = float(width) / float(height);
+		liftdrag_ssbo.screenSpec.w = float(k_width) / float(k_height);
 	}
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo_geo);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_liftdrag), &liftdrag_ssbo, GL_DYNAMIC_COPY);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    if (glGetError() != GL_NO_ERROR) {
-        std::cerr << "OpenGL error" << std::endl;
-        return false;
-    }
-
-    // Setup ac_buffer
-    glGenBuffers(1, &ac_buffer);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, ac_buffer);
-    GLuint initac = 0;
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(GLuint), &initac, GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
     if (glGetError() != GL_NO_ERROR) {
         std::cerr << "OpenGL error" << std::endl;
         return false;
@@ -624,7 +596,9 @@ bool setup(const std::string & resourceDir) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_width, k_height * 2, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_width, k_height * 2, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
+	GLuint clearcolor = 0;
+	glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearcolor);
     glActiveTexture(GL_TEXTURE2);
     glBindImageTexture(2, flag_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
     if (glGetError() != GL_NO_ERROR) {
@@ -639,7 +613,7 @@ bool setup(const std::string & resourceDir) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_estimateMaxGeoPixels, k_extimateMaxGeoPixelsRows, 0, GL_BGRA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_estimateMaxGeoPixels, k_extimateMaxGeoPixelsRows, 0, GL_RGBA, GL_FLOAT, NULL);
     glActiveTexture(GL_TEXTURE4);
     glBindImageTexture(4, geo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
     if (glGetError() != GL_NO_ERROR) {
@@ -654,7 +628,7 @@ bool setup(const std::string & resourceDir) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_estimateMaxOutlinePixels, k_estimateMaxOutlinePixelsRows, 0, GL_BGRA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_estimateMaxOutlinePixels, k_estimateMaxOutlinePixelsRows, 0, GL_RGBA, GL_FLOAT, NULL);
     glActiveTexture(GL_TEXTURE5);
     glBindImageTexture(5, outline_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
@@ -675,6 +649,11 @@ bool setup(const std::string & resourceDir) {
 bool step() {
     if (currentSlice == 0) {
         // TODO: reset everything here
+		GLuint clearColor[4]{};
+		glClearTexImage(outline_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
+		glClearTexImage(geo_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
+		glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
+		memset(&liftdrag_ssbo, 0, sizeof(ssbo_liftdrag));
         sweepLift = glm::vec3();
     }
 

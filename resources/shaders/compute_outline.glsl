@@ -137,8 +137,8 @@ void main() {
                 momentum.xy += backforce_direction.xy;				
                 imageStore(img_outline, loadstore_outline(index, MOMENTUMOFF,swap), vec4(momentum, 0.0f));
                 
-
-                float liftforce = pow(backforce_direction.y, 2) * 1e6;
+				
+                float liftforce = backforce_direction.y * 1e6; //pow(backforce_direction.y, 3) * 1e6;
                 int i_liftforce = int(liftforce);				  
                 atomicAdd(geopix.force.x, i_liftforce);
                 drawToSideView(out_worldpos);

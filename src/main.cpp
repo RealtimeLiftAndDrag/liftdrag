@@ -26,7 +26,7 @@ extern "C" {
 
 
 static const std::string k_defResourceDir("../resources");
-static constexpr float k_angleIncrement(1.0f); // how many degrees to change the angle of attack by
+static constexpr float k_angleIncrement(7.0f); // how many degrees to change the angle of attack by
 static constexpr float k_maxAngleOfAttack(90.0f);
 
 
@@ -34,8 +34,8 @@ static constexpr float k_maxAngleOfAttack(90.0f);
 static std::string f_resourceDir(k_defResourceDir);
 static GLFWwindow * f_mainWindow;
 static bool f_shouldStep(false);
-static bool f_shouldSweep(false);
-static bool f_shouldAutoProgress(false);
+static bool f_shouldSweep(true);
+static bool f_shouldAutoProgress(true);
 static bool f_shouldRender(true);
 static float f_nextAngleOfAttack(0.0f); // in degrees
 static bool f_angleOfAttackChanged;
@@ -62,6 +62,7 @@ static bool processArgs(int argc, char ** argv) {
 void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mods) {
     // If space bar is pressed, do one slice
     if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		f_shouldAutoProgress = false;
         f_shouldStep = true;
         f_shouldSweep = false;
     }
@@ -156,7 +157,8 @@ int main(int argc, char ** argv) {
 
                 if (f_shouldAutoProgress) {
                     angle += k_angleIncrement;
-                    if (angle > k_maxAngleOfAttack) angle = -k_maxAngleOfAttack;
+					angle = ( std::fmod((angle + 90.f),  180.f)) - 90.0f;
+                    //if (angle > k_maxAngleOfAttack) angle = -k_maxAngleOfAttack;
                     simulation::setAngleOfAttack(angle);
                     f_shouldSweep = true;
                 }
