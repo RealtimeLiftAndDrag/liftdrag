@@ -30,7 +30,7 @@ static constexpr int k_leftMargin(80), k_rightMargin(140), k_bottomMargin(60), k
 static const glm::ivec2 k_initGraphSize(300, 200);
 static const glm::ivec2 k_initWindowSize(k_leftMargin + k_rightMargin + k_initGraphSize.x, k_bottomMargin + k_topMargin + k_initGraphSize.y);
 static constexpr int k_valTextPrecision(3);
-static const std::string k_graphTitleString("Lift and Drag Force (N) by Angle of Attack (°)");
+static const std::string k_graphTitleString("Lift and Drag Force (N) by Angle of Attack (ï¿½)");
 static const std::string k_graphLegendString("Green: Lift\n  Red: Drag");
 
 
@@ -76,7 +76,7 @@ static std::string valToString(float v) {
 static std::string pointToString(float angle, float lift, float drag) {
     std::stringstream ss;
     ss.precision(k_valTextPrecision);
-    ss << "Angle:" << angle << "°\nLift:" << lift << "N\nDrag:" << drag << "N";
+    ss << "Angle:" << angle << "ï¿½\nLift:" << lift << "N\nDrag:" << drag << "N";
     return ss.str();
 }
 
