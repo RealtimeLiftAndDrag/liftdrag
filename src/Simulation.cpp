@@ -35,7 +35,7 @@ struct ssbo_liftdrag {
     glm::ivec4 momentum;
     glm::ivec4 force;
     glm::ivec4 debugshit[4096];
-	glm::vec4 sideview[50][2];
+    glm::vec4 sideview[50][2];
 
     ssbo_liftdrag() :
         geo_count(0),
@@ -55,7 +55,7 @@ struct ssbo_liftdrag {
         for (int ii = 0; ii < 4096; ii++) {
             debugshit[ii] = glm::ivec4();
         }
-		out_count[swap] = 0;
+        out_count[swap] = 0;
     }
 };
 
@@ -156,7 +156,7 @@ static bool setupShaders(const std::string & resourcesDir) {
         return false;
     }
     uniform_location_swap_out = glGetUniformLocation(computeprog_outline, "swap");
-	uniform_location_slice = glGetUniformLocation(computeprog_outline, "slice");
+    uniform_location_slice = glGetUniformLocation(computeprog_outline, "slice");
     
     // Move Compute Shader -----------------------------------------------------
 
@@ -220,8 +220,8 @@ static bool setupGeom(const std::string & resourcesDir) {
     shape->resize();
     shape->init();
 
-	//generate VBO for sideview
-	glGenBuffers(1, &sideviewVBO);
+    //generate VBO for sideview
+    glGenBuffers(1, &sideviewVBO);
 
     // generate the VAO
     glGenVertexArrays(1, &vertexArrayID);
@@ -368,8 +368,8 @@ static void compute_generate_outline(unsigned int swap) {
     glActiveTexture(GL_TEXTURE5);
     glBindImageTexture(5, outline_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-	glUniform1ui(uniform_location_swap_out, swap);
-	glUniform1ui(uniform_location_slice, currentSlice);
+    glUniform1ui(uniform_location_swap_out, swap);
+    glUniform1ui(uniform_location_slice, currentSlice);
     //start compute shader program		
     glDispatchCompute((GLuint)1024, (GLuint)1, 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -458,9 +458,9 @@ static void compute_reset(unsigned int swap) {
     // reset pixel ssbo and flag_img
     //static ssbo_liftdrag temp;
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_liftdrag), &liftdrag_ssbo, GL_DYNAMIC_COPY);
-	GLuint clearColor[4]{};
-	glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
-	//glClearTexSubImage(outline_tex, 0, 0, swap*(k_estimateMaxOutlinePixelsRows / 2), 0, k_estimateMaxOutlinePixels, k_estimateMaxOutlinePixelsRows / 2, 1, GL_RGBA, GL_FLOAT, clearColor);
+    GLuint clearColor[4]{};
+    glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
+    //glClearTexSubImage(outline_tex, 0, 0, swap*(k_estimateMaxOutlinePixelsRows / 2), 0, k_estimateMaxOutlinePixels, k_estimateMaxOutlinePixelsRows / 2, 1, GL_RGBA, GL_FLOAT, clearColor);
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
 }
 
@@ -485,8 +485,8 @@ static void render_to_framebuffer() {
 
     float zNear = k_sliceSize * (float)(currentSlice + 28);
     P = glm::ortho(	-1.f/liftdrag_ssbo.screenSpec.z, 1.f / liftdrag_ssbo.screenSpec.z, //left and right
-					-1.f / liftdrag_ssbo.screenSpec.w, 1.f / liftdrag_ssbo.screenSpec.w, //bottom and top
-					zNear, zNear + k_sliceSize); //near and far
+                    -1.f / liftdrag_ssbo.screenSpec.w, 1.f / liftdrag_ssbo.screenSpec.w, //bottom and top
+                    zNear, zNear + k_sliceSize); //near and far
 
     //animation with the model matrix:
     glm::mat4 TransZ = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -0.5f));
@@ -573,14 +573,14 @@ bool setup(const std::string & resourceDir) {
     liftdrag_ssbo.geo_count = 0;
     liftdrag_ssbo.screenSpec.x = float(k_width);
     liftdrag_ssbo.screenSpec.y = float(k_height);
-	if (k_width >= k_height) {
-		liftdrag_ssbo.screenSpec.z = float(k_height) / float(k_width);
-		liftdrag_ssbo.screenSpec.w = 1.0f;
-	}
-	else {
-		liftdrag_ssbo.screenSpec.z = 1.0f;
-		liftdrag_ssbo.screenSpec.w = float(k_width) / float(k_height);
-	}
+    if (k_width >= k_height) {
+        liftdrag_ssbo.screenSpec.z = float(k_height) / float(k_width);
+        liftdrag_ssbo.screenSpec.w = 1.0f;
+    }
+    else {
+        liftdrag_ssbo.screenSpec.z = 1.0f;
+        liftdrag_ssbo.screenSpec.w = float(k_width) / float(k_height);
+    }
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo_geo);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_liftdrag), &liftdrag_ssbo, GL_DYNAMIC_COPY);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -597,8 +597,8 @@ bool setup(const std::string & resourceDir) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_width, k_height * 2, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
-	GLuint clearcolor = 0;
-	glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearcolor);
+    GLuint clearcolor = 0;
+    glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearcolor);
     glActiveTexture(GL_TEXTURE2);
     glBindImageTexture(2, flag_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
     if (glGetError() != GL_NO_ERROR) {
@@ -649,11 +649,11 @@ bool setup(const std::string & resourceDir) {
 bool step() {
     if (currentSlice == 0) {
         // TODO: reset everything here
-		GLuint clearColor[4]{};
-		glClearTexImage(outline_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
-		glClearTexImage(geo_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
-		glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
-		memset(&liftdrag_ssbo, 0, sizeof(ssbo_liftdrag));
+        GLuint clearColor[4]{};
+        glClearTexImage(outline_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
+        glClearTexImage(geo_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
+        glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
+        memset(&liftdrag_ssbo, 0, sizeof(ssbo_liftdrag));
         sweepLift = glm::vec3();
     }
     render_to_framebuffer();
@@ -662,7 +662,7 @@ bool step() {
     compute_generate_outline(!swap); //generate next slice outline
     compute_reset(swap); //reset current slice
     //debug_buff(swap);
-	swap = !swap; //set next slice to current slice
+    swap = !swap; //set next slice to current slice
 
     if (++currentSlice >= k_nSlices) {
         currentSlice = 0;
@@ -722,7 +722,7 @@ glm::vec3 getDrag() {
 }
 
 std::pair<glm::vec3, glm::vec3> getSideviewOutline(){
-	 return std::make_pair(glm::vec3(liftdrag_ssbo.sideview[currentSlice-1][0]), glm::vec3(liftdrag_ssbo.sideview[currentSlice-1][1]));
+     return std::make_pair(glm::vec3(liftdrag_ssbo.sideview[currentSlice-1][0]), glm::vec3(liftdrag_ssbo.sideview[currentSlice-1][1]));
 }
 
 

@@ -26,7 +26,8 @@ extern "C" {
 
 
 static const std::string k_defResourceDir("../resources");
-static constexpr float k_angleIncrement(7.0f); // how many degrees to change the angle of attack by
+static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the angle of attack by when using arrow keys
+static constexpr float k_autoAngleIncrement(7.0f); // how many degrees to change the angle of attack by when auto progressing
 static constexpr float k_maxAngleOfAttack(90.0f);
 
 
@@ -34,8 +35,8 @@ static constexpr float k_maxAngleOfAttack(90.0f);
 static std::string f_resourceDir(k_defResourceDir);
 static GLFWwindow * f_mainWindow;
 static bool f_shouldStep(false);
-static bool f_shouldSweep(true);
-static bool f_shouldAutoProgress(true);
+static bool f_shouldSweep(false);
+static bool f_shouldAutoProgress(false);
 static bool f_shouldRender(true);
 static float f_nextAngleOfAttack(0.0f); // in degrees
 static bool f_angleOfAttackChanged;
@@ -62,9 +63,9 @@ static bool processArgs(int argc, char ** argv) {
 void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mods) {
     // If space bar is pressed, do one slice
     if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-		f_shouldAutoProgress = false;
         f_shouldStep = true;
         f_shouldSweep = false;
+        f_shouldAutoProgress = false;
     }
     // If shift-space is pressed, do (or finish) entire sweep
     else if (key == GLFW_KEY_SPACE && action == GLFW_PRESS && (mods & GLFW_MOD_SHIFT)) {
@@ -81,7 +82,7 @@ void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mod
     // If up arrow is pressed, increase angle of attack
     else if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         if (!f_shouldAutoProgress) {
-            float nextAngle(f_nextAngleOfAttack + k_angleIncrement);
+            float nextAngle(f_nextAngleOfAttack + k_manualAngleIncrement);
             if (nextAngle > k_maxAngleOfAttack) nextAngle = k_maxAngleOfAttack;
             if (nextAngle != f_nextAngleOfAttack) {
                 f_nextAngleOfAttack = nextAngle;
@@ -92,7 +93,7 @@ void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mod
     // If down arrow is pressed, decrease angle of attack
     else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         if (!f_shouldAutoProgress) {
-            float nextAngle(f_nextAngleOfAttack - k_angleIncrement);
+            float nextAngle(f_nextAngleOfAttack - k_manualAngleIncrement);
             if (nextAngle < -k_maxAngleOfAttack) nextAngle = -k_maxAngleOfAttack;
             if (nextAngle != f_nextAngleOfAttack) {
                 f_nextAngleOfAttack = nextAngle;
@@ -125,11 +126,11 @@ int main(int argc, char ** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-	//Side view Window
-	if (!sideview::setup(f_resourceDir, simulation::getWindow())) {
-		std::cerr << "Failed to setup results" << std::endl;
-		std::exit(EXIT_FAILURE);
-	}
+    //Side view Window
+    if (!sideview::setup(f_resourceDir, simulation::getWindow())) {
+        std::cerr << "Failed to setup results" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 
     glfwMakeContextCurrent(f_mainWindow);
     glfwFocusWindow(f_mainWindow);
@@ -156,20 +157,20 @@ int main(int argc, char ** argv) {
                 results::submit(simulation::getAngleOfAttack(), lift.x, 0.0f);
 
                 if (f_shouldAutoProgress) {
-                    angle += k_angleIncrement;
-					angle = ( std::fmod((angle + 90.f),  180.f)) - 90.0f;
+                    angle += k_autoAngleIncrement;
+                    angle = (std::fmod((angle + 90.0f), 180.f)) - 90.0f;
                     if (angle > k_maxAngleOfAttack) angle = -k_maxAngleOfAttack;
                     simulation::setAngleOfAttack(angle);
                     f_shouldSweep = true;
                 }
             }
-			sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
+            sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
             f_shouldStep = false;
         }
 
         if (f_shouldRender) {
             simulation::render();
-			sideview::render();
+            sideview::render();
         }
 
         // Results -------------------------------------------------------------

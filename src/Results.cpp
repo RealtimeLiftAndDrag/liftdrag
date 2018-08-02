@@ -30,13 +30,13 @@ static constexpr int k_leftMargin(80), k_rightMargin(140), k_bottomMargin(60), k
 static const glm::ivec2 k_initGraphSize(300, 200);
 static const glm::ivec2 k_initWindowSize(k_leftMargin + k_rightMargin + k_initGraphSize.x, k_bottomMargin + k_topMargin + k_initGraphSize.y);
 static constexpr int k_valTextPrecision(3);
-static const std::string k_graphTitleString("Lift and Drag Force (N) by Angle of Attack (�)");
+static const std::string k_graphTitleString("Lift and Drag Force (N) by Angle of Attack (°)");
 static const std::string k_graphLegendString("Green: Lift\n  Red: Drag");
 
 
 
 static std::map<float, std::pair<float, float>> f_record; // map of results where key is angle and value is lift/drag pair
-static bool f_isChange;
+static bool f_isRecordChange;
 
 static GLFWwindow * f_window;
 static glm::ivec2 f_windowSize;
@@ -56,6 +56,8 @@ static bool f_isCursorTextUpdateNeeded;
 static std::unique_ptr<Text> f_titleText;
 static std::unique_ptr<Text> f_legendText;
 static bool f_isGraphTextUpdateNeeded;
+
+static bool f_isRedrawNeeded(true);
 
 
 
@@ -138,6 +140,7 @@ static void framebufferSizeCallback(GLFWwindow * window, int width, int height) 
     f_isGridTextUpdateNeeded = true;
     f_isCursorTextUpdateNeeded = true;
     f_isGraphTextUpdateNeeded = true;
+    f_isRedrawNeeded = true;
 }
 
 static void scrollCallback(GLFWwindow * window, double x, double y) {
@@ -146,6 +149,7 @@ static void scrollCallback(GLFWwindow * window, double x, double y) {
         else if (y > 0.0f) f_graph->zoomView(1.0f / k_zoomFactor);
         f_isGridTextUpdateNeeded = true;
         f_isCursorTextUpdateNeeded = true;
+        f_isRedrawNeeded = true;
     }
 }
 
@@ -157,6 +161,7 @@ static void cursorPosCallback(GLFWwindow * window, double x, double y) {
         glm::vec2 factor((f_graph->viewMax() - f_graph->viewMin()) / glm::vec2(f_graphSize));
         f_graph->moveView(-factor * glm::vec2(delta));
         f_isGridTextUpdateNeeded = true;
+        f_isRedrawNeeded = true;
     }
 
     f_mousePos += delta;
@@ -250,11 +255,15 @@ void cleanup() {
 }
 
 void render() {
+    if (!f_isRedrawNeeded) {
+        return;
+    }
+
     glfwMakeContextCurrent(f_window);
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if (f_isChange) {
+    if (f_isRecordChange) {
         auto & liftPoints(f_graph->mutatePoints(0));
         auto & dragPoints(f_graph->mutatePoints(1));
         liftPoints.clear();
@@ -266,7 +275,7 @@ void render() {
             dragPoints.emplace_back(r.first, r.second.second);
         }
 
-        f_isChange = false;
+        f_isRecordChange = false;
         f_isCursorTextUpdateNeeded = true;
     }
 
@@ -302,7 +311,8 @@ void render() {
 
 void submit(float angle, float lift, float drag) {
     f_record[std::round(angle * k_invGranularity) * k_granularity] = { lift, drag };
-    f_isChange = true;
+    f_isRecordChange = true;
+    f_isRedrawNeeded = true;
 }
 
 bool valAt(float angle, float & r_lift, float & r_drag) {
