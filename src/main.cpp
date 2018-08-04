@@ -135,8 +135,13 @@ int main(int argc, char ** argv) {
     glfwMakeContextCurrent(f_mainWindow);
     glfwFocusWindow(f_mainWindow);
 
+    int fps(0);
+    double then(glfwGetTime());
+    
     // Loop until the user closes the window.
     while (!glfwWindowShouldClose(f_mainWindow)) {
+        // Poll for and process events.
+        glfwPollEvents();
 
         // Simulation ----------------------------------------------------------
 
@@ -178,8 +183,13 @@ int main(int argc, char ** argv) {
         results::render();
         glfwMakeContextCurrent(f_mainWindow);
 
-        // Poll for and process events.
-        glfwPollEvents();
+        ++fps;
+        double now(glfwGetTime());
+        if (now - then >= 1.0) {
+            std::cout << "fps: " << fps << std::endl;
+            fps = 0;
+            then = now;
+        }
     }
 
     // Quit program.

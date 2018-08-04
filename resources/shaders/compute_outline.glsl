@@ -31,7 +31,7 @@ layout (std430, binding = 0) restrict buffer ssbo_geopixels {
     ivec4 momentum;
     ivec4 force;
     ivec4 debugshit[4096];
-	vec4 sideview[50][2];
+    vec4 sideview[50][2];
 } geopix;
 
 ivec2 load_geo(uint index,int init_offset) { // with init_offset being 0, 1, or 2 (world, momentum, tex)
@@ -48,12 +48,12 @@ ivec2 loadstore_outline(uint index, int init_offset, uint swapval) { // with ini
 }
 
 vec2 world_to_screen(vec3 world) {
-	vec2 texPos = world.xy;
-	texPos *= geopix.screenSpec.zw; //changes to be a square in texture space
-	texPos += 1.0f; //centers
-	texPos *= 0.5f;
-	texPos *= geopix.screenSpec.xy; //change range to a centered box in texture space
-	return texPos;
+    vec2 texPos = world.xy;
+    texPos *= geopix.screenSpec.zw; //changes to be a square in texture space
+    texPos += 1.0f; //centers
+    texPos *= 0.5f;
+    texPos *= geopix.screenSpec.xy; //change range to a centered box in texture space
+    return texPos;
 }
 
 
@@ -102,7 +102,7 @@ void main() {
         vec3 geo_worldpos = imageLoad(img_geo, load_geo(work_on, WORLDPOSOFF)).xyz;
         vec3 normal = imageLoad(img_geo, load_geo(work_on, MOMENTUMOFF )).xyz;
 
-		vec2 texPos = world_to_screen(geo_worldpos);
+        vec2 texPos = world_to_screen(geo_worldpos);
     
         normal = normalize(normal);
         vec3 geo_normal = normal;
@@ -115,19 +115,19 @@ void main() {
 
         vec2 pixdirection = normalize(normal.xy);
 
-		//TODO Sacriligious programming stuff going on here this is so wrong. Why would y be flipped?
-		pixdirection.y *= -1.f;
-		bool pixelFound = false;
+        //TODO Sacriligious programming stuff going on here this is so wrong. Why would y be flipped?
+        pixdirection.y *= -1.f;
+        bool pixelFound = false;
         for(int steps = 0; steps < STEPMAX; steps++) {
             col = imageLoad(img_FBO, ivec2(ntexPos));
             if (col.b > 0.f) { // we found an outline pixel  
-				pixelFound = true;
+                pixelFound = true;
                 uint index = imageAtomicAdd(img_flag, ivec2(ntexPos), uint(0));
                 if (index > 0) index--;					
                 
                 if (index < 1){					
                     break;
-				}
+                }
                     
                 vec3 out_worldpos = imageLoad(img_outline,loadstore_outline(index, WORLDPOSOFF,swap)).xyz;
 
@@ -137,7 +137,7 @@ void main() {
                 momentum.xy += backforce_direction.xy;				
                 imageStore(img_outline, loadstore_outline(index, MOMENTUMOFF,swap), vec4(momentum, 0.0f));
                 
-				
+                
                 float liftforce = backforce_direction.y * 1e6; //pow(backforce_direction.y, 3) * 1e6;
                 int i_liftforce = int(liftforce);				  
                 atomicAdd(geopix.force.x, i_liftforce);
@@ -150,7 +150,7 @@ void main() {
                 vec2 nextpos = floor(ntexPos) + vec2(0.5, 0.5) + pixdirection;
                 vec4 nextcol = imageLoad(img_FBO, ivec2(nextpos) );
                 if(nextcol.r > 0.f) {
-					pixelFound = true;
+                    pixelFound = true;
                     break;
                 }
             }
@@ -175,7 +175,7 @@ void main() {
             //imageStore(img_outline, loadstore_outline(current_array_pos, texPosOFF, swap), vec4(ntexPos, 0.0f, 0.0f));   
             imageStore(img_outline, loadstore_outline(current_array_pos, MOMENTUMOFF, swap), vec4(normal, 0.0f));
             imageStore(img_outline, loadstore_outline(current_array_pos, WORLDPOSOFF, swap), vec4(out_worldpos, 0.0f));     
-			
+            
             drawToSideView(out_worldpos);
 
         }
