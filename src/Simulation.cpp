@@ -84,6 +84,7 @@ static GLuint vertexBufferID, vertexTexBox, indexBufferIDBox, sideviewVBO;
 //ssbos
 static ssbo_liftdrag liftdrag_ssbo;
 static GLuint geo_tex; // texture holding the pixels of the geometry
+static GLuint side_geo_tex; // texture holding the pixels of the geometry from the side
 static GLuint outline_tex; // texture holding the pixels of the outline
 //static unsigned int * nulldata;
 static GLuint ssbo_geo;
@@ -92,9 +93,11 @@ static GLuint computeprog_move;
 static GLuint computeprog_draw;
 static GLuint computeprog_outline;
 static GLuint uniform_location_swap_out;
-static GLuint uniform_location_slice;
+static GLuint uniform_location_slice_fs;
+static GLuint uniform_location_slice_generate;
 static GLuint uniform_location_swap_move;
 static GLuint uniform_location_swap_draw;
+static GLuint uniform_location_slice_draw;
 
 
 
@@ -116,7 +119,8 @@ static bool setupShaders(const std::string & resourcesDir) {
     progfoil->addUniform("P");
     progfoil->addUniform("V");
     progfoil->addUniform("M");
-    progfoil->addUniform("MR");
+	progfoil->addUniform("MR");
+	progfoil->addUniform("slice");
 
     // FB Shader ---------------------------------------------------------------
 
@@ -156,7 +160,7 @@ static bool setupShaders(const std::string & resourcesDir) {
         return false;
     }
     uniform_location_swap_out = glGetUniformLocation(computeprog_outline, "swap");
-    uniform_location_slice = glGetUniformLocation(computeprog_outline, "slice");
+	uniform_location_slice_generate = glGetUniformLocation(computeprog_outline, "slice");
     
     // Move Compute Shader -----------------------------------------------------
 
@@ -206,7 +210,8 @@ static bool setupShaders(const std::string & resourcesDir) {
         std::cout << "Failed to link draw shader" << std::endl;
         return false;
     }
-    uniform_location_swap_draw = glGetUniformLocation(computeprog_draw, "swap");
+	uniform_location_swap_draw = glGetUniformLocation(computeprog_draw, "swap");
+	uniform_location_slice_draw = glGetUniformLocation(computeprog_draw, "slice");
 
     return true;
 }
@@ -284,6 +289,22 @@ static bool setupGeom(const std::string & resourcesDir) {
 }
 
 static bool setupFramebuffer() {
+	//sideview texture
+	glGenTextures(1, &side_geo_tex);
+	glBindTexture(GL_TEXTURE_2D, side_geo_tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// NULL means reserve texture memory, but texels are undefined
+	// Tell OpenGL to reserve level 0
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	// You must reserve memory for other mipmaps levels as well either by making a series of calls to
+	// glTexImage2D or use glGenerateMipmapEXT(GL_TEXTURE_2D).
+	// Here, we'll use :
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+
     // Frame Buffer Object
     // RGBA8 2D texture, 24 bit depth texture, 256x256
     glGenTextures(1, &fbo_tex);
@@ -368,8 +389,8 @@ static void compute_generate_outline(unsigned int swap) {
     glActiveTexture(GL_TEXTURE5);
     glBindImageTexture(5, outline_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    glUniform1ui(uniform_location_swap_out, swap);
-    glUniform1ui(uniform_location_slice, currentSlice);
+	glUniform1ui(uniform_location_swap_out, swap);
+	glUniform1ui(uniform_location_slice_generate, currentSlice);
     //start compute shader program		
     glDispatchCompute((GLuint)1024, (GLuint)1, 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -422,10 +443,15 @@ static void compute_draw_outline(unsigned int swap) {
     glBindImageTexture(2, flag_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
     glActiveTexture(GL_TEXTURE3);
     glBindImageTexture(3, fbo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+	glActiveTexture(GL_TEXTURE4);
+	glBindImageTexture(4, geo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
     glActiveTexture(GL_TEXTURE5);
     glBindImageTexture(5, outline_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+	glActiveTexture(GL_TEXTURE6);
+	glBindImageTexture(6, side_geo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
 
-    glUniform1ui(uniform_location_swap_draw, swap);
+	glUniform1ui(uniform_location_swap_draw, swap);
+	glUniform1ui(uniform_location_slice_draw, currentSlice);
 
     // start compute shader program		
     glDispatchCompute((GLuint)1024, (GLuint)1, 1);
@@ -458,9 +484,10 @@ static void compute_reset(unsigned int swap) {
     // reset pixel ssbo and flag_img
     //static ssbo_liftdrag temp;
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ssbo_liftdrag), &liftdrag_ssbo, GL_DYNAMIC_COPY);
-    GLuint clearColor[4]{};
-    glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
-    //glClearTexSubImage(outline_tex, 0, 0, swap*(k_estimateMaxOutlinePixelsRows / 2), 0, k_estimateMaxOutlinePixels, k_estimateMaxOutlinePixelsRows / 2, 1, GL_RGBA, GL_FLOAT, clearColor);
+	GLuint clearColor[4]{};
+	glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
+
+	//glClearTexSubImage(outline_tex, 0, 0, swap*(k_estimateMaxOutlinePixelsRows / 2), 0, k_estimateMaxOutlinePixels, k_estimateMaxOutlinePixelsRows / 2, 1, GL_RGBA, GL_FLOAT, clearColor);
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
 }
 
@@ -506,17 +533,21 @@ static void render_to_framebuffer() {
         
     glActiveTexture(GL_TEXTURE4);
     glBindImageTexture(4, geo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+	glActiveTexture(GL_TEXTURE6);
+	glBindImageTexture(6, side_geo_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         
     glUniformMatrix4fv(progfoil->getUniform("P"), 1, GL_FALSE, &P[0][0]);
     glUniformMatrix4fv(progfoil->getUniform("V"), 1, GL_FALSE, &V[0][0]);
 
-    glm::mat4 Rx = glm::rotate(glm::mat4(1.0f), glm::radians(angleOfAttack), glm::vec3(1.0f, 0.0f, 0.0f));
-    S = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 5.0f, 1.0f));
+    glm::mat4 Rx = glm::rotate(glm::mat4(1.0f), glm::radians(-angleOfAttack), glm::vec3(1.0f, 0.0f, 0.0f));
+    S = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
         
     glm::mat4 MR(1);
     glUniformMatrix4fv(progfoil->getUniform("MR"), 1, GL_FALSE, &MR[0][0]);
     M = TransZ * Rx * S;
     glUniformMatrix4fv(progfoil->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+	glUniform1ui(progfoil->getUniform("slice"), currentSlice);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     shape->draw(progfoil, false);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -649,11 +680,12 @@ bool setup(const std::string & resourceDir) {
 bool step() {
     if (currentSlice == 0) {
         // TODO: reset everything here
-        GLuint clearColor[4]{};
-        glClearTexImage(outline_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
-        glClearTexImage(geo_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
-        glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
-        memset(&liftdrag_ssbo, 0, sizeof(ssbo_liftdrag));
+		GLuint clearColor[4]{};
+		glClearTexImage(outline_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
+		glClearTexImage(geo_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
+		glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
+		glClearTexImage(side_geo_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
+		memset(&liftdrag_ssbo, 0, sizeof(ssbo_liftdrag));
         sweepLift = glm::vec3();
     }
     render_to_framebuffer();
@@ -673,7 +705,6 @@ bool step() {
 }
 
 void render() {
-    float aspect = float(k_width) / float(k_height);
     glViewport(0, 0, k_width, k_height);
     glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -723,6 +754,10 @@ glm::vec3 getDrag() {
 
 std::pair<glm::vec3, glm::vec3> getSideviewOutline(){
      return std::make_pair(glm::vec3(liftdrag_ssbo.sideview[currentSlice-1][0]), glm::vec3(liftdrag_ssbo.sideview[currentSlice-1][1]));
+}
+
+int getSideTextureID() {
+	return (int)side_geo_tex;
 }
 
 

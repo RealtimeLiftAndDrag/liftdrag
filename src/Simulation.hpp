@@ -48,6 +48,8 @@ glm::vec3 getDrag();
 
 std::pair<glm::vec3, glm::vec3> getSideviewOutline();
 
+int getSideTextureID();
+
 
 
 }

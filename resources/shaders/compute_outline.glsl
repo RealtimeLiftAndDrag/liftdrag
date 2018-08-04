@@ -57,36 +57,6 @@ vec2 world_to_screen(vec3 world) {
 }
 
 
-void drawToSideView(vec3 pos)
-{
-    if (pos.x > -0.2 && pos.x < 0.2)
-    {
-        if (pos.y < 0 && geopix.sideview[slice][0].w == 0)
-        {
-            geopix.sideview[slice][0].x = float(slice);
-            geopix.sideview[slice][0].y = pos.y;
-            geopix.sideview[slice][0].w = 1;
-        }
-        else if (pos.y > 0 && geopix.sideview[slice][1].w == 0)
-        {
-            geopix.sideview[slice][1].x = slice;
-            geopix.sideview[slice][1].y = pos.y;
-            geopix.sideview[slice][1].w = 1;
-        }
-        if (slice == 0)
-        {
-            geopix.sideview[49][0].w = 0;
-
-            geopix.sideview[49][1].w = 0;
-        }
-        else
-        {
-            geopix.sideview[slice - 1][0].w = 0;
-            geopix.sideview[slice - 1][1].w = 0;
-        }
-    }
-}
-
 void main() {
     int index = int(gl_GlobalInvocationID.x);
     int shadernum = 1024;
@@ -141,7 +111,6 @@ void main() {
                 float liftforce = backforce_direction.y * 1e6; //pow(backforce_direction.y, 3) * 1e6;
                 int i_liftforce = int(liftforce);				  
                 atomicAdd(geopix.force.x, i_liftforce);
-                drawToSideView(out_worldpos);
             
                 break;
             }
@@ -169,14 +138,12 @@ void main() {
 
             vec3 out_worldpos = geo_worldpos;
             out_worldpos.xy += (world_normal.xy * 0.1);
-
+			out_worldpos.z = geo_worldpos.z;
             uint current_array_pos = atomicAdd(geopix.out_count[swap], 1);
-           
             //imageStore(img_outline, loadstore_outline(current_array_pos, texPosOFF, swap), vec4(ntexPos, 0.0f, 0.0f));   
             imageStore(img_outline, loadstore_outline(current_array_pos, MOMENTUMOFF, swap), vec4(normal, 0.0f));
             imageStore(img_outline, loadstore_outline(current_array_pos, WORLDPOSOFF, swap), vec4(out_worldpos, 0.0f));     
-            
-            drawToSideView(out_worldpos);
+			
 
         }
     }
