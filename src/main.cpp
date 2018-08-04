@@ -126,11 +126,11 @@ int main(int argc, char ** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-	//Side view Window
-	if (!sideview::setup(f_resourceDir, simulation::getSideTextureID(), simulation::getWindow())) {
-		std::cerr << "Failed to setup results" << std::endl;
-		std::exit(EXIT_FAILURE);
-	}
+    //Side view Window
+    if (!sideview::setup(f_resourceDir, simulation::getSideTextureID(), simulation::getWindow())) {
+        std::cerr << "Failed to setup results" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 
     glfwMakeContextCurrent(f_mainWindow);
     glfwFocusWindow(f_mainWindow);
@@ -169,7 +169,7 @@ int main(int argc, char ** argv) {
                     f_shouldSweep = true;
                 }
             }
-			//sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
+            //sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
             f_shouldStep = false;
         }
 
@@ -186,7 +186,7 @@ int main(int argc, char ** argv) {
         ++fps;
         double now(glfwGetTime());
         if (now - then >= 1.0) {
-            std::cout << "fps: " << fps << std::endl;
+            //std::cout << "fps: " << fps << std::endl;
             fps = 0;
             then = now;
         }

@@ -50,12 +50,12 @@ ivec2 load_geo(uint index,int init_offset) { // with init_offset being 0, 1, or 
 }
 
 vec2 world_to_screen(vec3 world) {
-	vec2 texPos = world.xy;
-	texPos *= geopix.screenSpec.zw; //changes to be a square in texture space
-	texPos += 1.0f; //centers
-	texPos *= 0.5f;
-	texPos *= geopix.screenSpec.xy; //change range to a centered box in texture space
-	return texPos;
+    vec2 texPos = world.xy;
+    texPos *= geopix.screenSpec.zw; //changes to be a square in texture space
+    texPos += 1.0f; //centers
+    texPos *= 0.5f;
+    texPos *= geopix.screenSpec.xy; //change range to a centered box in texture space
+    return texPos;
 }
 
 void main() {
@@ -74,23 +74,23 @@ void main() {
         if(work_on >= geopix.out_count[counterswap]) break;
 
         //vec3 norm = imageLoad(img_outline,loadstore_outline(work_on, MOMENTUMOFF,counterswap)).xyz;
-        vec3 worldpos = imageLoad(img_outline,loadstore_outline(work_on, WORLDPOSOFF,counterswap)).xyz;
-		vec3 geo_worldpos = imageLoad(img_geo, load_geo(work_on, WORLDPOSOFF)).xyz;
+        vec3 worldpos = imageLoad(img_outline, loadstore_outline(work_on, WORLDPOSOFF, counterswap)).xyz;
+        vec3 geo_worldpos = imageLoad(img_geo, load_geo(work_on, WORLDPOSOFF)).xyz;
         
         vec2 texPos = world_to_screen(worldpos);
         
         vec4 original_color = imageLoad(img_FBO, ivec2(texPos));
         original_color.b = 1.0f;
 
-		vec2 sideTexPos = world_to_screen(vec3((worldpos.z - 0.5) * 4, worldpos.y * 4, 0));
-		vec2 sideGeoTexPos = world_to_screen(vec3((geo_worldpos.z - 0.5) * 4, geo_worldpos.y * 4, 0));
+        vec2 sideTexPos = world_to_screen(vec3((worldpos.z - 0.5) * 4, worldpos.y * 4, 0));
+        vec2 sideGeoTexPos = world_to_screen(vec3((geo_worldpos.z - 0.5) * 4, geo_worldpos.y * 4, 0));
 //		sideTexPos.x = slice;
 //		sideGeoTexPos.x = slice;
         imageStore(img_FBO, ivec2(texPos), original_color);
-		if(worldpos.x < -.1 && worldpos.x > -.2){
-			imageStore(img_geo_side, ivec2(sideTexPos), vec4(0,1,1,1));
-			imageStore(img_geo_side, ivec2(sideGeoTexPos), vec4(1, 1, 0, 1));
-		}
+        if(worldpos.x < -.1 && worldpos.x > -.2){
+            imageStore(img_geo_side, ivec2(sideTexPos), vec4(0,1,1,1));
+            imageStore(img_geo_side, ivec2(sideGeoTexPos), vec4(1, 1, 0, 1));
+        }
         imageAtomicExchange(img_flag, ivec2(texPos), uint(work_on + 1));
     }        
 }

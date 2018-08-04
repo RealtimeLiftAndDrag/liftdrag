@@ -349,3 +349,6 @@ CTestTestfile.cmake
 
 ext/
 *.old
+/glm
+/include/GLFW
+/glfw3dll.lib

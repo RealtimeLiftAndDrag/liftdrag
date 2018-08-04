@@ -46,12 +46,12 @@ ivec2 loadstore_outline(uint index, int init_offset, uint swapval) { // with ini
 }
 
 vec2 world_to_screen(vec3 world) {
-	vec2 texPos = world.xy;
-	texPos *= geopix.screenSpec.zw; //changes to be a square in texture space
-	texPos += 1.0f; //centers
-	texPos *= 0.5f;
-	texPos *= geopix.screenSpec.xy; //change range to a centered box in texture space
-	return texPos;
+    vec2 texPos = world.xy;
+    texPos *= geopix.screenSpec.zw; //changes to be a square in texture space
+    texPos += 1.0f; //centers
+    texPos *= 0.5f;
+    texPos *= geopix.screenSpec.xy; //change range to a centered box in texture space
+    return texPos;
 }
 
 void main() {
@@ -79,11 +79,11 @@ void main() {
         world_direction.x /= geopix.screenSpec.x / 2.f;
         world_direction.y /= geopix.screenSpec.y / 2.f;
 
-		//TODO Sacriligious programming stuff going on here this is so wrong. Why would y be flipped?
-		world_direction.y *= -1.f;
+        //TODO Sacriligious programming stuff going on here this is so wrong. Why would y be flipped?
+        world_direction.y *= -1.f;
         vec3 newworldpos = worldpos;
-		newworldpos.xy += world_direction.xy;
-		newworldpos.z += 0.01f;
+        newworldpos.xy += world_direction.xy;
+        newworldpos.z += 0.01f;
         vec2 texPos = world_to_screen(newworldpos);
 
         vec4 col = imageLoad(img_FBO, ivec2(texPos));
@@ -113,7 +113,7 @@ void main() {
         uint current_array_pos = atomicAdd(geopix.out_count[counterswap], 1);
         if(current_array_pos >= ESTIMATEMAXOUTLINEPIXELSSUM)
             break;
-	
+    
         //imageStore(img_outline, loadstore_outline(current_array_pos, TEXPOSOFF, counterswap), vec4(newtexpos, 0.0f, 0.0f));   
         imageStore(img_outline, loadstore_outline(current_array_pos, MOMENTUMOFF, counterswap), vec4(direction_result, 0.0f));
         imageStore(img_outline, loadstore_outline(current_array_pos, WORLDPOSOFF, counterswap), vec4(newworldpos, 0.0f));
