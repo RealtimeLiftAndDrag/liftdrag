@@ -108,10 +108,10 @@ void main() {
                 backforce_direction=normalize(backforce_direction);
                 vec3 momentum = imageLoad(img_outline,loadstore_outline(index, MOMENTUMOFF,swap)).xyz;		
                 
-                force=pow(force-0.08,0.7);
-                if(force<0)force=0;
+                //force=pow(force-0.08,0.7);
+                //if(force<0)force=0;
 
-                momentum.xy += force*backforce_direction.xy;				
+                momentum.xy += backforce_direction.xy; //* force;				
                 imageStore(img_outline, loadstore_outline(index, MOMENTUMOFF,swap), vec4(momentum, 0.0f));
                 
                 
@@ -134,7 +134,7 @@ void main() {
             ntexPos += pixdirection;
         }
     
-        if ( (!pixelFound || steps == STEPMAX) && normal.z < 0.0f) { //make a new outline
+        if ((!pixelFound || steps == STEPMAX) && normal.z < 0.0f) { //make a new outline
             //atomicAdd(geopix.debugshit[0].w, 1);
             // ntexPos = texPos - normal.xy * 20.5f;
 
