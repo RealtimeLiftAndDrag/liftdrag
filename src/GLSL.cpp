@@ -4,6 +4,10 @@
 //    Modified by sueda 10/15/15.
 //
 
+#ifndef _MSC_VER
+	#define sscanf_s sscanf
+#endif
+
 #include "GLSL.h"
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,4 +1,4 @@
-﻿#version 450
+#version 450
 #extension GL_ARB_shader_storage_buffer_object : require
 
 #define WORLDPOSOFF 0
@@ -83,6 +83,7 @@ void main() {
 		world_direction.y *= -1.f;
         vec3 newworldpos = worldpos;
 		newworldpos.xy += world_direction.xy;
+		newworldpos.z += 0.01f;
         vec2 texPos = world_to_screen(newworldpos);
 
         vec4 col = imageLoad(img_FBO, ivec2(texPos));
@@ -112,7 +113,7 @@ void main() {
         uint current_array_pos = atomicAdd(geopix.out_count[counterswap], 1);
         if(current_array_pos >= ESTIMATEMAXOUTLINEPIXELSSUM)
             break;
-
+	
         //imageStore(img_outline, loadstore_outline(current_array_pos, TEXPOSOFF, counterswap), vec4(newtexpos, 0.0f, 0.0f));   
         imageStore(img_outline, loadstore_outline(current_array_pos, MOMENTUMOFF, counterswap), vec4(direction_result, 0.0f));
         imageStore(img_outline, loadstore_outline(current_array_pos, WORLDPOSOFF, counterswap), vec4(newworldpos, 0.0f));

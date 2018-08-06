@@ -1,5 +1,5 @@
 #include "Simulation.hpp"
-
+#include <cstring>
 #include <memory>
 #include <iostream>
 
@@ -350,7 +350,7 @@ static void debug_buff(unsigned int swap) {
     GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
     int siz = sizeof(ssbo_liftdrag);
     ssbo_liftdrag test;
-    memcpy(&test, p, siz);
+    std::memcpy(&test, p, siz);
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
     //std::cout << test.geo_count << " , " << test.debugshit[0].x << " , " << test.debugshit[0].y << " , " << test.debugshit[0].z  << " , " << test.debugshit[0].w << std::endl;
@@ -673,7 +673,7 @@ bool step() {
 		glClearTexImage(outline_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
 		glClearTexImage(geo_tex, 0, GL_RGBA, GL_FLOAT, &clearColor);
 		glClearTexImage(flag_tex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearColor);
-		memset(&liftdrag_ssbo, 0, sizeof(ssbo_liftdrag));
+		std::memset(&liftdrag_ssbo, 0, sizeof(ssbo_liftdrag));
         sweepLift = glm::vec3();
     }
     render_to_framebuffer();

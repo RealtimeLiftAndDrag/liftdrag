@@ -1,5 +1,5 @@
 ﻿// Realtime Lift and Drag SURP 2018
-// Christian Eckhart, William Newey, Austin Quick, Sebastian Seibert
+// Christian Eckhart, William Newey, Austin Quick, Sebastian Seibert von Fock
 
 
 
@@ -163,7 +163,6 @@ int main(int argc, char ** argv) {
                     f_shouldSweep = true;
                 }
             }
-			sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
             f_shouldStep = false;
         }
 

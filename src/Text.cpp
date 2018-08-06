@@ -4,7 +4,7 @@
 
 #include "glad/glad.h"
 #include "stb_image.h"
-
+#include <memory>
 #include "Program.h"
 
 
@@ -230,7 +230,7 @@ void Text::detCharData() {
 
         for (int i(0); i < lineLength; ++i) {        
             m_charData.emplace_back(charPos);
-            m_charData.emplace_back(f_charTexCoords[unsigned char(m_string[strI + i])]);
+            m_charData.emplace_back(f_charTexCoords[char(m_string[strI + i])]);
 
             charPos.x += f_fontSize.x;            
         }
