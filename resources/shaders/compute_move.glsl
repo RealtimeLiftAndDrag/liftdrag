@@ -80,7 +80,7 @@ void main() {
         world_direction.y /= geopix.screenSpec.y / 2.f;
 
         //TODO Sacriligious programming stuff going on here this is so wrong. Why would y be flipped?
-        world_direction.y *= -1.f;
+        //world_direction.y *= -1.f;
         vec3 newworldpos = worldpos;
         newworldpos.xy += world_direction.xy;
         newworldpos.z += 0.01f;

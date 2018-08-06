@@ -86,7 +86,7 @@ void main() {
         vec2 pixdirection = normalize(normal.xy);
 
         //TODO Sacriligious programming stuff going on here this is so wrong. Why would y be flipped?
-        pixdirection.y *= -1.f;
+        //pixdirection.y *= -1.f;
         bool pixelFound = false;
         for(int steps = 0; steps < STEPMAX; steps++) {
             col = imageLoad(img_FBO, ivec2(ntexPos));

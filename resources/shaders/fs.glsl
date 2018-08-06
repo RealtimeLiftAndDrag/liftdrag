@@ -74,7 +74,7 @@ void main() {
             imageStore(img_geo, store_geo(current_array_pos, MOMENTUMOFF), vec4(frag_normal, 0.0f));
             
             uint xCoordOffset = ivec2(world_to_screen(vec3(-1, 0, 0))).x;
-            vec2 texPos = world_to_screen(vec3((tmp_frag_pos.z - 0.5) * 4, tmp_frag_pos.y * 4, 0));
+            vec2 texPos = world_to_screen(vec3((tmp_frag_pos.z - 0.5) * 2, tmp_frag_pos.y * 2, 0));
             //texPos.x += xCoordOffset;
             //sideview
             imageStore(img_geo_side, ivec2(texPos), vec4(1.f, 0.f, 0.f, 1.f));

@@ -18,7 +18,7 @@ namespace simulation {
 
 static constexpr int k_width(720), k_height(480);
 static constexpr int k_nSlices(50);
-static constexpr float k_sliceSize(0.01f); // z distance between slices
+static constexpr float k_sliceSize(0.025f); // z distance between slices
 static constexpr int k_estimateMaxGeoPixels(16384);
 static constexpr int k_extimateMaxGeoPixelsRows(27);
 static constexpr int k_estimateMaxOutlinePixels(16384);
@@ -221,8 +221,8 @@ static bool setupGeom(const std::string & resourcesDir) {
     std::string objsDir = resourcesDir + "/objs";
     // Initialize mesh.
     shape = std::make_shared<Shape>();
-    shape->loadMesh(objsDir + "/a12.obj");
-    shape->resize();
+    shape->loadMesh(objsDir + "/0012.obj");
+    //shape->resize();
     shape->init();
 
     //generate VBO for sideview
@@ -510,17 +510,12 @@ static void render_to_framebuffer() {
     V = glm::mat4();
     M = glm::mat4(1);
 
-    float zNear = k_sliceSize * (float)(currentSlice + 28);
+    float zNear = k_sliceSize * (currentSlice - 1.5f);
     P = glm::ortho(	-1.f/liftdrag_ssbo.screenSpec.z, 1.f / liftdrag_ssbo.screenSpec.z, //left and right
                     -1.f / liftdrag_ssbo.screenSpec.w, 1.f / liftdrag_ssbo.screenSpec.w, //bottom and top
                     zNear, zNear + k_sliceSize); //near and far
 
-    //animation with the model matrix:
-    glm::mat4 TransZ = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -0.5f));
-    glm::mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(0.1f, 0.1f, 0.1f));
-
     progfoil->bind();
-
     
     GLuint block_index = 0;
     block_index = glGetProgramResourceIndex(progfoil->pid, GL_SHADER_STORAGE_BLOCK, "ssbo_geopixels");
@@ -541,11 +536,10 @@ static void render_to_framebuffer() {
     glUniformMatrix4fv(progfoil->getUniform("V"), 1, GL_FALSE, &V[0][0]);
 
     glm::mat4 Rx = glm::rotate(glm::mat4(1.0f), glm::radians(-angleOfAttack), glm::vec3(1.0f, 0.0f, 0.0f));
-    S = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
         
     glm::mat4 MR(1);
     glUniformMatrix4fv(progfoil->getUniform("MR"), 1, GL_FALSE, &MR[0][0]);
-    M = TransZ * Rx * S;
+    M = Rx;
     glUniformMatrix4fv(progfoil->getUniform("M"), 1, GL_FALSE, &M[0][0]);
     glUniform1ui(progfoil->getUniform("slice"), currentSlice);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);

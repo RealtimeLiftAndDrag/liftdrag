@@ -82,8 +82,8 @@ void main() {
         vec4 original_color = imageLoad(img_FBO, ivec2(texPos));
         original_color.b = 1.0f;
 
-        vec2 sideTexPos = world_to_screen(vec3((worldpos.z - 0.5) * 4, worldpos.y * 4, 0));
-        vec2 sideGeoTexPos = world_to_screen(vec3((geo_worldpos.z - 0.5) * 4, geo_worldpos.y * 4, 0));
+        vec2 sideTexPos = world_to_screen(vec3((worldpos.z - 0.5) * 2, worldpos.y * 2, 0));
+        vec2 sideGeoTexPos = world_to_screen(vec3((geo_worldpos.z - 0.5) * 2, geo_worldpos.y * 2, 0));
 //		sideTexPos.x = slice;
 //		sideGeoTexPos.x = slice;
         imageStore(img_FBO, ivec2(texPos), original_color);
