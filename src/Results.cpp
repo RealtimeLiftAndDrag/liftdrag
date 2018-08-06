@@ -338,6 +338,10 @@ bool valAt(float angle, float & r_lift, float & r_drag) {
     return true;
 }
 
+GLFWwindow * getWindow() {
+    return f_window;
+}
+
 
 
 }

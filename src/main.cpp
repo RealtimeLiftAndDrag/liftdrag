@@ -112,25 +112,33 @@ int main(int argc, char ** argv) {
     }
 
     // Setup simulation
-    if (!simulation::setup(f_resourceDir)) {
+    if (!Simulation::setup(f_resourceDir)) {
         std::cerr << "Failed to setup simulation" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    f_mainWindow = simulation::getWindow();
+    f_mainWindow = Simulation::getWindow();
     glfwSetKeyCallback(f_mainWindow, keyCallback);
     glfwSwapInterval(0);
     
     // Results Window
-    if (!results::setup(f_resourceDir, simulation::getWindow())) {
+    if (!results::setup(f_resourceDir, Simulation::getWindow())) {
         std::cerr << "Failed to setup results" << std::endl;
         std::exit(EXIT_FAILURE);
     }
+    GLFWwindow * resultsWindow(results::getWindow());
 
     //Side view Window
-    if (!sideview::setup(f_resourceDir, simulation::getSideTextureID(), simulation::getWindow())) {
+    if (!sideview::setup(f_resourceDir, Simulation::getSideTextureID(), Simulation::getWindow())) {
         std::cerr << "Failed to setup results" << std::endl;
         std::exit(EXIT_FAILURE);
     }
+    GLFWwindow * sideViewWindow(sideview::getWindow());
+
+    glfwSetWindowPos(f_mainWindow, 100, 100);
+    int windowWidth, windowHeight;
+    glfwGetWindowSize(f_mainWindow, &windowWidth, &windowHeight);
+    glfwSetWindowPos(sideViewWindow, 100 + windowWidth + 10, 100);
+    glfwSetWindowPos(resultsWindow, 100, 100 + windowHeight + 40);
 
     glfwMakeContextCurrent(f_mainWindow);
     glfwFocusWindow(f_mainWindow);
@@ -145,36 +153,36 @@ int main(int argc, char ** argv) {
 
         // Simulation ----------------------------------------------------------
 
-        if (simulation::getSlice() == 0) { // Prior to starting sweep
+        if (Simulation::getSlice() == 0) { // Prior to starting sweep
             if (f_angleOfAttackChanged) {
-                simulation::setAngleOfAttack(f_nextAngleOfAttack);
+                Simulation::setAngleOfAttack(f_nextAngleOfAttack);
                 f_angleOfAttackChanged = false;
                 std::cout << "angle set to " << f_nextAngleOfAttack << " degrees" << std::endl;
             }
         }
         if (f_shouldStep || f_shouldSweep) {
-            if (simulation::step()) {
+            if (Simulation::step()) {
                 // That was the last slice
                 f_shouldSweep = false;
-                float angle(simulation::getAngleOfAttack());
-                glm::vec3 lift(simulation::getLift());
+                float angle(Simulation::getAngleOfAttack());
+                glm::vec3 lift(Simulation::getLift());
                 std::cout << "angle: " << angle << ", lift: " << lift.x << std::endl;
-                results::submit(simulation::getAngleOfAttack(), lift.x, 0.0f);
+                results::submit(Simulation::getAngleOfAttack(), lift.x, 0.0f);
 
                 if (f_shouldAutoProgress) {
                     angle += k_autoAngleIncrement;
                     angle = (std::fmod((angle + 90.0f), 180.f)) - 90.0f;
                     if (angle > k_maxAngleOfAttack) angle = -k_maxAngleOfAttack;
-                    simulation::setAngleOfAttack(angle);
+                    Simulation::setAngleOfAttack(angle);
                     f_shouldSweep = true;
                 }
             }
-            //sideview::submitOutline(simulation::getSlice(), simulation::getSideviewOutline());
+            //sideview::submitOutline(Simulation::getSlice(), Simulation::getSideviewOutline());
             f_shouldStep = false;
         }
 
         if (f_shouldRender) {
-            simulation::render();
+            Simulation::render();
             sideview::render();
         }
 
@@ -193,7 +201,7 @@ int main(int argc, char ** argv) {
     }
 
     // Quit program.
-    simulation::cleanup();
+    Simulation::cleanup();
     results::cleanup();
 
     return EXIT_SUCCESS;

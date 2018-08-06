@@ -12,44 +12,40 @@ struct GLFWwindow;
 
 
 
-namespace simulation {
+namespace Simulation {
 
+    bool setup(const std::string & resourceDir);
 
+    // Does one slice and returns if it was the last one
+    bool step();
 
-bool setup(const std::string & resourceDir);
+    // Renders current situation to screen
+    void render();
 
-// Does one slice and returns if it was the last one
-bool step();
+    void cleanup();
 
-// Renders current situation to screen
-void render();
+    GLFWwindow * getWindow();
 
-void cleanup();
+    // Returns the index of the slice that would be next
+    int getSlice();
 
-GLFWwindow * getWindow();
+    // Returns the total number of slices
+    int getNSlices();
 
-// Returns the index of the slice that would be next
-int getSlice();
+    // Angle is in degrees
+    float getAngleOfAttack();
 
-// Returns the total number of slices
-int getNSlices();
+    // Angle is in degrees
+    void setAngleOfAttack(float angle);
 
-// Angle is in degrees
-float getAngleOfAttack();
+    // Returns the lift of the previous sweep
+    glm::vec3 getLift();
 
-// Angle is in degrees
-void setAngleOfAttack(float angle);
+    // Returns the drag of the previous sweep
+    glm::vec3 getDrag();
 
-// Returns the lift of the previous sweep
-glm::vec3 getLift();
+    std::pair<glm::vec3, glm::vec3> getSideviewOutline();
 
-// Returns the drag of the previous sweep
-glm::vec3 getDrag();
-
-std::pair<glm::vec3, glm::vec3> getSideviewOutline();
-
-int getSideTextureID();
-
-
+    int getSideTextureID();
 
 }

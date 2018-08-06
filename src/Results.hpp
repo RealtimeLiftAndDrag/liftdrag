@@ -24,6 +24,8 @@ void submit(float angle, float lift, float drag);
 // degrees) and true, or false if the angle is out of interpolation range
 bool valAt(float angle, float & r_lift, float & r_drag);
 
+GLFWwindow * getWindow();
+
 
 
 }
