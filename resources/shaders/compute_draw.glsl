@@ -8,13 +8,22 @@
 #define ESTIMATEMAXOUTLINEPIXELSROWS 54
 #define ESTIMATEMAXOUTLINEPIXELSSUM ESTIMATEMAXOUTLINEPIXELS * (ESTIMATEMAXOUTLINEPIXELSROWS / (2 * 3))
 
+#define ESTIMATEMAXGEOPIXELS 16384
+#define ESTIMATEMAXGEOPIXELSROWS 27
+#define ESTIMATEMAXGEOPIXELSSUM ESTIMATEMAXGEOPIXELS * (ESTIMATEMAXGEOPIXELSROWS / (2*3))
+
+
+
 layout (local_size_x = 1, local_size_y = 1) in;
 
 uniform uint swap;
+uniform uint slice;
 // local group of shaders
 // compute buffers
 layout (r32ui, binding = 2) uniform uimage2D img_flag;									
 layout (rgba8, binding = 3) uniform image2D img_FBO; // framebuffer
+layout (rgba32f, binding = 4) uniform image2D img_geo;	
+layout (rgba8, binding = 6) uniform image2D img_geo_side;	
 layout (rgba32f, binding = 5) uniform image2D img_outline;	
 layout (std430, binding = 0) restrict buffer ssbo_geopixels { 
     uint geo_count;
@@ -34,6 +43,11 @@ ivec2 loadstore_outline(uint index, int init_offset, uint swapval) { // with ini
     return ivec2(off ,init_offset + 3*mul + swapval*halfval);
 }
 
+ivec2 load_geo(uint index,int init_offset) { // with init_offset being 0, 1, or 2 (world, momentum, tex)
+    uint off = index % ESTIMATEMAXGEOPIXELS;
+    uint mul = index / ESTIMATEMAXGEOPIXELS;
+    return ivec2(off, init_offset + 3 * mul);
+}
 
 vec2 world_to_screen(vec3 world) {
 	vec2 texPos = world.xy;
@@ -61,13 +75,22 @@ void main() {
 
         //vec3 norm = imageLoad(img_outline,loadstore_outline(work_on, MOMENTUMOFF,counterswap)).xyz;
         vec3 worldpos = imageLoad(img_outline,loadstore_outline(work_on, WORLDPOSOFF,counterswap)).xyz;
+		vec3 geo_worldpos = imageLoad(img_geo, load_geo(work_on, WORLDPOSOFF)).xyz;
         
         vec2 texPos = world_to_screen(worldpos);
         
         vec4 original_color = imageLoad(img_FBO, ivec2(texPos));
         original_color.b = 1.0f;
 
+		vec2 sideTexPos = world_to_screen(vec3((worldpos.z - 0.5) * 4, worldpos.y * 4, 0));
+		vec2 sideGeoTexPos = world_to_screen(vec3((geo_worldpos.z - 0.5) * 4, geo_worldpos.y * 4, 0));
+//		sideTexPos.x = slice;
+//		sideGeoTexPos.x = slice;
         imageStore(img_FBO, ivec2(texPos), original_color);
+		if(worldpos.x < -.1 && worldpos.x > -.2){
+			imageStore(img_geo_side, ivec2(sideTexPos), vec4(0,0,1,1));
+			imageStore(img_geo_side, ivec2(sideGeoTexPos), vec4(1, 0, 0, 1));
+		}
         imageAtomicExchange(img_flag, ivec2(texPos), uint(work_on + 1));
     }        
 }
