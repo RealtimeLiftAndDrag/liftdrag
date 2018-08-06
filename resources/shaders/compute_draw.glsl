@@ -74,7 +74,7 @@ void main() {
         if(work_on >= geopix.out_count[counterswap]) break;
 
         //vec3 norm = imageLoad(img_outline,loadstore_outline(work_on, MOMENTUMOFF,counterswap)).xyz;
-        vec3 worldpos = imageLoad(img_outline, loadstore_outline(work_on, WORLDPOSOFF, counterswap)).xyz;
+        vec3 worldpos = imageLoad(img_outline,loadstore_outline(work_on, WORLDPOSOFF,counterswap)).xyz;
         vec3 geo_worldpos = imageLoad(img_geo, load_geo(work_on, WORLDPOSOFF)).xyz;
         
         vec2 texPos = world_to_screen(worldpos);

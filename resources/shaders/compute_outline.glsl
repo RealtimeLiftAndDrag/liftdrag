@@ -88,8 +88,7 @@ void main() {
         //TODO Sacriligious programming stuff going on here this is so wrong. Why would y be flipped?
         pixdirection.y *= -1.f;
         bool pixelFound = false;
-        int steps = 0;
-        for(; steps < STEPMAX; steps++) {
+        for(int steps = 0; steps < STEPMAX; steps++) {
             col = imageLoad(img_FBO, ivec2(ntexPos));
             if (col.b > 0.f) { // we found an outline pixel  
                 pixelFound = true;
@@ -100,18 +99,18 @@ void main() {
                     break;
                 }
                     
-                vec3 out_worldpos = imageLoad(img_outline, loadstore_outline(index, WORLDPOSOFF, swap)).xyz;
+                vec3 out_worldpos = imageLoad(img_outline,loadstore_outline(index, WORLDPOSOFF,swap)).xyz;
 
                 vec3 backforce_direction = out_worldpos - geo_worldpos;
                 backforce_direction *= 1; //modifier constant
-                float force = length(backforce_direction);
-                backforce_direction=normalize(backforce_direction);
-                vec3 momentum = imageLoad(img_outline,loadstore_outline(index, MOMENTUMOFF,swap)).xyz;		
-                
-                force=pow(force-0.08,0.7);
-                if(force<0)force=0;
 
-                momentum.xy += force*backforce_direction.xy;				
+                //float force = length(backforce_direction);
+                //backforce_direction=normalize(backforce_direction);
+                //force=pow(force-0.08,0.7);
+                //if(force<0)force=0;
+
+                vec3 momentum = imageLoad(img_outline,loadstore_outline(index, MOMENTUMOFF,swap)).xyz;				
+                momentum.xy += backforce_direction.xy; //* force;				
                 imageStore(img_outline, loadstore_outline(index, MOMENTUMOFF,swap), vec4(momentum, 0.0f));
                 
                 
@@ -134,12 +133,17 @@ void main() {
             ntexPos += pixdirection;
         }
     
-        if ( (!pixelFound || steps == STEPMAX) && normal.z < 0.0f) { //make a new outline
+        if (!pixelFound && normal.z < 0.0f) { //make a new outline
             //atomicAdd(geopix.debugshit[0].w, 1);
             // ntexPos = texPos - normal.xy * 20.5f;
 
+            vec2 world_normal = normal.xy;// * .5f;
+
+            world_normal.x /= geopix.screenSpec.x / 2.f;
+            world_normal.y /= geopix.screenSpec.y / 2.f;
+
             vec3 out_worldpos = geo_worldpos;
-            out_worldpos.xy += normal.xy / (geopix.screenSpec.xy * 0.5f);
+            out_worldpos.xy += (world_normal.xy * 0.1);
             out_worldpos.z = geo_worldpos.z;
             uint current_array_pos = atomicAdd(geopix.out_count[swap], 1);
             //imageStore(img_outline, loadstore_outline(current_array_pos, texPosOFF, swap), vec4(ntexPos, 0.0f, 0.0f));   
