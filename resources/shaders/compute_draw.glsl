@@ -1,5 +1,4 @@
-﻿#version 450
-#extension GL_ARB_shader_storage_buffer_object : require
+﻿#version 450 core
 
 #define WORLDPOSOFF 0
 #define MOMENTUMOFF 1
@@ -16,7 +15,7 @@
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
-uniform uint u_swap;
+uniform int u_swap;
 
 layout (   r32i, binding = 2) uniform iimage2D u_flagImg;									
 layout (  rgba8, binding = 3) uniform  image2D u_fboImg;
@@ -25,45 +24,44 @@ layout (  rgba8, binding = 6) uniform  image2D u_geoSideImg;
 layout (rgba32f, binding = 5) uniform  image2D u_outlineImg;
 
 layout (std430, binding = 0) restrict buffer SSBO { 
-    uint geometryCount;
-    uint test; // necessary for padding
-    uint outlineCount[2];
+    int geometryCount;
+    int test; // necessary for padding
+    int outlineCount[2];
     vec4 screenSpec;
     ivec4 momentum;
     ivec4 force;
     ivec4 debugShit[DEBUG_SIZE];
 } ssbo;
 
-ivec2 loadstore_outline(uint index, int init_offset, uint swapval) { // with init_offset being 0,1 or 2  (world, momentum, tex)
-    uint off = index % ESTIMATEMAXOUTLINEPIXELS;
-    uint mul = index / ESTIMATEMAXOUTLINEPIXELS;
+ivec2 loadstore_outline(int index, int init_offset, int swapval) { // with init_offset being 0,1 or 2  (world, momentum, tex)
+    int off = index % ESTIMATEMAXOUTLINEPIXELS;
+    int mul = index / ESTIMATEMAXOUTLINEPIXELS;
     int halfval = ESTIMATEMAXOUTLINEPIXELSROWS / 2;
     return ivec2(off, init_offset + 3 * mul + swapval * halfval);
 }
 
-ivec2 load_geo(uint index, int init_offset) { // with init_offset being 0, 1, or 2 (world, momentum, tex)
-    uint off = index % ESTIMATEMAXGEOPIXELS;
-    uint mul = index / ESTIMATEMAXGEOPIXELS;
+ivec2 load_geo(int index, int init_offset) { // with init_offset being 0, 1, or 2 (world, momentum, tex)
+    int off = index % ESTIMATEMAXGEOPIXELS;
+    int mul = index / ESTIMATEMAXGEOPIXELS;
     return ivec2(off, init_offset + 3 * mul);
 }
 
 vec2 world_to_screen(vec3 world) {
     vec2 texPos = world.xy;
-    texPos *= ssbo.screenSpec.zw; //changes to be a square in texture space
-    texPos += 1.0f; //centers
-    texPos *= 0.5f;
-    texPos *= ssbo.screenSpec.xy; //change range to a centered box in texture space
+    texPos *= ssbo.screenSpec.zw; // compensate for aspect ratio
+    texPos = texPos * 0.5f + 0.5f; // center
+    texPos *= ssbo.screenSpec.xy; // scale to texture space
     return texPos;
 }
 
 void main() {
-    uint counterswap = 1 - u_swap;
+    int counterswap = 1 - u_swap;
     if (u_swap == 0) counterswap = 1;
     else counterswap = 0;
 
     int index = int(gl_GlobalInvocationID.x);
     int shadernum = 1024;
-    uint iac = ssbo.outlineCount[counterswap];
+    int iac = ssbo.outlineCount[counterswap];
     float f_cs_workload_per_shader = ceil(float(iac) / float(shadernum));
     int cs_workload_per_shader = int(f_cs_workload_per_shader);
     for (int ii = 0; ii < cs_workload_per_shader; ii++) {

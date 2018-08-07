@@ -50,7 +50,7 @@ namespace Simulation {
             if (k_doDebug) std::memset(debugShit, 0, k_debugSize);
         }
 
-        void reset(unsigned int swap) {
+        void reset(int swap) {
             geometryCount = 0;
             test = 0;
             outlineCount[swap] = 0;
@@ -114,10 +114,10 @@ namespace Simulation {
             std::cerr << "Failed to initialize foil shader" << std::endl;
             return false;
         }
-        s_foilProg->addUniform("P");
-        s_foilProg->addUniform("V");
-        s_foilProg->addUniform("M");
-        s_foilProg->addUniform("N");
+        s_foilProg->addUniform("u_projMat");
+        s_foilProg->addUniform("u_viewMat");
+        s_foilProg->addUniform("u_modelMat");
+        s_foilProg->addUniform("u_normMat");
 
         // FB Shader ---------------------------------------------------------------
 
@@ -345,7 +345,7 @@ namespace Simulation {
         return true;
     }
 
-    static void debug(unsigned int swap) {
+    static void debug(int swap) {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboID);
         GLvoid * p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
         SSBO test;
@@ -355,7 +355,7 @@ namespace Simulation {
         //std::cout << test.geometryCount << " , " << test.debugShit[0].x << " , " << test.debugShit[0].y << " , " << test.debugShit[0].z  << " , " << test.debugShit[0].w << std::endl;
     }
 
-    static void computeOutline(unsigned int swap) {
+    static void computeOutline(int swap) {
         glUseProgram(OutlineShader::prog);
 
         uint block_index = 0;
@@ -369,7 +369,7 @@ namespace Simulation {
         glBindImageTexture(4, s_geometryTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(5, s_outlineTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-        glUniform1ui(OutlineShader::u_swap, swap);
+        glUniform1i(OutlineShader::u_swap, swap);
         //start compute shader program		
         glDispatchCompute(1024, 1, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -381,7 +381,7 @@ namespace Simulation {
         //glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
     }
 
-    static void computeMove(unsigned int swap) {
+    static void computeMove(int swap) {
         glUseProgram(MoveShader::prog);
 
         //bind compute buffers
@@ -396,7 +396,7 @@ namespace Simulation {
         glBindImageTexture(4, s_geometryTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(5, s_outlineTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-        glUniform1ui(MoveShader::u_swap, swap);
+        glUniform1i(MoveShader::u_swap, swap);
 
         //start compute shader program		
         glDispatchCompute(1024, 1, 1);
@@ -404,7 +404,7 @@ namespace Simulation {
         //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);        
     }
 
-    static void computeDraw(unsigned int swap) {
+    static void computeDraw(int swap) {
         glUseProgram(DrawShader::prog);
 
         // bind compute buffers
@@ -420,7 +420,7 @@ namespace Simulation {
         glBindImageTexture(5, s_outlineTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(6, s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
 
-        glUniform1ui(DrawShader::u_swap, swap);
+        glUniform1i(DrawShader::u_swap, swap);
 
         // start compute shader program		
         glDispatchCompute(1024, 1, 1);
@@ -428,7 +428,7 @@ namespace Simulation {
         //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
     }
 
-    static void computeReset(unsigned int swap) {
+    static void computeReset(int swap) {
         // erase atomic counter
         //glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, ac_buffer);
         //uint* ptr = (uint*)glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(uint),
@@ -493,15 +493,15 @@ namespace Simulation {
 
         glBindImageTexture(6, s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         
-        glUniformMatrix4fv(s_foilProg->getUniform("P"), 1, GL_FALSE, &P[0][0]);
-        glUniformMatrix4fv(s_foilProg->getUniform("V"), 1, GL_FALSE, &V[0][0]);
+        glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, &P[0][0]);
+        glUniformMatrix4fv(s_foilProg->getUniform("u_viewMat"), 1, GL_FALSE, &V[0][0]);
 
         mat4 Rx = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
         
         mat3 N;
-        glUniformMatrix3fv(s_foilProg->getUniform("N"), 1, GL_FALSE, &N[0][0]);
+        glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, &N[0][0]);
         M = Rx;
-        glUniformMatrix4fv(s_foilProg->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+        glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         s_shape->draw(s_foilProg, false);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
