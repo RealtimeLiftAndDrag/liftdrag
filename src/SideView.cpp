@@ -9,7 +9,7 @@
 
 
 
-namespace sideview {
+namespace SideView {
 
 
 
@@ -19,13 +19,13 @@ static constexpr float k_sliceSize(0.01f); // z distance between slices
 
 static WindowManager * windowManager = nullptr;
 static unsigned int * nulldata;
-static GLuint side_geo_tex;
+static uint side_geo_tex;
 static std::shared_ptr<Program> outlineProg, texProg;
-GLuint outlineTopVAO, outlineBotVAO, outlineTopVBO, outlineBotVBO;
-GLuint boardVAO, boardVBO, boardTexVBO, boardIndVBO;
-glm::vec3 outlineTopVerts[k_nSlices];
-glm::vec3 outlineBotVerts[k_nSlices];
-glm::vec4 screenSpec; // screen width, screen height, x aspect factor, y aspect factor
+uint outlineTopVAO, outlineBotVAO, outlineTopVBO, outlineBotVBO;
+uint boardVAO, boardVBO, boardTexVBO, boardIndVBO;
+vec3 outlineTopVerts[k_nSlices];
+vec3 outlineBotVerts[k_nSlices];
+vec4 screenSpec; // screen width, screen height, x aspect factor, y aspect factor
 
 static bool setupShaders(const std::string & resourcesDir) {
     std::string shadersDir(resourcesDir + "/shaders");
@@ -48,7 +48,7 @@ static bool setupShaders(const std::string & resourcesDir) {
     // FB Shader ---------------------------------------------------------------
     texProg = std::make_shared<Program>();
     texProg->setVerbose(true);
-    texProg->setShaderNames(shadersDir + "/fbvertex.glsl", shadersDir + "/fbfrag.glsl");
+    texProg->setShaderNames(shadersDir + "/fb.vert.glsl", shadersDir + "/fb.frag.glsl");
     if (!texProg->init()) {
         std::cerr << "Failed to initialize fb shader" << std::endl;
         return false;
@@ -57,6 +57,8 @@ static bool setupShaders(const std::string & resourcesDir) {
     glUseProgram(texProg->pid);
     glUniform1i(texProg->getUniform("tex"), 0);
     glUseProgram(0);
+
+    return true;
 }
 
 bool setup(const std::string & resourcesDir, int sideTexID, GLFWwindow * mainWindow) {
@@ -65,7 +67,7 @@ bool setup(const std::string & resourcesDir, int sideTexID, GLFWwindow * mainWin
         std::cerr << "Failed to initialize window manager" << std::endl;
         return false;
     }
-    side_geo_tex = (GLuint)sideTexID;
+    side_geo_tex = (uint)sideTexID;
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glEnable(GL_DEPTH_TEST);
@@ -77,8 +79,8 @@ bool setup(const std::string & resourcesDir, int sideTexID, GLFWwindow * mainWin
     }
 
     for (int i = 0; i < k_nSlices; i++) {
-        outlineTopVerts[i] = glm::vec3(0, 0, -1);
-        outlineBotVerts[i] = glm::vec3(0, 0, -1);
+        outlineTopVerts[i] = vec3(0, 0, -1);
+        outlineBotVerts[i] = vec3(0, 0, -1);
     }
 
     screenSpec.x = float(k_width);
@@ -138,12 +140,12 @@ bool initGeom() {
 
 
     // color
-    glm::vec2 board_tex[] = {
+    vec2 board_tex[] = {
         // front colors
-        glm::vec2(0.0f, 0.0f),
-        glm::vec2(1.0f, 0.0f),
-        glm::vec2(1.0f, 1.0f),
-        glm::vec2(0.0f, 1.0f),
+        vec2(0.0f, 0.0f),
+        vec2(1.0f, 0.0f),
+        vec2(1.0f, 1.0f),
+        vec2(0.0f, 1.0f),
     };
     glGenBuffers(1, &boardTexVBO);
     glBindBuffer(GL_ARRAY_BUFFER, boardTexVBO);
@@ -211,15 +213,15 @@ void render() {
 
     //copyOutlineData();
 
-    //glm::mat4 V, M, P;
+    //mat4 V, M, P;
 
     //P = glm::ortho(-1.f / screenSpec.z, 1.f / screenSpec.z, //left and right
     //	-1.f / screenSpec.w, 1.f / screenSpec.w, //bottom and top
     //	-10.f, 10.f); //near and far
 
-    //V = glm::mat4(1);
-    //M = glm::mat4(1);
-    //M = glm::translate(glm::mat4(1), glm::vec3(-1, 0, 1));
+    //V = mat4(1);
+    //M = mat4(1);
+    //M = glm::translate(mat4(1), vec3(-1, 0, 1));
 
     //outlineProg->bind();
     //glUniformMatrix4fv(outlineProg->getUniform("P"), 1, GL_FALSE, &P[0][0]);
@@ -233,15 +235,15 @@ void render() {
     //glDrawArrays(GL_LINE_STRIP, 0, k_nSlices);
 
     glBindVertexArray(0);
-    //GLuint clearColor[4]{};
+    //uint clearColor[4]{};
 
     glfwSwapBuffers(windowManager->getHandle());
 }
 
-/*void submitOutline(int sliceNum, std::pair<glm::vec3, glm::vec3> outlinePoints)
+/*void submitOutline(int sliceNum, std::pair<vec3, vec3> outlinePoints)
 {
-    outlineTopVerts[sliceNum] = glm::vec3(sliceNum*k_sliceSize, outlinePoints.first.y, 0.f);
-    outlineBotVerts[sliceNum] = glm::vec3(sliceNum*k_sliceSize, outlinePoints.second.y, 0.f);
+    outlineTopVerts[sliceNum] = vec3(sliceNum*k_sliceSize, outlinePoints.first.y, 0.f);
+    outlineBotVerts[sliceNum] = vec3(sliceNum*k_sliceSize, outlinePoints.second.y, 0.f);
 }*/
 
 GLFWwindow * getWindow() {

@@ -7,7 +7,6 @@
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
-#include "glm/glm.hpp"
 
 #include "GLSL.h"
 #include "Program.h"
@@ -16,7 +15,7 @@
 
 
 
-namespace results {
+namespace Results {
 
 
 
@@ -27,45 +26,45 @@ static constexpr float k_initGraphDomainMin(-90.0f), k_initGraphDomainMax(90.0f)
 static constexpr float k_initGraphRangeMin(-1000.0f), k_initGraphRangeMax(1000.0f);
 static constexpr float k_zoomFactor(1.1f);
 static constexpr int k_leftMargin(80), k_rightMargin(140), k_bottomMargin(60), k_topMargin(30);
-static const glm::ivec2 k_initGraphSize(300, 200);
-static const glm::ivec2 k_initWindowSize(k_leftMargin + k_rightMargin + k_initGraphSize.x, k_bottomMargin + k_topMargin + k_initGraphSize.y);
+static const ivec2 k_initGraphSize(300, 200);
+static const ivec2 k_initWindowSize(k_leftMargin + k_rightMargin + k_initGraphSize.x, k_bottomMargin + k_topMargin + k_initGraphSize.y);
 static constexpr int k_valTextPrecision(3);
 static const std::string k_graphTitleString("Lift and Drag Force (N) by Angle of Attack (°)");
 static const std::string k_graphLegendString("Green: Lift\n  Red: Drag");
 
 
 
-static std::map<float, std::pair<float, float>> f_record; // map of results where key is angle and value is lift/drag pair
-static bool f_isRecordChange;
+static std::map<float, std::pair<float, float>> s_record; // map of results where key is angle and value is lift/drag pair
+static bool s_isRecordChange;
 
-static GLFWwindow * f_window;
-static glm::ivec2 f_windowSize;
-static bool f_mouseButtonDown;
-static glm::ivec2 f_mousePos;
+static GLFWwindow * s_window;
+static ivec2 s_windowSize;
+static bool s_mouseButtonDown;
+static ivec2 s_mousePos;
 
-static std::unique_ptr<Graph> f_graph;
-static glm::ivec2 f_graphPos, f_graphSize;
+static std::unique_ptr<Graph> s_graph;
+static ivec2 s_graphPos, s_graphSize;
 
-static std::unique_ptr<Text> f_domainMinText, f_domainMaxText;
-static std::unique_ptr<Text> f_rangeMinText, f_rangeMaxText;
-static bool f_isGridTextUpdateNeeded;
+static std::unique_ptr<Text> s_domainMinText, s_domainMaxText;
+static std::unique_ptr<Text> s_rangeMinText, s_rangeMaxText;
+static bool s_isGridTextUpdateNeeded;
 
-static std::unique_ptr<Text> f_cursorText;
-static bool f_isCursorTextUpdateNeeded;
+static std::unique_ptr<Text> s_cursorText;
+static bool s_isCursorTextUpdateNeeded;
 
-static std::unique_ptr<Text> f_titleText;
-static std::unique_ptr<Text> f_legendText;
-static bool f_isGraphTextUpdateNeeded;
+static std::unique_ptr<Text> s_titleText;
+static std::unique_ptr<Text> s_legendText;
+static bool s_isGraphTextUpdateNeeded;
 
-static bool f_isRedrawNeeded(true);
+static bool s_isRedrawNeeded(true);
 
 
 
 static void detGraphBounds() {
-    f_graphPos.x = k_leftMargin;
-    f_graphPos.y = k_bottomMargin;
-    f_graphSize.x = f_windowSize.x - k_leftMargin - k_rightMargin;
-    f_graphSize.y = f_windowSize.y - k_bottomMargin - k_topMargin;
+    s_graphPos.x = k_leftMargin;
+    s_graphPos.y = k_bottomMargin;
+    s_graphSize.x = s_windowSize.x - k_leftMargin - k_rightMargin;
+    s_graphSize.y = s_windowSize.y - k_bottomMargin - k_topMargin;
 }
 
 static std::string valToString(float v) {
@@ -83,97 +82,97 @@ static std::string pointToString(float angle, float lift, float drag) {
 }
 
 static bool isCursorInGraph() {    
-    glm::ivec2 relPos(f_mousePos - f_graphPos);
-    return relPos.x >= 0 && relPos.y >= 0 && relPos.x < f_graphSize.x && relPos.y < f_graphSize.y;
+    ivec2 relPos(s_mousePos - s_graphPos);
+    return relPos.x >= 0 && relPos.y >= 0 && relPos.x < s_graphSize.x && relPos.y < s_graphSize.y;
 }
 
 static void updateGridText() {
-    glm::vec2 gridMin(glm::ceil(f_graph->viewMin() / f_graph->gridSize()) * f_graph->gridSize());
-    glm::vec2 gridMax(glm::floor(f_graph->viewMax() / f_graph->gridSize()) * f_graph->gridSize());
-    glm::vec2 invViewSize(1.0f / (f_graph->viewMax() - f_graph->viewMin()));
-    glm::vec2 graphSize(f_graphSize);
-    glm::ivec2 gridMinPos(glm::round((gridMin - f_graph->viewMin()) * invViewSize * graphSize));
-    glm::ivec2 gridMaxPos(glm::round((gridMax - f_graph->viewMin()) * invViewSize * graphSize));
+    vec2 gridMin(glm::ceil(s_graph->viewMin() / s_graph->gridSize()) * s_graph->gridSize());
+    vec2 gridMax(glm::floor(s_graph->viewMax() / s_graph->gridSize()) * s_graph->gridSize());
+    vec2 invViewSize(1.0f / (s_graph->viewMax() - s_graph->viewMin()));
+    vec2 graphSize(s_graphSize);
+    ivec2 gridMinPos(glm::round((gridMin - s_graph->viewMin()) * invViewSize * graphSize));
+    ivec2 gridMaxPos(glm::round((gridMax - s_graph->viewMin()) * invViewSize * graphSize));
     
-    f_domainMinText->position(glm::ivec2(f_graphPos.x + gridMinPos.x, f_graphPos.y));
-    f_domainMinText->string(valToString(gridMin.x));
-    f_domainMaxText->position(glm::ivec2(f_graphPos.x + gridMaxPos.x, f_graphPos.y));
-    f_domainMaxText->string(valToString(gridMax.x));
+    s_domainMinText->position(ivec2(s_graphPos.x + gridMinPos.x, s_graphPos.y));
+    s_domainMinText->string(valToString(gridMin.x));
+    s_domainMaxText->position(ivec2(s_graphPos.x + gridMaxPos.x, s_graphPos.y));
+    s_domainMaxText->string(valToString(gridMax.x));
 
-    f_rangeMinText->position(glm::ivec2(f_graphPos.x, f_graphPos.y + gridMinPos.y));
-    f_rangeMinText->string(valToString(gridMin.y));
-    f_rangeMaxText->position(glm::ivec2(f_graphPos.x, f_graphPos.y + gridMaxPos.y));
-    f_rangeMaxText->string(valToString(gridMax.y));
+    s_rangeMinText->position(ivec2(s_graphPos.x, s_graphPos.y + gridMinPos.y));
+    s_rangeMinText->string(valToString(gridMin.y));
+    s_rangeMaxText->position(ivec2(s_graphPos.x, s_graphPos.y + gridMaxPos.y));
+    s_rangeMaxText->string(valToString(gridMax.y));
 }
 
 static void updateCursorText() {
-    f_cursorText->string("");
-    f_graph->removeFocusX();
+    s_cursorText->string("");
+    s_graph->removeFocusX();
 
     if (!isCursorInGraph()) {
         return;
     }
 
-    float angle(float(f_mousePos.x - f_graphPos.x));
-    angle /= f_graphSize.x;
-    angle *= f_graph->viewMax().x - f_graph->viewMin().x;
-    angle += f_graph->viewMin().x;
+    float angle(float(s_mousePos.x - s_graphPos.x));
+    angle /= s_graphSize.x;
+    angle *= s_graph->viewMax().x - s_graph->viewMin().x;
+    angle += s_graph->viewMin().x;
 
     float lift, drag;
     if (!valAt(angle, lift, drag)) {
         return;
     }
 
-    f_cursorText->position(f_mousePos + glm::ivec2(10, -10));
-    f_cursorText->string(pointToString(angle, lift, drag));
-    f_graph->focusX(angle);
+    s_cursorText->position(s_mousePos + ivec2(10, -10));
+    s_cursorText->string(pointToString(angle, lift, drag));
+    s_graph->focusX(angle);
 }
 
 static void updateGraphText() {
-    f_titleText->position(glm::ivec2(f_windowSize.x / 2, f_graphPos.y + f_graphSize.y + 10));
-    f_legendText->position(f_graphPos + f_graphSize + glm::ivec2(10, -10));
+    s_titleText->position(ivec2(s_windowSize.x / 2, s_graphPos.y + s_graphSize.y + 10));
+    s_legendText->position(s_graphPos + s_graphSize + ivec2(10, -10));
 }
 
 static void framebufferSizeCallback(GLFWwindow * window, int width, int height) {
-    f_windowSize.x = width; f_windowSize.y = height;
+    s_windowSize.x = width; s_windowSize.y = height;
     detGraphBounds();
-    f_isGridTextUpdateNeeded = true;
-    f_isCursorTextUpdateNeeded = true;
-    f_isGraphTextUpdateNeeded = true;
-    f_isRedrawNeeded = true;
+    s_isGridTextUpdateNeeded = true;
+    s_isCursorTextUpdateNeeded = true;
+    s_isGraphTextUpdateNeeded = true;
+    s_isRedrawNeeded = true;
 }
 
 static void scrollCallback(GLFWwindow * window, double x, double y) {
     if (y != 0.0f) {
-        if (y < 0.0f) f_graph->zoomView(k_zoomFactor);
-        else if (y > 0.0f) f_graph->zoomView(1.0f / k_zoomFactor);
-        f_isGridTextUpdateNeeded = true;
-        f_isCursorTextUpdateNeeded = true;
-        f_isRedrawNeeded = true;
+        if (y < 0.0f) s_graph->zoomView(k_zoomFactor);
+        else if (y > 0.0f) s_graph->zoomView(1.0f / k_zoomFactor);
+        s_isGridTextUpdateNeeded = true;
+        s_isCursorTextUpdateNeeded = true;
+        s_isRedrawNeeded = true;
     }
 }
 
 static void cursorPosCallback(GLFWwindow * window, double x, double y) {
-    glm::ivec2 newPos{int(x), f_windowSize.y - 1 - int(y)};
-    glm::ivec2 delta(newPos - f_mousePos);
+    ivec2 newPos{int(x), s_windowSize.y - 1 - int(y)};
+    ivec2 delta(newPos - s_mousePos);
 
-    if (f_mouseButtonDown) {
-        glm::vec2 factor((f_graph->viewMax() - f_graph->viewMin()) / glm::vec2(f_graphSize));
-        f_graph->moveView(-factor * glm::vec2(delta));
-        f_isGridTextUpdateNeeded = true;
-        f_isRedrawNeeded = true;
+    if (s_mouseButtonDown) {
+        vec2 factor((s_graph->viewMax() - s_graph->viewMin()) / vec2(s_graphSize));
+        s_graph->moveView(-factor * vec2(delta));
+        s_isGridTextUpdateNeeded = true;
+        s_isRedrawNeeded = true;
     }
 
-    f_mousePos += delta;
-    f_isCursorTextUpdateNeeded = true;
+    s_mousePos += delta;
+    s_isCursorTextUpdateNeeded = true;
 }
 
 static void mouseButtonCallback(GLFWwindow * window, int button, int action, int mods) {
     if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS && mods == 0) {
-        f_mouseButtonDown = true;
+        s_mouseButtonDown = true;
     }
     else {
-        f_mouseButtonDown = false;
+        s_mouseButtonDown = false;
     }
 }
 
@@ -184,21 +183,21 @@ bool setup(const std::string & resourcesDir, GLFWwindow * mainWindow) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    if (!(f_window = glfwCreateWindow(k_initWindowSize.x, k_initWindowSize.y, "Results", nullptr, mainWindow))) {
+    if (!(s_window = glfwCreateWindow(k_initWindowSize.x, k_initWindowSize.y, "Results", nullptr, mainWindow))) {
         std::cerr << "Failed to create window" << std::endl;
         return false;
     }
     glfwDefaultWindowHints();
 
-    glfwSetFramebufferSizeCallback(f_window, framebufferSizeCallback);
-    glfwSetScrollCallback(f_window, scrollCallback);
-    glfwSetCursorPosCallback(f_window, cursorPosCallback);
-    glfwSetMouseButtonCallback(f_window, mouseButtonCallback);
+    glfwSetFramebufferSizeCallback(s_window, framebufferSizeCallback);
+    glfwSetScrollCallback(s_window, scrollCallback);
+    glfwSetCursorPosCallback(s_window, cursorPosCallback);
+    glfwSetMouseButtonCallback(s_window, mouseButtonCallback);
 
-    f_windowSize = k_initWindowSize;
+    s_windowSize = k_initWindowSize;
     detGraphBounds();
 
-    glfwMakeContextCurrent(f_window);
+    glfwMakeContextCurrent(s_window);
     
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glDisable(GL_DEPTH_TEST);
@@ -212,119 +211,119 @@ bool setup(const std::string & resourcesDir, GLFWwindow * mainWindow) {
         return false;
     }
 
-    f_graph.reset(new Graph(
-        glm::vec2(k_initGraphDomainMin, k_initGraphRangeMin),
-        glm::vec2(k_initGraphDomainMax, k_initGraphRangeMax)
+    s_graph.reset(new Graph(
+        vec2(k_initGraphDomainMin, k_initGraphRangeMin),
+        vec2(k_initGraphDomainMax, k_initGraphRangeMax)
     ));
-    f_graph->addCurve(glm::vec3(0.0f, 1.0f, 0.0f), int(180.0f * k_invGranularity) + 1);
-    f_graph->addCurve(glm::vec3(1.0f, 0.0f, 0.0f), int(180.0f * k_invGranularity) + 1);
+    s_graph->addCurve(vec3(0.0f, 1.0f, 0.0f), int(180.0f * k_invGranularity) + 1);
+    s_graph->addCurve(vec3(1.0f, 0.0f, 0.0f), int(180.0f * k_invGranularity) + 1);
 
     if (!Text::setup(resourcesDir)) {
         std::cerr << "Failed to setup text" << std::endl;
         return false;
     }
 
-    f_domainMinText.reset(new Text("", glm::ivec2(), glm::ivec2(0, 1), glm::vec3(1.0f)));
-    f_domainMaxText.reset(new Text("", glm::ivec2(), glm::ivec2(0, 1), glm::vec3(1.0f)));
-    f_rangeMinText.reset(new Text("", glm::ivec2(), glm::ivec2(-1, 0), glm::vec3(1.0f)));
-    f_rangeMaxText.reset(new Text("", glm::ivec2(), glm::ivec2(-1, 0), glm::vec3(1.0f)));
-    f_isGridTextUpdateNeeded = true;
+    s_domainMinText.reset(new Text("", ivec2(), ivec2(0, 1), vec3(1.0f)));
+    s_domainMaxText.reset(new Text("", ivec2(), ivec2(0, 1), vec3(1.0f)));
+    s_rangeMinText.reset(new Text("", ivec2(), ivec2(-1, 0), vec3(1.0f)));
+    s_rangeMaxText.reset(new Text("", ivec2(), ivec2(-1, 0), vec3(1.0f)));
+    s_isGridTextUpdateNeeded = true;
 
-    f_cursorText.reset(new Text("", glm::ivec2(), glm::ivec2(1, 1), glm::vec3(1.0f)));
+    s_cursorText.reset(new Text("", ivec2(), ivec2(1, 1), vec3(1.0f)));
 
-    f_titleText.reset(new Text(k_graphTitleString, glm::ivec2(), glm::ivec2(0, -1), glm::vec3(1.0f)));
-    f_legendText.reset(new Text(k_graphLegendString, glm::ivec2(), glm::ivec2(1, 1), glm::vec3(0.5f)));
-    f_isGraphTextUpdateNeeded = true;
+    s_titleText.reset(new Text(k_graphTitleString, ivec2(), ivec2(0, -1), vec3(1.0f)));
+    s_legendText.reset(new Text(k_graphLegendString, ivec2(), ivec2(1, 1), vec3(0.5f)));
+    s_isGraphTextUpdateNeeded = true;
 
     return true;
 }
 
 void cleanup() {
-    f_graph->cleanup();
+    s_graph->cleanup();
     
-    f_domainMinText->cleanup();
-    f_domainMaxText->cleanup();
-    f_rangeMinText->cleanup();
-    f_rangeMaxText->cleanup();
+    s_domainMinText->cleanup();
+    s_domainMaxText->cleanup();
+    s_rangeMinText->cleanup();
+    s_rangeMaxText->cleanup();
 
-    f_cursorText->cleanup();
+    s_cursorText->cleanup();
 
-    f_titleText->cleanup();
+    s_titleText->cleanup();
 
-    glfwDestroyWindow(f_window);
+    glfwDestroyWindow(s_window);
 }
 
 void render() {
-    if (!f_isRedrawNeeded) {
+    if (!s_isRedrawNeeded) {
         return;
     }
 
-    glfwMakeContextCurrent(f_window);
+    glfwMakeContextCurrent(s_window);
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if (f_isRecordChange) {
-        auto & liftPoints(f_graph->mutatePoints(0));
-        auto & dragPoints(f_graph->mutatePoints(1));
+    if (s_isRecordChange) {
+        auto & liftPoints(s_graph->mutatePoints(0));
+        auto & dragPoints(s_graph->mutatePoints(1));
         liftPoints.clear();
         dragPoints.clear();
-        liftPoints.reserve(f_record.size());
-        dragPoints.reserve(f_record.size());
-        for (const auto & r : f_record) {
+        liftPoints.reserve(s_record.size());
+        dragPoints.reserve(s_record.size());
+        for (const auto & r : s_record) {
             liftPoints.emplace_back(r.first, r.second.first);
             dragPoints.emplace_back(r.first, r.second.second);
         }
 
-        f_isRecordChange = false;
-        f_isCursorTextUpdateNeeded = true;
+        s_isRecordChange = false;
+        s_isCursorTextUpdateNeeded = true;
     }
 
 
-    glViewport(f_graphPos.x, f_graphPos.y, f_graphSize.x, f_graphSize.y);
-    f_graph->render(f_graphSize);
-    glViewport(0, 0, f_windowSize.x, f_windowSize.y);
+    glViewport(s_graphPos.x, s_graphPos.y, s_graphSize.x, s_graphSize.y);
+    s_graph->render(s_graphSize);
+    glViewport(0, 0, s_windowSize.x, s_windowSize.y);
 
-    if (f_isGridTextUpdateNeeded) {
+    if (s_isGridTextUpdateNeeded) {
         updateGridText();
-        f_isGridTextUpdateNeeded = false;
+        s_isGridTextUpdateNeeded = false;
     }
-    f_domainMinText->render(f_windowSize);
-    f_domainMaxText->render(f_windowSize);
-    f_rangeMinText->render(f_windowSize);
-    f_rangeMaxText->render(f_windowSize);
+    s_domainMinText->render(s_windowSize);
+    s_domainMaxText->render(s_windowSize);
+    s_rangeMinText->render(s_windowSize);
+    s_rangeMaxText->render(s_windowSize);
 
-    if (f_isCursorTextUpdateNeeded) {
+    if (s_isCursorTextUpdateNeeded) {
         updateCursorText();
-        f_isCursorTextUpdateNeeded = false;
+        s_isCursorTextUpdateNeeded = false;
     }
-    f_cursorText->render(f_windowSize);
+    s_cursorText->render(s_windowSize);
 
-    if (f_isGraphTextUpdateNeeded) {
+    if (s_isGraphTextUpdateNeeded) {
         updateGraphText();
-        f_isGraphTextUpdateNeeded = false;
+        s_isGraphTextUpdateNeeded = false;
     }
-    f_titleText->render(f_windowSize);
-    f_legendText->render(f_windowSize);
+    s_titleText->render(s_windowSize);
+    s_legendText->render(s_windowSize);
 
-    glfwSwapBuffers(f_window);
+    glfwSwapBuffers(s_window);
 }
 
 void submit(float angle, float lift, float drag) {
-    f_record[std::round(angle * k_invGranularity) * k_granularity] = { lift, drag };
-    f_isRecordChange = true;
-    f_isRedrawNeeded = true;
+    s_record[std::round(angle * k_invGranularity) * k_granularity] = { lift, drag };
+    s_isRecordChange = true;
+    s_isRedrawNeeded = true;
 }
 
 bool valAt(float angle, float & r_lift, float & r_drag) {
-    auto it(f_record.find(angle));
-    if (it != f_record.end()) {
+    auto it(s_record.find(angle));
+    if (it != s_record.end()) {
         r_lift = it->second.first;
         r_drag = it->second.second;
         return true;
     }
 
-    auto preIt(f_record.lower_bound(angle)), postIt(f_record.upper_bound(angle));
-    if (preIt == f_record.begin() || postIt == f_record.end()) {
+    auto preIt(s_record.lower_bound(angle)), postIt(s_record.upper_bound(angle));
+    if (preIt == s_record.begin() || postIt == s_record.end()) {
         return false;
     }
     --preIt;
@@ -339,7 +338,7 @@ bool valAt(float angle, float & r_lift, float & r_drag) {
 }
 
 GLFWwindow * getWindow() {
-    return f_window;
+    return s_window;
 }
 
 

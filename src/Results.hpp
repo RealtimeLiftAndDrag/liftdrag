@@ -1,12 +1,14 @@
 #include <string>
 
+#include "Global.hpp"
+
 
 
 struct GLFWwindow;
 
 
 
-namespace results {
+namespace Results {
 
 
 

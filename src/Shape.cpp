@@ -212,35 +212,31 @@ void Shape::draw(const shared_ptr<Program> prog,bool use_extern_texures) const
 	for (int i = 0; i < obj_count; i++)
 
 	{
-		int h_pos, h_nor, h_tex;
-		h_pos = h_nor = h_tex = -1;
-
 		glBindVertexArray(vaoID[i]);
-		// Bind position buffer
-		h_pos = prog->getAttribute("vertPos");
-		GLSL::enableVertexAttribArray(h_pos);
-		glBindBuffer(GL_ARRAY_BUFFER, posBufID[i]);
-		glVertexAttribPointer(h_pos, 3, GL_FLOAT, GL_FALSE, 0, (const void *)0);
+        int ai(0);
 
+		// Bind position buffer
+		GLSL::enableVertexAttribArray(ai);
+		glBindBuffer(GL_ARRAY_BUFFER, posBufID[i]);
+		glVertexAttribPointer(ai, 3, GL_FLOAT, GL_FALSE, 0, (const void *)0);
+        ++ai;
+        
 		// Bind normal buffer
-		h_nor = prog->getAttribute("vertNor");
-		if (h_nor != -1 && norBufID[i] != 0)
+		if (norBufID[i] != 0)
 		{
-			GLSL::enableVertexAttribArray(h_nor);
+			GLSL::enableVertexAttribArray(ai);
 			glBindBuffer(GL_ARRAY_BUFFER, norBufID[i]);
-			glVertexAttribPointer(h_nor, 3, GL_FLOAT, GL_FALSE, 0, (const void *)0);
+			glVertexAttribPointer(ai, 3, GL_FLOAT, GL_FALSE, 0, (const void *)0);
+            ++ai;
 		}
 
+		// Bind texcoords buffer
 		if (texBufID[i] != 0)
 		{
-			// Bind texcoords buffer
-			h_tex = prog->getAttribute("vertTex");
-			if (h_tex != -1 && texBufID[i] != 0)
-			{
-				GLSL::enableVertexAttribArray(h_tex);
-				glBindBuffer(GL_ARRAY_BUFFER, texBufID[i]);
-				glVertexAttribPointer(h_tex, 2, GL_FLOAT, GL_FALSE, 0, (const void *)0);
-			}
+			GLSL::enableVertexAttribArray(ai);
+			glBindBuffer(GL_ARRAY_BUFFER, texBufID[i]);
+			glVertexAttribPointer(ai, 2, GL_FLOAT, GL_FALSE, 0, (const void *)0);
+            ++ai;
 		}
 
 		// Bind element buffer
@@ -261,15 +257,8 @@ void Shape::draw(const shared_ptr<Program> prog,bool use_extern_texures) const
 		glDrawElements(GL_TRIANGLES, (int)eleBuf[i].size(), GL_UNSIGNED_INT, (const void *)0);
 
 		// Disable and unbind
-		if (h_tex != -1)
-		{
-			GLSL::disableVertexAttribArray(h_tex);
-		}
-		if (h_nor != -1)
-		{
-			GLSL::disableVertexAttribArray(h_nor);
-		}
-		GLSL::disableVertexAttribArray(h_pos);
+        --ai;
+        for (; ai >= 0; --ai) GLSL::disableVertexAttribArray(ai);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}

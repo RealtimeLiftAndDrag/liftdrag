@@ -4,7 +4,7 @@
 
 #include <string>
 
-#include "glm/glm.hpp"
+#include "Global.hpp"
 
 
 
@@ -39,13 +39,11 @@ namespace Simulation {
     void setAngleOfAttack(float angle);
 
     // Returns the lift of the previous sweep
-    glm::vec3 getLift();
+    vec3 getLift();
 
     // Returns the drag of the previous sweep
-    glm::vec3 getDrag();
+    vec3 getDrag();
 
-    std::pair<glm::vec3, glm::vec3> getSideviewOutline();
-
-    int getSideTextureID();
+    uint getSideTextureID();
 
 }

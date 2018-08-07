@@ -12,11 +12,11 @@
 static const std::string k_fontTextureFilename("ubuntu_mono.png");
 static const std::string k_vertFilename("text.vert.glsl"), k_fragFilename("text.frag.glsl");
 
-static GLuint f_squareVBO;
-static GLuint f_fontTex;
-static glm::ivec2 f_fontSize;
-static std::unique_ptr<Program> f_prog;
-static glm::vec2 f_charTexCoords[256];
+static uint s_squareVBO;
+static uint s_fontTex;
+static ivec2 s_fontSize;
+static std::unique_ptr<Program> s_prog;
+static vec2 s_charTexCoords[256];
 
 
 
@@ -24,7 +24,7 @@ bool Text::setup(const std::string & resourceDir) {
 
     // Setup square vao
 
-    glm::vec2 locs[6]{
+    vec2 locs[6]{
         { 0.0f, 0.0f },
         { 1.0f, 0.0f },
         { 1.0f, 1.0f },
@@ -32,9 +32,9 @@ bool Text::setup(const std::string & resourceDir) {
         { 0.0f, 1.0f },
         { 0.0f, 0.0f }
     }; 
-    glGenBuffers(1, &f_squareVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, f_squareVBO);
-    glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(glm::vec2), locs, GL_STATIC_DRAW);
+    glGenBuffers(1, &s_squareVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, s_squareVBO);
+    glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(vec2), locs, GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     if (glGetError() != GL_NO_ERROR) {
@@ -55,10 +55,10 @@ bool Text::setup(const std::string & resourceDir) {
         std::cerr << "Font texture must be a 16 row and 16 column grid of glyphs" << std::endl;
         return false;
     }
-    f_fontSize.x = texWidth / 16; f_fontSize.y = texHeight / 16;
+    s_fontSize.x = texWidth / 16; s_fontSize.y = texHeight / 16;
 
-    glGenTextures(1, &f_fontTex);
-    glBindTexture(GL_TEXTURE_2D, f_fontTex);
+    glGenTextures(1, &s_fontTex);
+    glBindTexture(GL_TEXTURE_2D, s_fontTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, texWidth, texHeight, 0, GL_RED, GL_UNSIGNED_BYTE, texData);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -73,20 +73,20 @@ bool Text::setup(const std::string & resourceDir) {
 
     // Setup shader
 
-    f_prog.reset(new Program());
-    f_prog->setShaderNames(resourceDir + "/shaders/" + k_vertFilename, resourceDir + "/shaders/" + k_fragFilename);
-    if (!f_prog->init()) {
+    s_prog.reset(new Program());
+    s_prog->setShaderNames(resourceDir + "/shaders/" + k_vertFilename, resourceDir + "/shaders/" + k_fragFilename);
+    if (!s_prog->init()) {
         std::cerr << "Failed to initialize program" << std::endl;
         return false;
     }
-    f_prog->addUniform("u_fontSize");
-    f_prog->addUniform("u_viewportSize");
-    f_prog->addUniform("u_tex");
-    f_prog->addUniform("u_color");
-    f_prog->bind();
-    glUniform2f(f_prog->getUniform("u_fontSize"), float(f_fontSize.x), float(f_fontSize.y));
-    glUniform1i(f_prog->getUniform("u_tex"), 0);
-    f_prog->unbind();
+    s_prog->addUniform("u_fontSize");
+    s_prog->addUniform("u_viewportSize");
+    s_prog->addUniform("u_tex");
+    s_prog->addUniform("u_color");
+    s_prog->bind();
+    glUniform2f(s_prog->getUniform("u_fontSize"), float(s_fontSize.x), float(s_fontSize.y));
+    glUniform1i(s_prog->getUniform("u_tex"), 0);
+    s_prog->unbind();
 
     if (glGetError() != GL_NO_ERROR) {
         std::cerr << "OpenGL error setting up shader" << std::endl;
@@ -96,15 +96,15 @@ bool Text::setup(const std::string & resourceDir) {
     // Precalculate character texture coordinates;
 
     for (int i(0); i < 256; ++i) {
-        glm::ivec2 cell(i & 0xF, i >> 4);
-        f_charTexCoords[i].x = float(cell.x) * (1.0f / 16.0f);
-        f_charTexCoords[i].y = float(cell.y) * (1.0f / 16.0f);
+        ivec2 cell(i & 0xF, i >> 4);
+        s_charTexCoords[i].x = float(cell.x) * (1.0f / 16.0f);
+        s_charTexCoords[i].y = float(cell.y) * (1.0f / 16.0f);
     }
 
     return true;
 }
 
-Text::Text(const std::string & string, const glm::ivec2 & position, const glm::ivec2 & align, const glm::vec3 & color) :
+Text::Text(const std::string & string, const ivec2 & position, const ivec2 & align, const vec3 & color) :
     m_string(string),
     m_position(position),
     m_align(align),
@@ -122,18 +122,18 @@ void Text::string(const std::string & string) {
     }
 }
 
-void Text::position(const glm::ivec2 & position) {
+void Text::position(const ivec2 & position) {
     if (position != m_position) {
         m_position = position;
         m_isPositionChange = true;
     }
 }
 
-void Text::color(const glm::vec3 & color) {
+void Text::color(const vec3 & color) {
     m_color = color;
 }
 
-void Text::render(const glm::ivec2 & viewportSize) {
+void Text::render(const ivec2 & viewportSize) {
     if (m_vao == 0) {
         if (!prepare()) {
             return;
@@ -151,19 +151,19 @@ void Text::render(const glm::ivec2 & viewportSize) {
         m_isPositionChange = false;
     }
 
-    f_prog->bind();
+    s_prog->bind();
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, f_fontTex);
+    glBindTexture(GL_TEXTURE_2D, s_fontTex);
 
-    glUniform3f(f_prog->getUniform("u_color"), m_color.r, m_color.g, m_color.b);
-    glUniform2f(f_prog->getUniform("u_viewportSize"), float(viewportSize.x), float(viewportSize.y));
+    glUniform3f(s_prog->getUniform("u_color"), m_color.r, m_color.g, m_color.b);
+    glUniform2f(s_prog->getUniform("u_viewportSize"), float(viewportSize.x), float(viewportSize.y));
 
     glBindVertexArray(m_vao);
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, int(m_string.length()));
     glBindVertexArray(0);
 
-    f_prog->unbind();
+    s_prog->unbind();
 }
 
 void Text::cleanup() {
@@ -183,13 +183,13 @@ bool Text::prepare() {
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
 
-    glBindBuffer(GL_ARRAY_BUFFER, f_squareVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, s_squareVBO);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_charVBO);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(glm::vec2), 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(vec2), 0);
     glVertexAttribDivisor(1, 1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(glm::vec2), reinterpret_cast<void *>(sizeof(glm::vec2)));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(vec2), reinterpret_cast<void *>(sizeof(vec2)));
     glVertexAttribDivisor(2, 1);
 
     glBindVertexArray(0);
@@ -211,18 +211,18 @@ void Text::detCharData() {
     }
     m_lineEndIndices.push_back(int(m_string.length()));
     int nLines(int(m_lineEndIndices.size()));
-    int totalHeight(nLines * f_fontSize.y);
+    int totalHeight(nLines * s_fontSize.y);
 
     m_charData.clear();
 
-    glm::ivec2 charPos;
-    charPos.y = m_position.y - f_fontSize.y;
+    ivec2 charPos;
+    charPos.y = m_position.y - s_fontSize.y;
     if (m_align.y < 0) charPos.y += totalHeight;
     else if (m_align.y == 0) charPos.y += totalHeight / 2;
 
     for (int lineI(0), strI(0); lineI < nLines; ++lineI) {
         int lineLength(m_lineEndIndices[lineI] - strI);
-        int lineWidth(lineLength * f_fontSize.x);
+        int lineWidth(lineLength * s_fontSize.x);
 
         charPos.x = m_position.x;
         if (m_align.x < 0) charPos.x -= lineWidth;
@@ -230,18 +230,18 @@ void Text::detCharData() {
 
         for (int i(0); i < lineLength; ++i) {        
             m_charData.emplace_back(charPos);
-            m_charData.emplace_back(f_charTexCoords[unsigned char(m_string[strI + i])]);
+            m_charData.emplace_back(s_charTexCoords[unsigned char(m_string[strI + i])]);
 
-            charPos.x += f_fontSize.x;            
+            charPos.x += s_fontSize.x;            
         }
 
-        charPos.y -= f_fontSize.y;
+        charPos.y -= s_fontSize.y;
         strI += lineLength + 1;
     }
 }
 
 void Text::upload() {
     glBindBuffer(GL_ARRAY_BUFFER, m_charVBO);
-    glBufferData(GL_ARRAY_BUFFER, m_charData.size() * sizeof(glm::vec2), m_charData.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, m_charData.size() * sizeof(vec2), m_charData.data(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }

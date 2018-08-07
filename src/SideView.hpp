@@ -3,7 +3,8 @@
 
 
 #include <string>
-#include "glm/glm.hpp"
+
+#include "Global.hpp"
 
 
 
@@ -11,7 +12,7 @@ struct GLFWwindow;
 
 
 
-namespace sideview {
+namespace SideView {
 
 bool setupShaders(const std::string & resourcesDir);
 
@@ -23,7 +24,7 @@ void copyOutlineData();
 
 void render();
 
-void submitOutline(int sliceNum, std::pair<glm::vec3, glm::vec3> outlinePoints);
+void submitOutline(int sliceNum, std::pair<vec3, vec3> outlinePoints);
 
 GLFWwindow * getWindow();
 

@@ -1,8 +1,8 @@
 #version 450 core
 
-in vec2 v2f_pos;
+layout (location = 0) in vec2 in_pos;
 
-out vec4 out_color;
+layout (location = 0) out vec4 out_color;
 
 uniform vec2 u_viewMin;
 uniform vec2 u_viewMax;
@@ -20,7 +20,7 @@ void main() {
     vec2 viewSize = u_viewMax - u_viewMin;
     vec2 graphToPixelSpace = u_viewportSize / viewSize;
 
-    vec2 p = v2f_pos * viewSize + u_viewMin; // point in value space
+    vec2 p = in_pos * viewSize + u_viewMin; // point in value space
 
     out_color.rgb = k_backColor;
     out_color.a = 1.0f;
