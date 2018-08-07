@@ -16,15 +16,13 @@ namespace Simulation {
 
     bool setup(const std::string & resourceDir);
 
+    void cleanup();
+
     // Does one slice and returns if it was the last one
     bool step();
 
     // Renders current situation to screen
     void render();
-
-    void cleanup();
-
-    GLFWwindow * getWindow();
 
     // Returns the index of the slice that would be next
     int getSlice();
@@ -45,5 +43,7 @@ namespace Simulation {
     vec3 getDrag();
 
     uint getSideTextureID();
+
+    ivec2 getSize();
 
 }

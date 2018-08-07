@@ -15,6 +15,7 @@ extern "C" {
 
 #include <iostream>
 
+#include "glad/glad.h"
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/constants.hpp"
@@ -60,7 +61,11 @@ static bool processArgs(int argc, char ** argv) {
     return true;
 }
 
-void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mods) {
+static void errorCallback(int error, const char * description) {
+    std::cerr << "GLFW error: " << description << std::endl;
+}
+
+static void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mods) {
     // If space bar is pressed, do one slice
     if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         s_shouldStep = true;
@@ -103,37 +108,56 @@ void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mod
     }
 }
 
+static bool setup() {
+    // Setup GLFW
+    glfwSetErrorCallback(errorCallback);
+    if (!glfwInit()) {
+        std::cerr << "Failed to initialize GLFW" << std::endl;
+        return false;
+    }
 
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+    if (!(s_mainWindow = glfwCreateWindow(Simulation::getSize().x, Simulation::getSize().y, "Simulation", nullptr, nullptr))) {
+        std::cerr << "Failed to create window" << std::endl;
+        return false;
+    }
+    glfwDefaultWindowHints();
 
+    glfwMakeContextCurrent(s_mainWindow);
 
-int main(int argc, char ** argv) {
-    if (!processArgs(argc, argv)) {
-        std::exit(-1);
+    glfwSetKeyCallback(s_mainWindow, keyCallback);
+    glfwSwapInterval(0);
+
+    // Setup GLAD
+    if (!gladLoadGL()) {
+        std::cerr << "Failed to initialize GLAD" << std::endl;
+        return false;
     }
 
     // Setup simulation
     if (!Simulation::setup(s_resourceDir)) {
         std::cerr << "Failed to setup simulation" << std::endl;
-        std::exit(EXIT_FAILURE);
+        return false;
     }
-    s_mainWindow = Simulation::getWindow();
-    glfwSetKeyCallback(s_mainWindow, keyCallback);
-    glfwSwapInterval(0);
-    
+
     // Results Window
-    if (!Results::setup(s_resourceDir, Simulation::getWindow())) {
+    if (!Results::setup(s_resourceDir, s_mainWindow)) {
         std::cerr << "Failed to setup results" << std::endl;
-        std::exit(EXIT_FAILURE);
+        return false;
     }
     GLFWwindow * resultsWindow(Results::getWindow());
 
     //Side view Window
-    if (!SideView::setup(s_resourceDir, Simulation::getSideTextureID(), Simulation::getWindow())) {
+    if (!SideView::setup(s_resourceDir, Simulation::getSideTextureID(), s_mainWindow)) {
         std::cerr << "Failed to setup results" << std::endl;
-        std::exit(EXIT_FAILURE);
+        return false;
     }
     GLFWwindow * sideViewWindow(SideView::getWindow());
 
+    // Arrange windows
     glfwSetWindowPos(s_mainWindow, 100, 100);
     int windowWidth, windowHeight;
     glfwGetWindowSize(s_mainWindow, &windowWidth, &windowHeight);
@@ -142,6 +166,30 @@ int main(int argc, char ** argv) {
 
     glfwMakeContextCurrent(s_mainWindow);
     glfwFocusWindow(s_mainWindow);
+
+    return true;
+}
+
+void cleanup() {
+    Simulation::cleanup();
+
+    Results::cleanup();
+
+    glfwTerminate();
+}
+
+
+
+
+int main(int argc, char ** argv) {
+    if (!processArgs(argc, argv)) {
+        std::exit(-1);
+    }
+
+    if (!setup()) {
+        std::cerr << "Failed setup" << std::endl;
+        return -1;
+    }
 
     int fps(0);
     double then(glfwGetTime());
@@ -183,7 +231,10 @@ int main(int argc, char ** argv) {
 
         if (s_shouldRender) {
             Simulation::render();
+            glfwSwapBuffers(s_mainWindow);
+
             SideView::render();
+            glfwMakeContextCurrent(s_mainWindow);
         }
 
         // Results -------------------------------------------------------------
@@ -200,9 +251,7 @@ int main(int argc, char ** argv) {
         }
     }
 
-    // Quit program.
-    Simulation::cleanup();
-    Results::cleanup();
+    cleanup();
 
-    return EXIT_SUCCESS;
+    return 0;
 }

@@ -24,8 +24,6 @@ void copyOutlineData();
 
 void render();
 
-void submitOutline(int sliceNum, std::pair<vec3, vec3> outlinePoints);
-
 GLFWwindow * getWindow();
 
 
