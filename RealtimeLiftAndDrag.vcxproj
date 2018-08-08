@@ -157,9 +157,6 @@
     <ClInclude Include="src\Text.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="resources\preferences.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="resources\shaders\compute_draw.glsl" />
     <None Include="resources\shaders\compute_move.glsl" />
     <None Include="resources\shaders\compute_outline.glsl" />

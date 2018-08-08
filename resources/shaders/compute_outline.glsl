@@ -139,10 +139,12 @@ void main() {
         if (canSpawn && geoNormal.z > 0.0f) { // Make a new outline
             vec3 outlineWorldPos = geoWorldPos;
             // TODO: how far from geometry should new outline be?
-            outlineWorldPos.xy += screenToWorldDir(geoNormal.xy); // TODO: should this be reflected about the normal instead? 
+            // TODO: alternatively, starting at geometry location and then letting the move shader move it
+            //outlineWorldPos.xy += screenToWorldDir(geoNormal.xy); // TODO: should this be reflected about the normal instead?
+            vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
             int arrayI = atomicAdd(ssbo.outlineCount[u_swap], 1);
-            imageStore(u_outlineImg, getOutlineTexCoord(arrayI, WORLD_POS_OFF, u_swap), vec4(outlineWorldPos, 0.0f));
-            imageStore(u_outlineImg, getOutlineTexCoord(arrayI, MOMENTUM_OFF, u_swap), vec4(geoNormal, 0.0f)); // TODO: should this be reflected about the normal instead? 
+            imageStore(u_outlineImg, getOutlineTexCoord(arrayI, WORLD_POS_OFF, u_swap), vec4(geoWorldPos, 0.0f));
+            imageStore(u_outlineImg, getOutlineTexCoord(arrayI, MOMENTUM_OFF, u_swap), vec4(refl, 0.0f)); // TODO: should this be reflected about the normal instead? 
             //imageStore(u_outlineImg, getOutlineTexCoord(arrayI, TEX_POS_OFF, u_swap), vec4(screenPos, 0.0f, 0.0f));
             
 

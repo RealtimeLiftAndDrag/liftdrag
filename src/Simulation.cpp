@@ -457,7 +457,7 @@ namespace Simulation {
         //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
     }
 
-    static void render_to_framebuffer() {
+    static void renderToFramebuffer() {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
 
         // Clear framebuffer.
@@ -466,8 +466,6 @@ namespace Simulation {
         // Create the matrix stacks - please leave these alone for now
 
         mat4 V, M, P; //View, Model and Perspective matrix
-        V = mat4();
-        M = mat4(1);
 
         float zNear = k_sliceSize * (s_currentSlice - 1.5f);
         P = glm::ortho(
@@ -634,7 +632,7 @@ namespace Simulation {
             s_sweepLift = vec3();
         }
 
-        render_to_framebuffer();
+        renderToFramebuffer();
         computeOutline(s_swap); // generate next slice outline
         computeMove(s_swap); // move current slice
         computeDraw(!s_swap); // draw current slice
