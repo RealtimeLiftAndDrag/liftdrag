@@ -9,9 +9,7 @@
 *.userosscache
 *.sln.docstates
 *.filters
-*.vcxproj
 *.user
-*.dll
 .DS_Store
 
 # User-specific files (MonoDevelop/Xamarin Studio)
@@ -345,9 +343,3 @@ cmake_install.cmake
 install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
-
-ext/
-*.old
-/glm
-/include/GLFW
-/glfw3dll.lib
