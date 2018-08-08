@@ -68,7 +68,7 @@ void main() {
             imageStore(u_geoImg, getGeoTexCoord(arrayI, TEX_POS_OFF), vec4(gl_FragCoord.xy, arrayI, 0.0f));
             
             //sideview
-            vec2 sideTexPos = worldToScreen(vec3(in_pos.zy, 0));
+            vec2 sideTexPos = worldToScreen(vec3(-in_pos.z, in_pos.y, 0));
             imageStore(u_sideImg, ivec2(sideTexPos), vec4(1.0f, 0.f, 0.f, 1.0f));
         }
     }

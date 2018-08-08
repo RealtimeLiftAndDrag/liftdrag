@@ -68,24 +68,22 @@ vec2 worldToScreen(vec3 world) {
 }
 
 void main() {
-    int counterSwap = 1 - u_swap;
-
     int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (ssbo.outlineCount[counterSwap] + k_invocCount - 1) / k_invocCount;
+    int invocWorkload = (ssbo.outlineCount[u_swap] + k_invocCount - 1) / k_invocCount;
     for (int ii = 0; ii < invocWorkload; ++ii) {
 
         int workI = invocI + (k_invocCount * ii);
-        if (workI >= ssbo.outlineCount[counterSwap] || workI >= k_maxOutlinePixelsSum) {
+        if (workI >= ssbo.outlineCount[u_swap] || workI >= k_maxOutlinePixelsSum) {
             break;
         }
 
-        //vec3 norm = imageLoad(u_outlineImg, getOutlineTexCoord(workI, MOMENTUM_OFF, counterSwap)).xyz;
-        vec3 outlineWorldPos = imageLoad(u_outlineImg, getOutlineTexCoord(workI, WORLD_POS_OFF, counterSwap)).xyz;
+        //vec3 norm = imageLoad(u_outlineImg, getOutlineTexCoord(workI, MOMENTUM_OFF, u_swap)).xyz;
+        vec3 outlineWorldPos = imageLoad(u_outlineImg, getOutlineTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
         vec3 geoWorldPos = imageLoad(u_geoImg, getGeoTexCoord(workI, WORLD_POS_OFF)).xyz;
         
         ivec2 outlineScreenPos = ivec2(worldToScreen(outlineWorldPos));
-        ivec2 geoSideTexPos = ivec2(worldToScreen(vec3(geoWorldPos.zy, 0)));
-        ivec2 outlineSideTexPos = ivec2(worldToScreen(vec3(outlineWorldPos.zy, 0)));
+        ivec2 geoSideTexPos = ivec2(worldToScreen(vec3(-geoWorldPos.z, geoWorldPos.y, 0)));
+        ivec2 outlineSideTexPos = ivec2(worldToScreen(vec3(-outlineWorldPos.z, outlineWorldPos.y, 0)));
         
         vec4 originalColor = imageLoad(u_fboImg, outlineScreenPos);
         originalColor.b = 1.0f;

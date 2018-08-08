@@ -65,6 +65,10 @@ vec2 worldToScreen(vec3 world) {
     return screenPos;
 }
 
+vec2 screenToWorldDir(vec2 screenDir) {
+    return screenDir / (min(ssbo.screenSpec.x, ssbo.screenSpec.y) * 0.5f);
+}
+
 void main() {
     int invocI = int(gl_GlobalInvocationID.x);
     int invocWorkload = (ssbo.geoCount + k_invocCount - 1) / k_invocCount;    
@@ -87,11 +91,11 @@ void main() {
 
         vec2 screenDir = normalize(geoNormal.xy);
 
-        bool pixelFound = false;
+        bool canSpawn = true;
         for (int steps = 0; steps < k_maxSteps; ++steps) {
             vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
             if (col.b > 0.0f) { // we found an outline pixel  
-                pixelFound = true;
+                canSpawn = false;
                 int index = imageAtomicAdd(u_flagImg, ivec2(screenPos), 0); // TODO: replace with non-atomic operation
                 if (index == 0) {
                     break;
@@ -121,10 +125,10 @@ void main() {
             }
            
             if (col.r > 0.0f) { // we found a geometry pixel
-                vec2 nextpos = floor(screenPos) + vec2(0.5, 0.5) + screenDir;
-                vec4 nextcol = imageLoad(u_fboImg, ivec2(nextpos) );
-                if (nextcol.r > 0.f) {
-                    pixelFound = true;
+                vec2 nextScreenPos = floor(screenPos) + 0.5f + screenDir;
+                vec4 nextCol = imageLoad(u_fboImg, ivec2(nextScreenPos));
+                if (nextCol.r > 0.0f) {
+                    canSpawn = false;
                     break;
                 }
             }
@@ -132,19 +136,14 @@ void main() {
             screenPos += screenDir;
         }
     
-        if (!pixelFound && geoNormal.z < 0.0f) { // Make a new outline
-            vec2 world_normal = geoNormal.xy;// * .5f;
-
-            world_normal.x /= ssbo.screenSpec.x / 2.f;
-            world_normal.y /= ssbo.screenSpec.y / 2.f;
-
-            vec3 out_worldpos = geoWorldPos;
-            out_worldpos.xy += (world_normal.xy * 0.1);
-            out_worldpos.z = geoWorldPos.z;
-            int current_array_pos = atomicAdd(ssbo.outlineCount[u_swap], 1);
-            //imageStore(u_outlineImg, getOutlineTexCoord(current_array_pos, TEX_POS_OFF, u_swap), vec4(screenPos, 0.0f, 0.0f));   
-            imageStore(u_outlineImg, getOutlineTexCoord(current_array_pos, MOMENTUM_OFF, u_swap), vec4(geoNormal, 0.0f)); // TODO: should this be reflected about the normal instead?
-            imageStore(u_outlineImg, getOutlineTexCoord(current_array_pos, WORLD_POS_OFF, u_swap), vec4(out_worldpos, 0.0f));     
+        if (canSpawn && geoNormal.z > 0.0f) { // Make a new outline
+            vec3 outlineWorldPos = geoWorldPos;
+            // TODO: how far from geometry should new outline be?
+            outlineWorldPos.xy += screenToWorldDir(geoNormal.xy); // TODO: should this be reflected about the normal instead? 
+            int arrayI = atomicAdd(ssbo.outlineCount[u_swap], 1);
+            imageStore(u_outlineImg, getOutlineTexCoord(arrayI, WORLD_POS_OFF, u_swap), vec4(outlineWorldPos, 0.0f));
+            imageStore(u_outlineImg, getOutlineTexCoord(arrayI, MOMENTUM_OFF, u_swap), vec4(geoNormal, 0.0f)); // TODO: should this be reflected about the normal instead? 
+            //imageStore(u_outlineImg, getOutlineTexCoord(arrayI, TEX_POS_OFF, u_swap), vec4(screenPos, 0.0f, 0.0f));
             
 
         }

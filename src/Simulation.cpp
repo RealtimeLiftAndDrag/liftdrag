@@ -635,11 +635,10 @@ namespace Simulation {
         }
 
         render_to_framebuffer();
+        computeOutline(s_swap); // generate next slice outline
         computeMove(s_swap); // move current slice
-        computeDraw(s_swap); // draw current slice
-        computeOutline(!s_swap); // generate next slice outline
+        computeDraw(!s_swap); // draw current slice
         computeReset(s_swap); // reset current slice
-        //debug(swap);
         s_swap = !s_swap; // set next slice to current slice
 
         if (++s_currentSlice >= k_nSlices) {
