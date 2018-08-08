@@ -1,19 +1,29 @@
 ﻿#version 450 core
 
-#define WORLDPOSOFF 0
-#define MOMENTUMOFF 1
-
-#define ESTIMATEMAXOUTLINEPIXELS 16384
-#define ESTIMATEMAXOUTLINEPIXELSROWS 54
-#define ESTIMATEMAXOUTLINEPIXELSSUM ESTIMATEMAXOUTLINEPIXELS * (ESTIMATEMAXOUTLINEPIXELSROWS / (2 * 3))
-
-#define ESTIMATEMAXGEOPIXELS 16384
-#define ESTIMATEMAXGEOPIXELSROWS 27
-#define ESTIMATEMAXGEOPIXELSSUM ESTIMATEMAXGEOPIXELS * (ESTIMATEMAXGEOPIXELSROWS / (2 * 3))
+#define WORLD_POS_OFF 0
+#define MOMENTUM_OFF 1
+#define TEX_POS_OFF 2
 
 #define DEBUG_SIZE 4096
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+// Constants -------------------------------------------------------------------
+
+const int k_maxGeoPixels = 16384;
+const int k_maxGeoPixelsRows = 27;
+const int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
+
+const int k_estMaxOutlinePixels = 16384;
+const int k_maxOutlinePixelsRows = 27 * 2;
+const int k_maxOutlinePixelsSum = k_estMaxOutlinePixels * (k_maxOutlinePixelsRows / 2 / 3);
+
+const int k_invocCount = 1024;
+
+const vec3 k_sideGeoColor = vec3(1.0f, 1.0f, 0.0f);
+const vec3 k_sideOutlineColor = vec3(0.0f, 1.0f, 1.0f);
+
+// Uniforms --------------------------------------------------------------------
 
 uniform int u_swap;
 
@@ -24,7 +34,7 @@ layout (  rgba8, binding = 6) uniform  image2D u_geoSideImg;
 layout (rgba32f, binding = 5) uniform  image2D u_outlineImg;
 
 layout (std430, binding = 0) restrict buffer SSBO { 
-    int geometryCount;
+    int geoCount;
     int test; // necessary for padding
     int outlineCount[2];
     vec4 screenSpec;
@@ -33,60 +43,58 @@ layout (std430, binding = 0) restrict buffer SSBO {
     ivec4 debugShit[DEBUG_SIZE];
 } ssbo;
 
-ivec2 loadstore_outline(int index, int init_offset, int swapval) { // with init_offset being 0,1 or 2  (world, momentum, tex)
-    int off = index % ESTIMATEMAXOUTLINEPIXELS;
-    int mul = index / ESTIMATEMAXOUTLINEPIXELS;
-    int halfval = ESTIMATEMAXOUTLINEPIXELSROWS / 2;
-    return ivec2(off, init_offset + 3 * mul + swapval * halfval);
+// Functions -------------------------------------------------------------------
+
+ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (world, momentum, tex)
+    return ivec2(
+        index % k_maxGeoPixels,
+        offset + 3 * (index / k_maxGeoPixels)
+    );
 }
 
-ivec2 load_geo(int index, int init_offset) { // with init_offset being 0, 1, or 2 (world, momentum, tex)
-    int off = index % ESTIMATEMAXGEOPIXELS;
-    int mul = index / ESTIMATEMAXGEOPIXELS;
-    return ivec2(off, init_offset + 3 * mul);
+ivec2 getOutlineTexCoord(int index, int offset, int swap) { // with offset being 0, 1, or 2  (world, momentum, tex)
+    return ivec2(
+        index % k_estMaxOutlinePixels,
+        offset + 3 * (index / k_estMaxOutlinePixels) + swap * (k_maxOutlinePixelsRows / 2)
+    );
 }
 
-vec2 world_to_screen(vec3 world) {
-    vec2 texPos = world.xy;
-    texPos *= ssbo.screenSpec.zw; // compensate for aspect ratio
-    texPos = texPos * 0.5f + 0.5f; // center
-    texPos *= ssbo.screenSpec.xy; // scale to texture space
-    return texPos;
+vec2 worldToScreen(vec3 world) {
+    vec2 screenPos = world.xy;
+    screenPos *= ssbo.screenSpec.zw; // compensate for aspect ratio
+    screenPos = screenPos * 0.5f + 0.5f; // center
+    screenPos *= ssbo.screenSpec.xy; // scale to texture space
+    return screenPos;
 }
 
 void main() {
-    int counterswap = 1 - u_swap;
-    if (u_swap == 0) counterswap = 1;
-    else counterswap = 0;
+    int counterSwap = 1 - u_swap;
 
-    int index = int(gl_GlobalInvocationID.x);
-    int shadernum = 1024;
-    int iac = ssbo.outlineCount[counterswap];
-    float f_cs_workload_per_shader = ceil(float(iac) / float(shadernum));
-    int cs_workload_per_shader = int(f_cs_workload_per_shader);
-    for (int ii = 0; ii < cs_workload_per_shader; ii++) {
-        int work_on = index + (shadernum * ii);
-        if (work_on >= ESTIMATEMAXOUTLINEPIXELSSUM) break;
-        if(work_on >= ssbo.outlineCount[counterswap]) break;
+    int invocI = int(gl_GlobalInvocationID.x);
+    int invocWorkload = (ssbo.outlineCount[counterSwap] + k_invocCount - 1) / k_invocCount;
+    for (int ii = 0; ii < invocWorkload; ++ii) {
 
-        //vec3 norm = imageLoad(u_outlineImg, loadstore_outline(work_on, MOMENTUMOFF, counterswap)).xyz;
-        vec3 worldpos = imageLoad(u_outlineImg, loadstore_outline(work_on, WORLDPOSOFF, counterswap)).xyz;
-        vec3 geo_worldpos = imageLoad(u_geoImg, load_geo(work_on, WORLDPOSOFF)).xyz;
-        
-        vec2 texPos = world_to_screen(worldpos);
-        
-        vec4 original_color = imageLoad(u_fboImg, ivec2(texPos));
-        original_color.b = 1.0f;
-
-        vec2 sideTexPos = world_to_screen(vec3((worldpos.z - 0.5) * 2, worldpos.y * 2, 0));
-        vec2 sideGeoTexPos = world_to_screen(vec3((geo_worldpos.z - 0.5) * 2, geo_worldpos.y * 2, 0));
-//		sideTexPos.x = slice;
-//		sideGeoTexPos.x = slice;
-        imageStore(u_fboImg, ivec2(texPos), original_color);
-        if(worldpos.x < -.1 && worldpos.x > -.2){
-            imageStore(u_geoSideImg, ivec2(sideTexPos), vec4(0.0f, 1.0f, 1.0f, 1.0f));
-            imageStore(u_geoSideImg, ivec2(sideGeoTexPos), vec4(1.0f, 1.0f, 0.0f, 1.0f));
+        int workI = invocI + (k_invocCount * ii);
+        if (workI >= ssbo.outlineCount[counterSwap] || workI >= k_maxOutlinePixelsSum) {
+            break;
         }
-        imageAtomicExchange(u_flagImg, ivec2(texPos), work_on + 1);
+
+        //vec3 norm = imageLoad(u_outlineImg, getOutlineTexCoord(workI, MOMENTUM_OFF, counterSwap)).xyz;
+        vec3 outlineWorldPos = imageLoad(u_outlineImg, getOutlineTexCoord(workI, WORLD_POS_OFF, counterSwap)).xyz;
+        vec3 geoWorldPos = imageLoad(u_geoImg, getGeoTexCoord(workI, WORLD_POS_OFF)).xyz;
+        
+        ivec2 outlineScreenPos = ivec2(worldToScreen(outlineWorldPos));
+        ivec2 geoSideTexPos = ivec2(worldToScreen(vec3(geoWorldPos.zy, 0)));
+        ivec2 outlineSideTexPos = ivec2(worldToScreen(vec3(outlineWorldPos.zy, 0)));
+        
+        vec4 originalColor = imageLoad(u_fboImg, outlineScreenPos);
+        originalColor.b = 1.0f;
+
+        imageStore(u_fboImg, outlineScreenPos, originalColor);
+        if (abs(outlineWorldPos.x) <= 0.9f) { // ignore crazy stragglers on the edges
+            imageStore(u_geoSideImg, geoSideTexPos, vec4(k_sideGeoColor, 1.0f));
+            imageStore(u_geoSideImg, outlineSideTexPos, vec4(k_sideOutlineColor, 1.0f));
+        }
+        imageAtomicExchange(u_flagImg, outlineScreenPos, workI + 1);
     }        
 }

@@ -13,6 +13,11 @@ extern "C" {
 
 
 
+// TODO: I want to refactor outline to something else that is either short or
+// can be easily abbreviated, like air, or flow, etc.
+
+
+
 #include <iostream>
 
 #include "glad/glad.h"

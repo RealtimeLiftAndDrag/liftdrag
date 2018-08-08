@@ -1,20 +1,28 @@
 ﻿#version 450 core
 
-#define STEPMAX 50
-
-#define WORLDPOSOFF 0
-#define MOMENTUMOFF 1
-
-#define ESTIMATEMAXGEOPIXELS 16384
-#define ESTIMATEMAXGEOPIXELSROWS 27
-#define ESTIMATEMAXGEOPIXELSSUM ESTIMATEMAXGEOPIXELS * (ESTIMATEMAXGEOPIXELSROWS / (2 * 3))
-
-#define ESTIMATEMAXOUTLINEPIXELS 16384
-#define ESTIMATEMAXOUTLINEPIXELSROWS 54 // with half half 27
+#define WORLD_POS_OFF 0
+#define MOMENTUM_OFF 1
+#define TEX_POS_OFF 2
 
 #define DEBUG_SIZE 4096
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+// Constants -------------------------------------------------------------------
+
+const int k_maxGeoPixels = 16384;
+const int k_maxGeoPixelsRows = 27;
+const int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
+
+const int k_estMaxOutlinePixels = 16384;
+const int k_maxOutlinePixelsRows = 27 * 2;
+const int k_maxOutlinePixelsSum = k_estMaxOutlinePixels * (k_maxOutlinePixelsRows / 2 / 3);
+
+const int k_invocCount = 1024;
+
+const int k_maxSteps = 50;
+
+// Uniforms --------------------------------------------------------------------
 
 uniform int u_swap;
 
@@ -24,7 +32,7 @@ layout (rgba32f, binding = 4) uniform  image2D u_geoImg;
 layout (rgba32f, binding = 5) uniform  image2D u_outlineImg;
 
 layout (std430, binding = 0) restrict buffer SSBO {
-    int geometryCount;
+    int geoCount;
     int test; // necessary for padding
     int outlineCount[2];
     vec4 screenSpec;
@@ -33,120 +41,110 @@ layout (std430, binding = 0) restrict buffer SSBO {
     ivec4 debugShit[DEBUG_SIZE];
 } ssbo;
 
-ivec2 load_geo(int index,int init_offset) { // with init_offset being 0, 1, or 2 (world, momentum, tex)
-    int off = index % ESTIMATEMAXGEOPIXELS;
-    int mul = index / ESTIMATEMAXGEOPIXELS;
-    return ivec2(off, init_offset + 3 * mul);
+// Functions -------------------------------------------------------------------
+
+ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (world, momentum, tex)
+    return ivec2(
+        index % k_maxGeoPixels,
+        offset + 3 * (index / k_maxGeoPixels)
+    );
 }
 
-ivec2 loadstore_outline(int index, int init_offset, int swapval) { // with init_offset being 0, 1, or 2  (world, momentum, tex)
-    int off = index % ESTIMATEMAXOUTLINEPIXELS;
-    int mul = index / ESTIMATEMAXOUTLINEPIXELS;
-    int halfval = ESTIMATEMAXOUTLINEPIXELSROWS / 2;
-    return ivec2(off, init_offset + (3 * mul) + (swapval * halfval));
+ivec2 getOutlineTexCoord(int index, int offset, int swap) { // with offset being 0, 1, or 2  (world, momentum, tex)
+    return ivec2(
+        index % k_estMaxOutlinePixels,
+        offset + 3 * (index / k_estMaxOutlinePixels) + swap * (k_maxOutlinePixelsRows / 2)
+    );
 }
 
-vec2 world_to_screen(vec3 world) {
-    vec2 texPos = world.xy;
-    texPos *= ssbo.screenSpec.zw; // compensate for aspect ratio
-    texPos = texPos * 0.5f + 0.5f; // center
-    texPos *= ssbo.screenSpec.xy; // scale to texture space
-    return texPos;
+vec2 worldToScreen(vec3 world) {
+    vec2 screenPos = world.xy;
+    screenPos *= ssbo.screenSpec.zw; // compensate for aspect ratio
+    screenPos = screenPos * 0.5f + 0.5f; // center
+    screenPos *= ssbo.screenSpec.xy; // scale to texture space
+    return screenPos;
 }
-
 
 void main() {
-    int index = int(gl_GlobalInvocationID.x);
-    int shadernum = 1024;
-    int iac = int(ssbo.geometryCount);
-    float f_cs_workload_per_shader = ceil(float(iac) / float(shadernum));
-    int cs_workload_per_shader = int(f_cs_workload_per_shader);
+    int invocI = int(gl_GlobalInvocationID.x);
+    int invocWorkload = (ssbo.geoCount + k_invocCount - 1) / k_invocCount;    
+    for (int ii = 0; ii < invocWorkload; ++ii) {
     
-    for(int ii = 0; ii < cs_workload_per_shader; ii++) {
-        int work_on = index + shadernum * ii;
-        if (work_on >= ESTIMATEMAXGEOPIXELSSUM) break;
-        if (work_on >= ssbo.geometryCount) break;
+        int workI = invocI + (k_invocCount * ii);
+        if (workI >= ssbo.geoCount || workI >= k_maxGeoPixelsSum) {
+            break;
+        }
 
-        vec3 geo_worldpos = imageLoad(u_geoImg, load_geo(work_on, WORLDPOSOFF)).xyz;
-        vec3 normal = imageLoad(u_geoImg, load_geo(work_on, MOMENTUMOFF )).xyz;
+        vec3 geoWorldPos = imageLoad(u_geoImg, getGeoTexCoord(workI, WORLD_POS_OFF)).xyz;
+        vec3 geoNormal = imageLoad(u_geoImg, getGeoTexCoord(workI, MOMENTUM_OFF)).xyz;
 
-        vec2 texPos = world_to_screen(geo_worldpos);
-    
-        normal = normalize(normal);
-        vec3 geo_normal = normal;
+        // TODO: find better way to deal with this
+        if (abs(geoNormal.z) > 0.99f) {
+            continue;
+        }
 
-        if (abs(normal.y) < 0.01f) continue;
-        // finding an possible outline / calculate density        
-        
-        vec2 ntexPos = texPos;
-        vec4 col = vec4(0.0f);
+        vec2 screenPos = worldToScreen(geoWorldPos);
 
-        vec2 pixdirection = normalize(normal.xy);
+        vec2 screenDir = normalize(geoNormal.xy);
 
-        //TODO Sacriligious programming stuff going on here this is so wrong. Why would y be flipped?
-        //pixdirection.y *= -1.f;
         bool pixelFound = false;
-        for(int steps = 0; steps < STEPMAX; steps++) {
-            col = imageLoad(u_fboImg, ivec2(ntexPos));
-            if (col.b > 0.f) { // we found an outline pixel  
+        for (int steps = 0; steps < k_maxSteps; ++steps) {
+            vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
+            if (col.b > 0.0f) { // we found an outline pixel  
                 pixelFound = true;
-                int index = imageAtomicAdd(u_flagImg, ivec2(ntexPos), 0);
-                if (index > 0) index--;					
-                
-                if (index < 1){					
+                int index = imageAtomicAdd(u_flagImg, ivec2(screenPos), 0); // TODO: replace with non-atomic operation
+                if (index == 0) {
                     break;
                 }
+                index--;
                     
-                vec3 out_worldpos = imageLoad(u_outlineImg, loadstore_outline(index, WORLDPOSOFF, u_swap)).xyz;
+                vec3 outlineWorldPos = imageLoad(u_outlineImg, getOutlineTexCoord(index, WORLD_POS_OFF, u_swap)).xyz;
 
-                vec3 backforce_direction = out_worldpos - geo_worldpos;
-                backforce_direction *= 1; //modifier constant
+                vec3 backforceDir = outlineWorldPos - geoWorldPos;
 
-                //float force = length(backforce_direction);
-                //backforce_direction=normalize(backforce_direction);
+                //float force = length(backforceDir);
+                //backforceDir=normalize(backforceDir);
                 //force=pow(force-0.08,0.7);
                 //if(force<0)force=0;
 
-                vec3 momentum = imageLoad(u_outlineImg,loadstore_outline(index, MOMENTUMOFF, u_swap)).xyz;				
-                momentum.xy += backforce_direction.xy; //* force;				
-                imageStore(u_outlineImg, loadstore_outline(index, MOMENTUMOFF, u_swap), vec4(momentum, 0.0f));
+                ivec2 velocityTexCoord = getOutlineTexCoord(index, MOMENTUM_OFF, u_swap);
+                vec3 velocity = imageLoad(u_outlineImg, velocityTexCoord).xyz;				
+                velocity.xy += backforceDir.xy; //* force;				
+                imageStore(u_outlineImg, velocityTexCoord, vec4(velocity, 0.0f));
                 
                 
-                float liftforce = backforce_direction.y * 1e6; //pow(backforce_direction.y, 3) * 1e6;
+                float liftforce = backforceDir.y * 1e6; // TODO: currently linear
                 int i_liftforce = int(liftforce);				  
-                atomicAdd(ssbo.force.x, i_liftforce);
+                atomicAdd(ssbo.force.x, int(round(backforceDir.y * 1.0e6f)));
             
                 break;
             }
            
-            if (col.r > 0.f) {
-                vec2 nextpos = floor(ntexPos) + vec2(0.5, 0.5) + pixdirection;
+            if (col.r > 0.0f) { // we found a geometry pixel
+                vec2 nextpos = floor(screenPos) + vec2(0.5, 0.5) + screenDir;
                 vec4 nextcol = imageLoad(u_fboImg, ivec2(nextpos) );
-                if(nextcol.r > 0.f) {
+                if (nextcol.r > 0.f) {
                     pixelFound = true;
                     break;
                 }
             }
             
-            ntexPos += pixdirection;
+            screenPos += screenDir;
         }
     
-        if (!pixelFound && normal.z < 0.0f) { //make a new outline
-            //atomicAdd(ssbo.debugShit[0].w, 1);
-            // ntexPos = texPos - normal.xy * 20.5f;
-
-            vec2 world_normal = normal.xy;// * .5f;
+        if (!pixelFound && geoNormal.z < 0.0f) { // Make a new outline
+            vec2 world_normal = geoNormal.xy;// * .5f;
 
             world_normal.x /= ssbo.screenSpec.x / 2.f;
             world_normal.y /= ssbo.screenSpec.y / 2.f;
 
-            vec3 out_worldpos = geo_worldpos;
+            vec3 out_worldpos = geoWorldPos;
             out_worldpos.xy += (world_normal.xy * 0.1);
-            out_worldpos.z = geo_worldpos.z;
+            out_worldpos.z = geoWorldPos.z;
             int current_array_pos = atomicAdd(ssbo.outlineCount[u_swap], 1);
-            //imageStore(u_outlineImg, loadstore_outline(current_array_pos, texPosOFF, u_swap), vec4(ntexPos, 0.0f, 0.0f));   
-            imageStore(u_outlineImg, loadstore_outline(current_array_pos, MOMENTUMOFF, u_swap), vec4(normal, 0.0f));
-            imageStore(u_outlineImg, loadstore_outline(current_array_pos, WORLDPOSOFF, u_swap), vec4(out_worldpos, 0.0f));     
+            //imageStore(u_outlineImg, getOutlineTexCoord(current_array_pos, TEX_POS_OFF, u_swap), vec4(screenPos, 0.0f, 0.0f));   
+            imageStore(u_outlineImg, getOutlineTexCoord(current_array_pos, MOMENTUM_OFF, u_swap), vec4(geoNormal, 0.0f)); // TODO: should this be reflected about the normal instead?
+            imageStore(u_outlineImg, getOutlineTexCoord(current_array_pos, WORLD_POS_OFF, u_swap), vec4(out_worldpos, 0.0f));     
             
 
         }

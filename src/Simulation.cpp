@@ -17,7 +17,7 @@ namespace Simulation {
 
     static constexpr int k_width(720), k_height(480);
     static constexpr int k_nSlices(50);
-    static constexpr float k_sliceSize(0.025f); // z distance between slices
+    static constexpr float k_sliceSize(0.025f); // z distance between slices, MUST ALSO CHANGE IN MOVE SHADER!!!
 
     static constexpr int k_estimateMaxGeoPixels(16384);
     static constexpr int k_extimateMaxGeoPixelsRows(27);
@@ -31,7 +31,7 @@ namespace Simulation {
 
     struct SSBO {
 
-        u32 geometryCount;
+        u32 geoCount;
         u32 test; // necessary for padding
         u32 outlineCount[2];
         vec4 screenSpec; // screen width, screen height, x aspect factor, y aspect factor
@@ -40,7 +40,7 @@ namespace Simulation {
         ivec4 debugShit[k_debugSize];
 
         SSBO() :
-            geometryCount(0),
+            geoCount(0),
             test(0),
             outlineCount{ 0, 0 },
             screenSpec(),
@@ -51,7 +51,7 @@ namespace Simulation {
         }
 
         void reset(int swap) {
-            geometryCount = 0;
+            geoCount = 0;
             test = 0;
             outlineCount[swap] = 0;
             force = ivec4();
@@ -79,7 +79,7 @@ namespace Simulation {
     static uint s_fbo;
     static uint s_fboTex;
     static uint s_flagTex;
-    static uint s_geometryTex; // texture holding the pixels of the geometry
+    static uint s_geoTex; // texture holding the pixels of the geometry
     static uint s_sideTex; // texture holding the pixels of the geometry from the side
     static uint s_outlineTex; // texture holding the pixels of the outline
 
@@ -352,7 +352,7 @@ namespace Simulation {
         memcpy(&test, p, sizeof(SSBO));
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
-        //std::cout << test.geometryCount << " , " << test.debugShit[0].x << " , " << test.debugShit[0].y << " , " << test.debugShit[0].z  << " , " << test.debugShit[0].w << std::endl;
+        //std::cout << test.geoCount << " , " << test.debugShit[0].x << " , " << test.debugShit[0].y << " , " << test.debugShit[0].z  << " , " << test.debugShit[0].w << std::endl;
     }
 
     static void computeOutline(int swap) {
@@ -366,7 +366,7 @@ namespace Simulation {
 
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         glBindImageTexture(3, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-        glBindImageTexture(4, s_geometryTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(4, s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(5, s_outlineTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
         glUniform1i(OutlineShader::u_swap, swap);
@@ -393,7 +393,7 @@ namespace Simulation {
 
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         glBindImageTexture(3, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-        glBindImageTexture(4, s_geometryTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(4, s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(5, s_outlineTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
         glUniform1i(MoveShader::u_swap, swap);
@@ -416,7 +416,7 @@ namespace Simulation {
 
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         glBindImageTexture(3, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-        glBindImageTexture(4, s_geometryTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(4, s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(5, s_outlineTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(6, s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
 
@@ -489,7 +489,7 @@ namespace Simulation {
         
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         
-        glBindImageTexture(4, s_geometryTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(4, s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
         glBindImageTexture(6, s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         
@@ -582,14 +582,14 @@ namespace Simulation {
         }
 
         // Setup dense geometry pixel texture
-        glGenTextures(1, &s_geometryTex);
-        glBindTexture(GL_TEXTURE_2D, s_geometryTex);
+        glGenTextures(1, &s_geoTex);
+        glBindTexture(GL_TEXTURE_2D, s_geoTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_estimateMaxGeoPixels, k_extimateMaxGeoPixelsRows, 0, GL_RGBA, GL_FLOAT, NULL);
-        glBindImageTexture(4, s_geometryTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(4, s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;
             return false;
@@ -627,7 +627,7 @@ namespace Simulation {
         if (s_currentSlice == 0) {
             uint clearColor[4]{};
             glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
-            glClearTexImage(s_geometryTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
+            glClearTexImage(s_geoTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
             glClearTexImage(s_outlineTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
             glClearTexImage(s_sideTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
             memset(&s_ssbo, 0, sizeof(SSBO));
