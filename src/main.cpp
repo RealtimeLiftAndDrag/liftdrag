@@ -180,7 +180,6 @@ void cleanup() {
 
 
 
-
 int main(int argc, char ** argv) {
     if (!processArgs(argc, argv)) {
         std::exit(-1);
