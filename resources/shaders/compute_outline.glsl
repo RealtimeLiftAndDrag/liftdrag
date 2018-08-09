@@ -69,6 +69,34 @@ vec2 screenToWorldDir(vec2 screenDir) {
     return screenDir / (min(ssbo.screenSpec.x, ssbo.screenSpec.y) * 0.5f);
 }
 
+void processAir(vec2 screenPos, vec3 geoWorldPos) {
+    int airI = imageAtomicAdd(u_flagImg, ivec2(screenPos), 0); // TODO: replace with non-atomic operation
+    // TODO: this should not be necessary
+    if (airI == 0) {
+        return;
+    }
+    --airI;
+                    
+    vec3 airWorldPos = imageLoad(u_airImg, getAirTexCoord(airI, WORLD_POS_OFF, u_swap)).xyz;
+
+    vec3 backforceDir = geoWorldPos - airWorldPos;
+
+    //float force = length(backforceDir);
+    //backforceDir=normalize(backforceDir);
+    //force=pow(force-0.08,0.7);
+    //if(force<0)force=0;
+
+    // Update velocity
+    ivec2 velocityTexCoord = getAirTexCoord(airI, MOMENTUM_OFF, u_swap);
+    vec3 velocity = imageLoad(u_airImg, velocityTexCoord).xyz;				
+    velocity.xy += backforceDir.xy; //* force;				
+    imageStore(u_airImg, velocityTexCoord, vec4(velocity, 0.0f));
+                
+    // Calculate lift     
+    float liftforce = backforceDir.y * 1e6; // TODO: currently linear			  
+    atomicAdd(ssbo.force.x, int(round(backforceDir.y * 1.0e6f)));
+}
+
 void main() {
     int invocI = int(gl_GlobalInvocationID.x);
     int invocWorkload = (ssbo.geoCount + k_invocCount - 1) / k_invocCount;    
@@ -82,73 +110,49 @@ void main() {
         vec3 geoWorldPos = imageLoad(u_geoImg, getGeoTexCoord(workI, WORLD_POS_OFF)).xyz;
         vec3 geoNormal = imageLoad(u_geoImg, getGeoTexCoord(workI, MOMENTUM_OFF)).xyz;
 
-        // TODO: find better way to deal with this
-        if (abs(geoNormal.z) > 0.99f) {
+        vec2 screenPos = floor(worldToScreen(geoWorldPos)) + 0.5f;
+
+        // Check if actually a geometry pixel
+        // TODO: this should not be necessary
+        vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
+        if (col.r == 0.0f) {
             continue;
         }
 
-        vec2 screenPos = worldToScreen(geoWorldPos);
-
         vec2 screenDir = normalize(geoNormal.xy);
 
-        bool canSpawn = true;
+        // TODO: magic numbers
+        bool shouldSpawn = geoNormal.z >= 0.01f && geoNormal.z <= 0.99f;
+
+        // Check if at edge of geometry
+        col = imageLoad(u_fboImg, ivec2(screenPos + screenDir));
+        if (col.r > 0.0f) {
+            shouldSpawn = false;
+        }
+
+        // Look for air pixel
         for (int steps = 0; steps < k_maxSteps; ++steps) {
-            vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
+            col = imageLoad(u_fboImg, ivec2(screenPos));
             if (col.g > 0.0f) { // we found an air pixel
-                canSpawn = false;
-                int airIndex = imageAtomicAdd(u_flagImg, ivec2(screenPos), 0); // TODO: replace with non-atomic operation
-                if (airIndex == 0) {
-                    break;
-                }
-                airIndex--;
-                    
-                vec3 airWorldPos = imageLoad(u_airImg, getAirTexCoord(airIndex, WORLD_POS_OFF, u_swap)).xyz;
-
-                vec3 backforceDir = geoWorldPos - airWorldPos;
-
-                //float force = length(backforceDir);
-                //backforceDir=normalize(backforceDir);
-                //force=pow(force-0.08,0.7);
-                //if(force<0)force=0;
-
-                ivec2 velocityTexCoord = getAirTexCoord(airIndex, MOMENTUM_OFF, u_swap);
-                vec3 velocity = imageLoad(u_airImg, velocityTexCoord).xyz;				
-                velocity.xy += backforceDir.xy; //* force;				
-                imageStore(u_airImg, velocityTexCoord, vec4(velocity, 0.0f));
-                
-                
-                float liftforce = backforceDir.y * 1e6; // TODO: currently linear
-                int i_liftforce = int(liftforce);				  
-                atomicAdd(ssbo.force.x, int(round(backforceDir.y * 1.0e6f)));
-            
+                shouldSpawn = false;
+                processAir(screenPos, geoWorldPos);
                 break;
-            }
-           
-            if (col.r > 0.0f) { // we found a geometry pixel
-                vec2 nextScreenPos = floor(screenPos) + 0.5f + screenDir;
-                vec4 nextCol = imageLoad(u_fboImg, ivec2(nextScreenPos));
-                if (nextCol.r > 0.0f) {
-                    canSpawn = false;
-                    break;
-                }
-            }
-            
+            }            
             screenPos += screenDir;
         }
     
-        if (canSpawn && geoNormal.z > 0.0f) { // Make a new outline
+        // Make a new air pixel
+        if (shouldSpawn) {
             vec3 airWorldPos = geoWorldPos;
             // TODO: how far from geometry should new air be?
             // TODO: alternatively, starting at geometry location and then letting the move shader move it
             //airWorldPos.xy += screenToWorldDir(geoNormal.xy); // TODO: should this be reflected about the normal instead?
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
-            vec3 initVel = refl * 10.0f;
+            vec3 airVel = refl * 10.0f;
             int arrayI = atomicAdd(ssbo.airCount[u_swap], 1);
-            imageStore(u_airImg, getAirTexCoord(arrayI, WORLD_POS_OFF, u_swap), vec4(geoWorldPos, 0.0f));
-            imageStore(u_airImg, getAirTexCoord(arrayI, MOMENTUM_OFF, u_swap), vec4(initVel, 0.0f));
+            imageStore(u_airImg, getAirTexCoord(arrayI, WORLD_POS_OFF, u_swap), vec4(airWorldPos, 0.0f));
+            imageStore(u_airImg, getAirTexCoord(arrayI, MOMENTUM_OFF, u_swap), vec4(airVel, 0.0f));
             //imageStore(u_airImg, getAirTexCoord(arrayI, TEX_POS_OFF, u_swap), vec4(screenPos, 0.0f, 0.0f));
-            
-
         }
     }
 }
