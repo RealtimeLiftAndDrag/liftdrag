@@ -21,8 +21,8 @@ namespace Simulation {
 
     static constexpr int k_estimateMaxGeoPixels(16384);
     static constexpr int k_extimateMaxGeoPixelsRows(27);
-    static constexpr int k_estimateMaxOutlinePixels(16384);
-    static constexpr int k_estimateMaxOutlinePixelsRows(54);
+    static constexpr int k_estimateMaxAirPixels(16384);
+    static constexpr int k_estimateMaxAirPixelsRows(54);
 
     static constexpr bool k_doDebug(false);
     static constexpr int k_debugSize(4096); // Must also change defines in shaders
@@ -33,7 +33,7 @@ namespace Simulation {
 
         u32 geoCount;
         u32 test; // necessary for padding
-        u32 outlineCount[2];
+        u32 airCount[2];
         vec4 screenSpec; // screen width, screen height, x aspect factor, y aspect factor
         ivec4 momentum;
         ivec4 force;
@@ -42,7 +42,7 @@ namespace Simulation {
         SSBO() :
             geoCount(0),
             test(0),
-            outlineCount{ 0, 0 },
+            airCount{ 0, 0 },
             screenSpec(),
             momentum(),
             force()
@@ -53,7 +53,7 @@ namespace Simulation {
         void reset(int swap) {
             geoCount = 0;
             test = 0;
-            outlineCount[swap] = 0;
+            airCount[swap] = 0;
             force = ivec4();
             momentum = ivec4();
             if (k_doDebug) std::memset(debugShit, 0, k_debugSize);
@@ -81,7 +81,7 @@ namespace Simulation {
     static uint s_flagTex;
     static uint s_geoTex; // texture holding the pixels of the geometry
     static uint s_sideTex; // texture holding the pixels of the geometry from the side
-    static uint s_outlineTex; // texture holding the pixels of the outline
+    static uint s_airTex; // texture holding the pixels of air
 
     static uint s_ssboID;
 
@@ -367,7 +367,7 @@ namespace Simulation {
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         glBindImageTexture(3, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         glBindImageTexture(4, s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(5, s_outlineTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(5, s_airTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
         glUniform1i(OutlineShader::u_swap, swap);
         //start compute shader program		
@@ -394,7 +394,7 @@ namespace Simulation {
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         glBindImageTexture(3, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         glBindImageTexture(4, s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(5, s_outlineTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(5, s_airTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
         glUniform1i(MoveShader::u_swap, swap);
 
@@ -417,7 +417,7 @@ namespace Simulation {
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         glBindImageTexture(3, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         glBindImageTexture(4, s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(5, s_outlineTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(5, s_airTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(6, s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
 
         glUniform1i(DrawShader::u_swap, swap);
@@ -453,7 +453,7 @@ namespace Simulation {
         int clearColor[4]{};
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
 
-        //glClearTexSubImage(outline_tex, 0, 0, swap*(k_estimateMaxOutlinePixelsRows / 2), 0, k_estimateMaxOutlinePixels, k_estimateMaxOutlinePixelsRows / 2, 1, GL_RGBA, GL_FLOAT, clearColor);
+        //glClearTexSubImage(air_tex, 0, 0, swap*(k_estimateMaxAirPixelsRows / 2), 0, k_estimateMaxAirPixels, k_estimateMaxAirPixelsRows / 2, 1, GL_RGBA, GL_FLOAT, clearColor);
         //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
     }
 
@@ -596,15 +596,15 @@ namespace Simulation {
             return false;
         }
 
-        // Setup dense outline pixel texture
-        glGenTextures(1, &s_outlineTex);
-        glBindTexture(GL_TEXTURE_2D, s_outlineTex);
+        // Setup dense air pixel texture
+        glGenTextures(1, &s_airTex);
+        glBindTexture(GL_TEXTURE_2D, s_airTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_estimateMaxOutlinePixels, k_estimateMaxOutlinePixelsRows, 0, GL_RGBA, GL_FLOAT, NULL);
-        glBindImageTexture(5, s_outlineTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_estimateMaxAirPixels, k_estimateMaxAirPixelsRows, 0, GL_RGBA, GL_FLOAT, NULL);
+        glBindImageTexture(5, s_airTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;
@@ -629,7 +629,7 @@ namespace Simulation {
             uint clearColor[4]{};
             glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
             glClearTexImage(s_geoTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
-            glClearTexImage(s_outlineTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
+            glClearTexImage(s_airTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
             glClearTexImage(s_sideTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
             memset(&s_ssbo, 0, sizeof(SSBO));
             s_sweepLift = vec3();

@@ -14,9 +14,9 @@ const int k_maxGeoPixels = 16384;
 const int k_maxGeoPixelsRows = 27;
 const int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
 
-const int k_estMaxOutlinePixels = 16384;
-const int k_maxOutlinePixelsRows = 27 * 2;
-const int k_maxOutlinePixelsSum = k_estMaxOutlinePixels * (k_maxOutlinePixelsRows / 2 / 3);
+const int k_estMaxAirPixels = 16384;
+const int k_maxAirPixelsRows = 27 * 2;
+const int k_maxAirPixelsSum = k_estMaxAirPixels * (k_maxAirPixelsRows / 2 / 3);
 
 const int k_invocCount = 1024;
 
@@ -30,12 +30,12 @@ uniform int u_swap;
 layout (   r32i, binding = 2) uniform iimage2D u_flagImg;									
 layout (  rgba8, binding = 3) uniform  image2D u_fboImg;	
 layout (rgba32f, binding = 4) uniform  image2D u_geoImg;	
-layout (rgba32f, binding = 5) uniform  image2D u_outlineImg;
+layout (rgba32f, binding = 5) uniform  image2D u_airImg;
 
 layout (std430, binding = 0) restrict buffer SSBO {
     int geoCount;
     int test; // necessary for padding
-    int outlineCount[2];
+    int airCount[2];
     vec4 screenSpec;
     ivec4 momentum;
     ivec4 force;
@@ -51,10 +51,10 @@ ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (w
     );
 }
 
-ivec2 getOutlineTexCoord(int index, int offset, int swap) { // with offset being 0, 1, or 2  (world, momentum, tex)
+ivec2 getAirTexCoord(int index, int offset, int swap) { // with offset being 0, 1, or 2  (world, momentum, tex)
     return ivec2(
-        index % k_estMaxOutlinePixels,
-        offset + 3 * (index / k_estMaxOutlinePixels) + swap * (k_maxOutlinePixelsRows / 2)
+        index % k_estMaxAirPixels,
+        offset + 3 * (index / k_estMaxAirPixels) + swap * (k_maxAirPixelsRows / 2)
     );
 }
 
@@ -73,16 +73,16 @@ vec2 screenToWorldDir(vec2 screenDir) {
 void main() {
     int counterSwap = 1 - u_swap;
     int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (ssbo.outlineCount[u_swap] + k_invocCount - 1) / k_invocCount;
+    int invocWorkload = (ssbo.airCount[u_swap] + k_invocCount - 1) / k_invocCount;
     for (int ii = 0; ii < invocWorkload; ++ii) {
     
         int workI = invocI + (k_invocCount * ii);
-        if (workI >= ssbo.outlineCount[u_swap] || workI >= k_maxOutlinePixelsSum) {
+        if (workI >= ssbo.airCount[u_swap] || workI >= k_maxAirPixelsSum) {
             break;
         }
 
-        vec3 worldPos = imageLoad(u_outlineImg, getOutlineTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
-        vec3 vel = imageLoad(u_outlineImg, getOutlineTexCoord(workI, MOMENTUM_OFF, u_swap)).xyz;
+        vec3 worldPos = imageLoad(u_airImg, getAirTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
+        vec3 vel = imageLoad(u_airImg, getAirTexCoord(workI, MOMENTUM_OFF, u_swap)).xyz;
 
         // Update location
         worldPos.xy += screenToWorldDir(vel.xy); // TODO: right now a velocity of 1 corresponds to moving 1 pixel. Is this right?
@@ -123,13 +123,13 @@ void main() {
         //    continue; // merge!!!
         //}
 
-        int arrayI = atomicAdd(ssbo.outlineCount[counterSwap], 1);
-        if (arrayI >= k_maxOutlinePixelsSum) {
+        int arrayI = atomicAdd(ssbo.airCount[counterSwap], 1);
+        if (arrayI >= k_maxAirPixelsSum) {
             break;
         }
     
-        //imageStore(u_outlineImg, getOutlineTexCoord(arrayI, TEX_POS_OFF, counterSwap), vec4(newtexpos, 0.0f, 0.0f));
-        imageStore(u_outlineImg, getOutlineTexCoord(arrayI, WORLD_POS_OFF, counterSwap), vec4(worldPos, 0.0f)); 
-        imageStore(u_outlineImg, getOutlineTexCoord(arrayI, MOMENTUM_OFF, counterSwap), vec4(vel, 0.0f));
+        //imageStore(u_airImg, getAirTexCoord(arrayI, TEX_POS_OFF, counterSwap), vec4(newtexpos, 0.0f, 0.0f));
+        imageStore(u_airImg, getAirTexCoord(arrayI, WORLD_POS_OFF, counterSwap), vec4(worldPos, 0.0f)); 
+        imageStore(u_airImg, getAirTexCoord(arrayI, MOMENTUM_OFF, counterSwap), vec4(vel, 0.0f));
     }        
 }

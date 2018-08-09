@@ -31,7 +31,7 @@ layout (rgba8, binding = 6) uniform image2D u_sideImg;
 layout (std430, binding = 0) restrict buffer SSBO { 
     int geoCount;
     int test;
-    int outlineCount[2];
+    int airCount[2];
     vec4 screenSpec;
     ivec4 momentum;
     ivec4 force;

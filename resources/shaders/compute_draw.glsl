@@ -31,12 +31,12 @@ layout (   r32i, binding = 2) uniform iimage2D u_flagImg;
 layout (  rgba8, binding = 3) uniform  image2D u_fboImg;
 layout (rgba32f, binding = 4) uniform  image2D u_geoImg;	
 layout (  rgba8, binding = 6) uniform  image2D u_geoSideImg;	
-layout (rgba32f, binding = 5) uniform  image2D u_outlineImg;
+layout (rgba32f, binding = 5) uniform  image2D u_airImg;
 
 layout (std430, binding = 0) restrict buffer SSBO { 
     int geoCount;
     int test; // necessary for padding
-    int outlineCount[2];
+    int airCount[2];
     vec4 screenSpec;
     ivec4 momentum;
     ivec4 force;
@@ -69,30 +69,30 @@ vec2 worldToScreen(vec3 world) {
 
 void main() {
     int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (ssbo.outlineCount[u_swap] + k_invocCount - 1) / k_invocCount;
+    int invocWorkload = (ssbo.airCount[u_swap] + k_invocCount - 1) / k_invocCount;
     for (int ii = 0; ii < invocWorkload; ++ii) {
 
         int workI = invocI + (k_invocCount * ii);
-        if (workI >= ssbo.outlineCount[u_swap] || workI >= k_maxOutlinePixelsSum) {
+        if (workI >= ssbo.airCount[u_swap] || workI >= k_maxOutlinePixelsSum) {
             break;
         }
 
-        //vec3 norm = imageLoad(u_outlineImg, getOutlineTexCoord(workI, MOMENTUM_OFF, u_swap)).xyz;
-        vec3 outlineWorldPos = imageLoad(u_outlineImg, getOutlineTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
+        //vec3 norm = imageLoad(u_airImg, getOutlineTexCoord(workI, MOMENTUM_OFF, u_swap)).xyz;
+        vec3 airWorldPos = imageLoad(u_airImg, getOutlineTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
         vec3 geoWorldPos = imageLoad(u_geoImg, getGeoTexCoord(workI, WORLD_POS_OFF)).xyz;
         
-        ivec2 outlineScreenPos = ivec2(worldToScreen(outlineWorldPos));
+        ivec2 airScreenPos = ivec2(worldToScreen(airWorldPos));
         ivec2 geoSideTexPos = ivec2(worldToScreen(vec3(-geoWorldPos.z, geoWorldPos.y, 0)));
-        ivec2 outlineSideTexPos = ivec2(worldToScreen(vec3(-outlineWorldPos.z, outlineWorldPos.y, 0)));
+        ivec2 airSideTexPos = ivec2(worldToScreen(vec3(-airWorldPos.z, airWorldPos.y, 0)));
         
-        vec4 originalColor = imageLoad(u_fboImg, outlineScreenPos);
+        vec4 originalColor = imageLoad(u_fboImg, airScreenPos);
         originalColor.g = 1.0f;
 
-        imageStore(u_fboImg, outlineScreenPos, originalColor);
-        if (abs(outlineWorldPos.x) <= 0.9f) { // ignore crazy stragglers on the edges
+        imageStore(u_fboImg, airScreenPos, originalColor);
+        if (abs(airWorldPos.x) <= 0.9f) { // ignore crazy stragglers on the edges
             imageStore(u_geoSideImg, geoSideTexPos, vec4(k_sideGeoColor, 1.0f));
-            imageStore(u_geoSideImg, outlineSideTexPos, vec4(k_sideOutlineColor, 1.0f));
+            imageStore(u_geoSideImg, airSideTexPos, vec4(k_sideOutlineColor, 1.0f));
         }
-        imageAtomicExchange(u_flagImg, outlineScreenPos, workI + 1);
+        imageAtomicExchange(u_flagImg, airScreenPos, workI + 1);
     }        
 }

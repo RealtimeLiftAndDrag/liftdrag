@@ -14,9 +14,9 @@ const int k_maxGeoPixels = 16384;
 const int k_maxGeoPixelsRows = 27;
 const int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
 
-const int k_estMaxOutlinePixels = 16384;
-const int k_maxOutlinePixelsRows = 27 * 2;
-const int k_maxOutlinePixelsSum = k_estMaxOutlinePixels * (k_maxOutlinePixelsRows / 2 / 3);
+const int k_estMaxAirPixels = 16384;
+const int k_maxAirPixelsRows = 27 * 2;
+const int k_maxAirPixelsSum = k_estMaxAirPixels * (k_maxAirPixelsRows / 2 / 3);
 
 const int k_invocCount = 1024;
 
@@ -29,12 +29,12 @@ uniform int u_swap;
 layout (   r32i, binding = 2) uniform iimage2D u_flagImg;									
 layout (  rgba8, binding = 3) uniform  image2D u_fboImg;	
 layout (rgba32f, binding = 4) uniform  image2D u_geoImg;	
-layout (rgba32f, binding = 5) uniform  image2D u_outlineImg;
+layout (rgba32f, binding = 5) uniform  image2D u_airImg;
 
 layout (std430, binding = 0) restrict buffer SSBO {
     int geoCount;
     int test; // necessary for padding
-    int outlineCount[2];
+    int airCount[2];
     vec4 screenSpec;
     ivec4 momentum;
     ivec4 force;
@@ -50,10 +50,10 @@ ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (w
     );
 }
 
-ivec2 getOutlineTexCoord(int index, int offset, int swap) { // with offset being 0, 1, or 2  (world, momentum, tex)
+ivec2 getAirTexCoord(int index, int offset, int swap) { // with offset being 0, 1, or 2  (world, momentum, tex)
     return ivec2(
-        index % k_estMaxOutlinePixels,
-        offset + 3 * (index / k_estMaxOutlinePixels) + swap * (k_maxOutlinePixelsRows / 2)
+        index % k_estMaxAirPixels,
+        offset + 3 * (index / k_estMaxAirPixels) + swap * (k_maxAirPixelsRows / 2)
     );
 }
 
@@ -94,27 +94,27 @@ void main() {
         bool canSpawn = true;
         for (int steps = 0; steps < k_maxSteps; ++steps) {
             vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
-            if (col.g > 0.0f) { // we found an outline pixel
+            if (col.g > 0.0f) { // we found an air pixel
                 canSpawn = false;
-                int outlineIndex = imageAtomicAdd(u_flagImg, ivec2(screenPos), 0); // TODO: replace with non-atomic operation
-                if (outlineIndex == 0) {
+                int airIndex = imageAtomicAdd(u_flagImg, ivec2(screenPos), 0); // TODO: replace with non-atomic operation
+                if (airIndex == 0) {
                     break;
                 }
-                outlineIndex--;
+                airIndex--;
                     
-                vec3 outlineWorldPos = imageLoad(u_outlineImg, getOutlineTexCoord(outlineIndex, WORLD_POS_OFF, u_swap)).xyz;
+                vec3 airWorldPos = imageLoad(u_airImg, getAirTexCoord(airIndex, WORLD_POS_OFF, u_swap)).xyz;
 
-                vec3 backforceDir = geoWorldPos - outlineWorldPos;
+                vec3 backforceDir = geoWorldPos - airWorldPos;
 
                 //float force = length(backforceDir);
                 //backforceDir=normalize(backforceDir);
                 //force=pow(force-0.08,0.7);
                 //if(force<0)force=0;
 
-                ivec2 velocityTexCoord = getOutlineTexCoord(outlineIndex, MOMENTUM_OFF, u_swap);
-                vec3 velocity = imageLoad(u_outlineImg, velocityTexCoord).xyz;				
+                ivec2 velocityTexCoord = getAirTexCoord(airIndex, MOMENTUM_OFF, u_swap);
+                vec3 velocity = imageLoad(u_airImg, velocityTexCoord).xyz;				
                 velocity.xy += backforceDir.xy; //* force;				
-                imageStore(u_outlineImg, velocityTexCoord, vec4(velocity, 0.0f));
+                imageStore(u_airImg, velocityTexCoord, vec4(velocity, 0.0f));
                 
                 
                 float liftforce = backforceDir.y * 1e6; // TODO: currently linear
@@ -137,16 +137,16 @@ void main() {
         }
     
         if (canSpawn && geoNormal.z > 0.0f) { // Make a new outline
-            vec3 outlineWorldPos = geoWorldPos;
-            // TODO: how far from geometry should new outline be?
+            vec3 airWorldPos = geoWorldPos;
+            // TODO: how far from geometry should new air be?
             // TODO: alternatively, starting at geometry location and then letting the move shader move it
-            //outlineWorldPos.xy += screenToWorldDir(geoNormal.xy); // TODO: should this be reflected about the normal instead?
+            //airWorldPos.xy += screenToWorldDir(geoNormal.xy); // TODO: should this be reflected about the normal instead?
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
             vec3 initVel = refl * 10.0f;
-            int arrayI = atomicAdd(ssbo.outlineCount[u_swap], 1);
-            imageStore(u_outlineImg, getOutlineTexCoord(arrayI, WORLD_POS_OFF, u_swap), vec4(geoWorldPos, 0.0f));
-            imageStore(u_outlineImg, getOutlineTexCoord(arrayI, MOMENTUM_OFF, u_swap), vec4(initVel, 0.0f));
-            //imageStore(u_outlineImg, getOutlineTexCoord(arrayI, TEX_POS_OFF, u_swap), vec4(screenPos, 0.0f, 0.0f));
+            int arrayI = atomicAdd(ssbo.airCount[u_swap], 1);
+            imageStore(u_airImg, getAirTexCoord(arrayI, WORLD_POS_OFF, u_swap), vec4(geoWorldPos, 0.0f));
+            imageStore(u_airImg, getAirTexCoord(arrayI, MOMENTUM_OFF, u_swap), vec4(initVel, 0.0f));
+            //imageStore(u_airImg, getAirTexCoord(arrayI, TEX_POS_OFF, u_swap), vec4(screenPos, 0.0f, 0.0f));
             
 
         }
