@@ -87,7 +87,7 @@ void main() {
         // Update location
         worldPos.xy += screenToWorldDir(vel.xy); // TODO: right now a velocity of 1 corresponds to moving 1 pixel. Is this right?
         worldPos.z -= k_sliceSize;
-        vec2 screenPos = worldToScreen(worldPos);
+        vec2 screenPos = floor(worldToScreen(worldPos)) + 0.5f;
 
         // Update velocity
         // TODO: how exactly are we treating velocity?
@@ -98,26 +98,22 @@ void main() {
         vel = dir * 5.0f; // TODO: magic constant
 
         vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
-
-        // col = imageLoad(u_fboImg, ivec2(newtexpos));
-
-        // TODO: reinstate this logic
-        //if (col.r > 0.0f) {
-        //    ivec2 nextPixel = ivec2(floor(screenPos) + 0.5f + normalize(dir.xy));
-        //    vec4 nextcol = imageLoad(u_fboImg, nextPixel);			
-        //    if (nextcol.r > 0.0f) {
-        //        continue;
-        //    }
-        //
-        //    int geo_index = imageAtomicAdd(u_flagImg, ivec2(screenPos) + ivec2(0, ssbo.screenSpec.y), 0);
-        //    vec3 geo_worldpos = imageLoad(u_geoImg, getGeoTexCoord(geo_index, WORLD_POS_OFF)).xyz;
-        //    vec2 geo_normal = imageLoad(u_geoImg, getGeoTexCoord(geo_index, MOMENTUM_OFF)).xy;
-        //
-        //    vec3 dir_geo_out = worldPos - geo_worldpos;
-        //    if (dot(dir_geo_out.xy, geo_normal) < 0) {
-        //        continue;
-        //    }
-        //}
+        if (col.r > 0.0f) {
+            ivec2 nextPixel = ivec2(floor(screenPos) + 0.5f + normalize(dir.xy));
+            vec4 nextcol = imageLoad(u_fboImg, nextPixel);			
+            if (nextcol.r > 0.0f) {
+                continue;
+            }
+        
+            int geo_index = imageAtomicAdd(u_flagImg, ivec2(screenPos) + ivec2(0, ssbo.screenSpec.y), 0);
+            vec3 geo_worldpos = imageLoad(u_geoImg, getGeoTexCoord(geo_index, WORLD_POS_OFF)).xyz;
+            vec2 geo_normal = imageLoad(u_geoImg, getGeoTexCoord(geo_index, MOMENTUM_OFF)).xy;
+        
+            vec3 dir_geo_out = worldPos - geo_worldpos;
+            if (dot(dir_geo_out.xy, geo_normal) < 0) {
+                continue;
+            }
+        }
         //
         //if (col.g > 0.0f) {
         //    continue; // merge!!!

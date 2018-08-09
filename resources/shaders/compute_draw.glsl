@@ -77,9 +77,8 @@ void main() {
             break;
         }
 
-        //vec3 norm = imageLoad(u_airImg, getOutlineTexCoord(workI, MOMENTUM_OFF, u_swap)).xyz;
-        vec3 airWorldPos = imageLoad(u_airImg, getOutlineTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
         vec3 geoWorldPos = imageLoad(u_geoImg, getGeoTexCoord(workI, WORLD_POS_OFF)).xyz;
+        vec3 airWorldPos = imageLoad(u_airImg, getOutlineTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
         
         ivec2 airScreenPos = ivec2(worldToScreen(airWorldPos));
         ivec2 geoSideTexPos = ivec2(worldToScreen(vec3(-geoWorldPos.z, geoWorldPos.y, 0)));

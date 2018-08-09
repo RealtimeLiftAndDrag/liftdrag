@@ -31,9 +31,9 @@ namespace Simulation {
 
     struct SSBO {
 
-        u32 geoCount;
-        u32 test; // necessary for padding
-        u32 airCount[2];
+        s32 geoCount;
+        s32 test; // necessary for padding
+        s32 airCount[2];
         vec4 screenSpec; // screen width, screen height, x aspect factor, y aspect factor
         ivec4 momentum;
         ivec4 force;
@@ -438,8 +438,8 @@ namespace Simulation {
         //glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboID);
-        GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
-        memcpy(&s_ssbo, p, sizeof(SSBO));
+        void * p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
+        std::memcpy(&s_ssbo, p, sizeof(SSBO));
 
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
@@ -631,7 +631,8 @@ namespace Simulation {
             glClearTexImage(s_geoTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
             glClearTexImage(s_airTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
             glClearTexImage(s_sideTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
-            memset(&s_ssbo, 0, sizeof(SSBO));
+            s_ssbo.reset(0);
+            s_ssbo.reset(1);
             s_sweepLift = vec3();
         }
 

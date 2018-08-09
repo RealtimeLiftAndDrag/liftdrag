@@ -56,8 +56,7 @@ vec2 worldToScreen(vec3 world) {
 }
 
 void main() {
-    out_color.rgb = vec3(1.0f, 0.0f, 0.0f);
-    out_color.a = 1.0f;
+    out_color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 
     int oldFlag = imageAtomicExchange(u_flagImg, ivec2(gl_FragCoord.xy), 1);
     if (oldFlag == 0) {        
