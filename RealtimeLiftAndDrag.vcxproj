@@ -146,7 +146,6 @@
     <ClCompile Include="src\Text.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Global.hpp" />
     <ClInclude Include="src\GLSL.h" />
     <ClInclude Include="src\Graph.hpp" />
     <ClInclude Include="src\Program.h" />

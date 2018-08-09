@@ -94,24 +94,24 @@ void main() {
         bool canSpawn = true;
         for (int steps = 0; steps < k_maxSteps; ++steps) {
             vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
-            if (col.b > 0.0f) { // we found an outline pixel  
+            if (col.g > 0.0f) { // we found an outline pixel
                 canSpawn = false;
-                int index = imageAtomicAdd(u_flagImg, ivec2(screenPos), 0); // TODO: replace with non-atomic operation
-                if (index == 0) {
+                int outlineIndex = imageAtomicAdd(u_flagImg, ivec2(screenPos), 0); // TODO: replace with non-atomic operation
+                if (outlineIndex == 0) {
                     break;
                 }
-                index--;
+                outlineIndex--;
                     
-                vec3 outlineWorldPos = imageLoad(u_outlineImg, getOutlineTexCoord(index, WORLD_POS_OFF, u_swap)).xyz;
+                vec3 outlineWorldPos = imageLoad(u_outlineImg, getOutlineTexCoord(outlineIndex, WORLD_POS_OFF, u_swap)).xyz;
 
-                vec3 backforceDir = outlineWorldPos - geoWorldPos;
+                vec3 backforceDir = geoWorldPos - outlineWorldPos;
 
                 //float force = length(backforceDir);
                 //backforceDir=normalize(backforceDir);
                 //force=pow(force-0.08,0.7);
                 //if(force<0)force=0;
 
-                ivec2 velocityTexCoord = getOutlineTexCoord(index, MOMENTUM_OFF, u_swap);
+                ivec2 velocityTexCoord = getOutlineTexCoord(outlineIndex, MOMENTUM_OFF, u_swap);
                 vec3 velocity = imageLoad(u_outlineImg, velocityTexCoord).xyz;				
                 velocity.xy += backforceDir.xy; //* force;				
                 imageStore(u_outlineImg, velocityTexCoord, vec4(velocity, 0.0f));
@@ -142,9 +142,10 @@ void main() {
             // TODO: alternatively, starting at geometry location and then letting the move shader move it
             //outlineWorldPos.xy += screenToWorldDir(geoNormal.xy); // TODO: should this be reflected about the normal instead?
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
+            vec3 initVel = refl * 10.0f;
             int arrayI = atomicAdd(ssbo.outlineCount[u_swap], 1);
             imageStore(u_outlineImg, getOutlineTexCoord(arrayI, WORLD_POS_OFF, u_swap), vec4(geoWorldPos, 0.0f));
-            imageStore(u_outlineImg, getOutlineTexCoord(arrayI, MOMENTUM_OFF, u_swap), vec4(refl, 0.0f)); // TODO: should this be reflected about the normal instead? 
+            imageStore(u_outlineImg, getOutlineTexCoord(arrayI, MOMENTUM_OFF, u_swap), vec4(initVel, 0.0f));
             //imageStore(u_outlineImg, getOutlineTexCoord(arrayI, TEX_POS_OFF, u_swap), vec4(screenPos, 0.0f, 0.0f));
             
 

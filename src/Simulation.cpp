@@ -450,11 +450,16 @@ namespace Simulation {
         // reset pixel ssbo and flag_img
         //static ssbo_liftdrag temp;
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssbo, GL_DYNAMIC_COPY);
-        uint clearColor[4]{};
+        int clearColor[4]{};
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
 
         //glClearTexSubImage(outline_tex, 0, 0, swap*(k_estimateMaxOutlinePixelsRows / 2), 0, k_estimateMaxOutlinePixels, k_estimateMaxOutlinePixelsRows / 2, 1, GL_RGBA, GL_FLOAT, clearColor);
         //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
+    }
+
+    static void clearFlagTex() {
+        static int clearColor[4]{};
+        glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
     }
 
     static void renderToFramebuffer() {
@@ -462,8 +467,6 @@ namespace Simulation {
 
         // Clear framebuffer.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // Create the matrix stacks - please leave these alone for now
 
         mat4 V, M, P; //View, Model and Perspective matrix
 
@@ -632,11 +635,15 @@ namespace Simulation {
             s_sweepLift = vec3();
         }
 
+        clearFlagTex();
         renderToFramebuffer();
-        computeOutline(s_swap); // generate next slice outline
-        computeMove(s_swap); // move current slice
-        computeDraw(!s_swap); // draw current slice
-        computeReset(s_swap); // reset current slice
+        computeDraw(s_swap);
+        computeOutline(s_swap);
+        clearFlagTex(); // TODO: find a way to not repeat this
+        renderToFramebuffer(); // TODO: find a way to not repeat this
+        computeDraw(s_swap); // TODO: find a way to not repeat this
+        computeMove(s_swap);
+        computeReset(s_swap);
         s_swap = !s_swap; // set next slice to current slice
 
         if (++s_currentSlice >= k_nSlices) {

@@ -81,22 +81,21 @@ void main() {
             break;
         }
 
-        vec3 worldPos = imageLoad(u_outlineImg, getOutlineTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;    
+        vec3 worldPos = imageLoad(u_outlineImg, getOutlineTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
+        vec3 vel = imageLoad(u_outlineImg, getOutlineTexCoord(workI, MOMENTUM_OFF, u_swap)).xyz;
 
-        vec3 vel = imageLoad(u_outlineImg, getOutlineTexCoord(workI, MOMENTUM_OFF, u_swap)).xyz;        
+        // Update location
+        worldPos.xy += screenToWorldDir(vel.xy); // TODO: right now a velocity of 1 corresponds to moving 1 pixel. Is this right?
+        worldPos.z -= k_sliceSize;
+        vec2 screenPos = worldToScreen(worldPos);
 
+        // Update velocity
         // TODO: how exactly are we treating velocity?
         vec3 dir = normalize(vel);
         dir.z = -1.0f;
         dir = normalize(dir);
 
-        vel = dir * 5.5f; // TODO: magic constant
-      
-        vec2 worldDir = worldToScreen(dir).xy;
-
-        worldPos.xy += screenToWorldDir(dir.xy); // TODO: right now a velocity of 1 corresponds to moving 1 pixel. Is this right?
-        worldPos.z -= k_sliceSize; // TODO: magic constant
-        vec2 screenPos = worldToScreen(worldPos);
+        vel = dir * 5.0f; // TODO: magic constant
 
         vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
 
@@ -120,7 +119,7 @@ void main() {
         //    }
         //}
         //
-        //if (col.b > 0.0f) {
+        //if (col.g > 0.0f) {
         //    continue; // merge!!!
         //}
 
@@ -129,8 +128,8 @@ void main() {
             break;
         }
     
-        //imageStore(u_outlineImg, getOutlineTexCoord(arrayI, TEX_POS_OFF, counterSwap), vec4(newtexpos, 0.0f, 0.0f));   
+        //imageStore(u_outlineImg, getOutlineTexCoord(arrayI, TEX_POS_OFF, counterSwap), vec4(newtexpos, 0.0f, 0.0f));
+        imageStore(u_outlineImg, getOutlineTexCoord(arrayI, WORLD_POS_OFF, counterSwap), vec4(worldPos, 0.0f)); 
         imageStore(u_outlineImg, getOutlineTexCoord(arrayI, MOMENTUM_OFF, counterSwap), vec4(vel, 0.0f));
-        imageStore(u_outlineImg, getOutlineTexCoord(arrayI, WORLD_POS_OFF, counterSwap), vec4(worldPos, 0.0f));
     }        
 }

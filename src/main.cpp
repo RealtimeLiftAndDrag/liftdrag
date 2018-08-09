@@ -14,7 +14,13 @@ extern "C" {
 
 
 // TODO: I want to refactor outline to something else that is either short or
-// can be easily abbreviated, like air, or flow, etc.
+// can be easily abbreviated, like air, or flow, etc. EAL
+// TODO: Initial Velocity
+// TODO: Max distance of outline pixel
+// TODO: Center of mass at 0, 0, 0 and provide bounding box
+// TODO: Calculate center of mass of airfoil
+// TODO: Always square viewport
+// TODO: Density of slices and dividing total lift by number of outline pixels
 
 
 

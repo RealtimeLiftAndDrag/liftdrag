@@ -20,8 +20,8 @@ const int k_maxOutlinePixelsSum = k_estMaxOutlinePixels * (k_maxOutlinePixelsRow
 
 const int k_invocCount = 1024;
 
-const vec3 k_sideGeoColor = vec3(1.0f, 1.0f, 0.0f);
-const vec3 k_sideOutlineColor = vec3(0.0f, 1.0f, 1.0f);
+const vec3 k_sideGeoColor = vec3(1.0f, 0.0f, 1.0f);
+const vec3 k_sideOutlineColor = vec3(0.0f, 1.0f, 0.0f);
 
 // Uniforms --------------------------------------------------------------------
 
@@ -86,7 +86,7 @@ void main() {
         ivec2 outlineSideTexPos = ivec2(worldToScreen(vec3(-outlineWorldPos.z, outlineWorldPos.y, 0)));
         
         vec4 originalColor = imageLoad(u_fboImg, outlineScreenPos);
-        originalColor.b = 1.0f;
+        originalColor.g = 1.0f;
 
         imageStore(u_fboImg, outlineScreenPos, originalColor);
         if (abs(outlineWorldPos.x) <= 0.9f) { // ignore crazy stragglers on the edges
