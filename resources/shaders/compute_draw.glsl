@@ -14,14 +14,14 @@ const int k_maxGeoPixels = 16384;
 const int k_maxGeoPixelsRows = 27;
 const int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
 
-const int k_estMaxOutlinePixels = 16384;
-const int k_maxOutlinePixelsRows = 27 * 2;
-const int k_maxOutlinePixelsSum = k_estMaxOutlinePixels * (k_maxOutlinePixelsRows / 2 / 3);
+const int k_estMaxAirPixels = 16384;
+const int k_maxAirPixelsRows = 27 * 2;
+const int k_maxAirPixelsSum = k_estMaxAirPixels * (k_maxAirPixelsRows / 2 / 3);
 
 const int k_invocCount = 1024;
 
 const vec3 k_sideGeoColor = vec3(1.0f, 0.0f, 1.0f);
-const vec3 k_sideOutlineColor = vec3(0.0f, 1.0f, 0.0f);
+const vec3 k_sideAirColor = vec3(0.0f, 1.0f, 0.0f);
 
 // Uniforms --------------------------------------------------------------------
 
@@ -43,6 +43,10 @@ layout (std430, binding = 0) restrict buffer SSBO {
     ivec4 debugShit[DEBUG_SIZE];
 } ssbo;
 
+layout (std430, binding = 1) buffer MapSSBO { // TODO: should be restrict?
+    int map[k_maxAirPixelsSum];
+} mapSSBO;
+
 // Functions -------------------------------------------------------------------
 
 ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (world, momentum, tex)
@@ -52,10 +56,10 @@ ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (w
     );
 }
 
-ivec2 getOutlineTexCoord(int index, int offset, int swap) { // with offset being 0, 1, or 2  (world, momentum, tex)
+ivec2 getAirTexCoord(int index, int offset, int swap) { // with offset being 0, 1, or 2  (world, momentum, tex)
     return ivec2(
-        index % k_estMaxOutlinePixels,
-        offset + 3 * (index / k_estMaxOutlinePixels) + swap * (k_maxOutlinePixelsRows / 2)
+        index % k_estMaxAirPixels,
+        offset + 3 * (index / k_estMaxAirPixels) + swap * (k_maxAirPixelsRows / 2)
     );
 }
 
@@ -73,12 +77,12 @@ void main() {
     for (int ii = 0; ii < invocWorkload; ++ii) {
 
         int workI = invocI + (k_invocCount * ii);
-        if (workI >= ssbo.airCount[u_swap] || workI >= k_maxOutlinePixelsSum) {
+        if (workI >= ssbo.airCount[u_swap]) {
             break;
         }
 
         vec3 geoWorldPos = imageLoad(u_geoImg, getGeoTexCoord(workI, WORLD_POS_OFF)).xyz;
-        vec3 airWorldPos = imageLoad(u_airImg, getOutlineTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
+        vec3 airWorldPos = imageLoad(u_airImg, getAirTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
         
         ivec2 airScreenPos = ivec2(worldToScreen(airWorldPos));
         ivec2 geoSideTexPos = ivec2(worldToScreen(vec3(-geoWorldPos.z, geoWorldPos.y, 0)));
@@ -90,7 +94,7 @@ void main() {
         imageStore(u_fboImg, airScreenPos, originalColor);
         if (abs(airWorldPos.x) <= 0.9f) { // ignore crazy stragglers on the edges
             imageStore(u_geoSideImg, geoSideTexPos, vec4(k_sideGeoColor, 1.0f));
-            imageStore(u_geoSideImg, airSideTexPos, vec4(k_sideOutlineColor, 1.0f));
+            imageStore(u_geoSideImg, airSideTexPos, vec4(k_sideAirColor, 1.0f));
         }
         imageAtomicExchange(u_flagImg, airScreenPos, workI + 1);
     }        

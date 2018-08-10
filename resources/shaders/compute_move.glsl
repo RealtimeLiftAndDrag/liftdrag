@@ -14,7 +14,7 @@ const int k_maxGeoPixels = 16384;
 const int k_maxGeoPixelsRows = 27;
 const int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
 
-const int k_estMaxAirPixels = 16384;
+const int k_maxAirPixels = 16384;
 const int k_maxAirPixelsRows = 27 * 2;
 const int k_maxAirPixelsSum = k_estMaxAirPixels * (k_maxAirPixelsRows / 2 / 3);
 
@@ -42,6 +42,10 @@ layout (std430, binding = 0) restrict buffer SSBO {
     ivec4 debugShit[DEBUG_SIZE];
 } ssbo;
 
+layout (std430, binding = 1) buffer MapSSBO { // TODO: should be restrict?
+    int map[k_maxAirPixelsSum];
+} mapSSBO;
+
 // Functions -------------------------------------------------------------------
 
 ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (world, momentum, tex)
@@ -53,8 +57,8 @@ ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (w
 
 ivec2 getAirTexCoord(int index, int offset, int swap) { // with offset being 0, 1, or 2  (world, momentum, tex)
     return ivec2(
-        index % k_estMaxAirPixels,
-        offset + 3 * (index / k_estMaxAirPixels) + swap * (k_maxAirPixelsRows / 2)
+        index % k_maxAirPixels,
+        offset + 3 * (index / k_maxAirPixels) + swap * (k_maxAirPixelsRows / 2)
     );
 }
 
@@ -71,7 +75,6 @@ vec2 screenToWorldDir(vec2 screenDir) {
 }
 
 void main() {
-    int counterSwap = 1 - u_swap;
     int invocI = int(gl_GlobalInvocationID.x);
     int invocWorkload = (ssbo.airCount[u_swap] + k_invocCount - 1) / k_invocCount;
     for (int ii = 0; ii < invocWorkload; ++ii) {
@@ -81,51 +84,48 @@ void main() {
             break;
         }
 
-        vec3 worldPos = imageLoad(u_airImg, getAirTexCoord(workI, WORLD_POS_OFF, u_swap)).xyz;
-        vec3 vel = imageLoad(u_airImg, getAirTexCoord(workI, MOMENTUM_OFF, u_swap)).xyz;
+        ivec2 worldPosTexCoord = getAirTexCoord(workI, WORLD_POS_OFF, u_swap);
+        ivec2 velocityTexCoord = getAirTexCoord(workI, MOMENTUM_OFF, u_swap);
+
+        vec3 worldPos = imageLoad(u_airImg, worldPosTexCoord).xyz;
+        vec3 velocity = imageLoad(u_airImg, velocityTexCoord).xyz;
 
         // Update location
-        worldPos.xy += screenToWorldDir(vel.xy); // TODO: right now a velocity of 1 corresponds to moving 1 pixel. Is this right?
+        worldPos.xy += screenToWorldDir(velocity.xy); // TODO: right now a velocity of 1 corresponds to moving 1 pixel. Is this right?
         worldPos.z -= k_sliceSize;
         vec2 screenPos = floor(worldToScreen(worldPos)) + 0.5f;
 
         // Update velocity
         // TODO: how exactly are we treating velocity?
-        vec3 dir = normalize(vel);
+        vec3 dir = normalize(velocity);
         dir.z = -1.0f;
         dir = normalize(dir);
 
-        vel = dir * 5.0f; // TODO: magic constant
+        velocity = dir * 5.0f; // TODO: magic constant
 
-        vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
-        if (col.r > 0.0f) {
-            ivec2 nextPixel = ivec2(floor(screenPos) + 0.5f + normalize(dir.xy));
-            vec4 nextcol = imageLoad(u_fboImg, nextPixel);			
-            if (nextcol.r > 0.0f) {
-                continue;
-            }
-        
-            int geo_index = imageAtomicAdd(u_flagImg, ivec2(screenPos) + ivec2(0, ssbo.screenSpec.y), 0);
-            vec3 geo_worldpos = imageLoad(u_geoImg, getGeoTexCoord(geo_index, WORLD_POS_OFF)).xyz;
-            vec2 geo_normal = imageLoad(u_geoImg, getGeoTexCoord(geo_index, MOMENTUM_OFF)).xy;
-        
-            vec3 dir_geo_out = worldPos - geo_worldpos;
-            if (dot(dir_geo_out.xy, geo_normal) < 0) {
-                continue;
-            }
-        }
+        //vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
+        //if (col.r > 0.0f) {
+        //    ivec2 nextPixel = ivec2(floor(screenPos) + 0.5f + normalize(dir.xy));
+        //    vec4 nextcol = imageLoad(u_fboImg, nextPixel);			
+        //    if (nextcol.r > 0.0f) {
+        //        continue;
+        //    }
+        //
+        //    int geo_index = imageAtomicAdd(u_flagImg, ivec2(screenPos) + ivec2(0, ssbo.screenSpec.y), 0);
+        //    vec3 geo_worldpos = imageLoad(u_geoImg, getGeoTexCoord(geo_index, WORLD_POS_OFF)).xyz;
+        //    vec2 geo_normal = imageLoad(u_geoImg, getGeoTexCoord(geo_index, MOMENTUM_OFF)).xy;
+        //
+        //    vec3 dir_geo_out = worldPos - geo_worldpos;
+        //    if (dot(dir_geo_out.xy, geo_normal) < 0) {
+        //        continue;
+        //    }
+        //}
         //
         //if (col.g > 0.0f) {
         //    continue; // merge!!!
         //}
 
-        int arrayI = atomicAdd(ssbo.airCount[counterSwap], 1);
-        if (arrayI >= k_maxAirPixelsSum) {
-            break;
-        }
-    
-        //imageStore(u_airImg, getAirTexCoord(arrayI, TEX_POS_OFF, counterSwap), vec4(newtexpos, 0.0f, 0.0f));
-        imageStore(u_airImg, getAirTexCoord(arrayI, WORLD_POS_OFF, counterSwap), vec4(worldPos, 0.0f)); 
-        imageStore(u_airImg, getAirTexCoord(arrayI, MOMENTUM_OFF, counterSwap), vec4(vel, 0.0f));
+        imageStore(u_airImg, worldPosTexCoord, vec4(worldPos, 0.0f)); 
+        imageStore(u_airImg, velocityTexCoord, vec4(velocity, 0.0f));
     }        
 }

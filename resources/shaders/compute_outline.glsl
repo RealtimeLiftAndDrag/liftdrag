@@ -41,6 +41,10 @@ layout (std430, binding = 0) restrict buffer SSBO {
     ivec4 debugShit[DEBUG_SIZE];
 } ssbo;
 
+layout (std430, binding = 1) buffer MapSSBO { // TODO: should be restrict?
+    int map[k_maxAirPixelsSum];
+} mapSSBO;
+
 // Functions -------------------------------------------------------------------
 
 ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (world, momentum, tex)
@@ -70,6 +74,8 @@ vec2 screenToWorldDir(vec2 screenDir) {
 }
 
 void processAir(vec2 screenPos, vec3 geoWorldPos) {
+    int counterSwap = 1 - u_swap;
+
     int airI = imageAtomicAdd(u_flagImg, ivec2(screenPos), 0); // TODO: replace with non-atomic operation
     // TODO: this should not be necessary
     if (airI == 0) {
@@ -77,7 +83,7 @@ void processAir(vec2 screenPos, vec3 geoWorldPos) {
     }
     --airI;
                     
-    vec3 airWorldPos = imageLoad(u_airImg, getAirTexCoord(airI, WORLD_POS_OFF, u_swap)).xyz;
+    vec3 airWorldPos = imageLoad(u_airImg, getAirTexCoord(airI, WORLD_POS_OFF, counterSwap)).xyz;
 
     vec3 backforceDir = geoWorldPos - airWorldPos;
 
@@ -87,14 +93,19 @@ void processAir(vec2 screenPos, vec3 geoWorldPos) {
     //if(force<0)force=0;
 
     // Update velocity
-    ivec2 velocityTexCoord = getAirTexCoord(airI, MOMENTUM_OFF, u_swap);
-    vec3 velocity = imageLoad(u_airImg, velocityTexCoord).xyz;				
-    velocity.xy += backforceDir.xy; //* force;				
-    imageStore(u_airImg, velocityTexCoord, vec4(velocity, 0.0f));
+    vec3 velocity = imageLoad(u_airImg, getAirTexCoord(airI, MOMENTUM_OFF, counterSwap)).xyz;				
+    velocity.xy += backforceDir.xy; //* force;
                 
     // Calculate lift     
     float liftforce = backforceDir.y * 1e6; // TODO: currently linear			  
     atomicAdd(ssbo.force.x, int(round(backforceDir.y * 1.0e6f)));
+
+    int arrayI = atomicAdd(ssbo.airCount[u_swap], 1);
+    if (arrayI >= k_maxAirPixelsSum) {
+        return;
+    }
+    imageStore(u_airImg, getAirTexCoord(arrayI, WORLD_POS_OFF, u_swap), vec4(airWorldPos, 0.0f));
+    imageStore(u_airImg, getAirTexCoord(arrayI, MOMENTUM_OFF, u_swap), vec4(velocity, 0.0f));
 }
 
 void main() {

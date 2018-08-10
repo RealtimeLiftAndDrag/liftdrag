@@ -19,10 +19,13 @@ namespace Simulation {
     static constexpr int k_nSlices(50);
     static constexpr float k_sliceSize(0.025f); // z distance between slices, MUST ALSO CHANGE IN MOVE SHADER!!!
 
-    static constexpr int k_estimateMaxGeoPixels(16384);
-    static constexpr int k_extimateMaxGeoPixelsRows(27);
-    static constexpr int k_estimateMaxAirPixels(16384);
-    static constexpr int k_estimateMaxAirPixelsRows(54);
+    static constexpr int k_maxGeoPixels = 16384;
+    static constexpr int k_maxGeoPixelsRows = 27;
+    static constexpr int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
+
+    static constexpr int k_maxAirPixels = 16384;
+    static constexpr int k_maxAirPixelsRows = 27 * 2;
+    static constexpr int k_maxAirPixelsSum = k_maxAirPixels * (k_maxAirPixelsRows / 2 / 3);
 
     static constexpr bool k_doDebug(false);
     static constexpr int k_debugSize(4096); // Must also change defines in shaders
@@ -83,7 +86,8 @@ namespace Simulation {
     static uint s_sideTex; // texture holding the pixels of the geometry from the side
     static uint s_airTex; // texture holding the pixels of air
 
-    static uint s_ssboID;
+    static uint s_ssboId;
+    static uint s_mapSSBOId;
 
     namespace OutlineShader {
         static uint prog;
@@ -346,7 +350,7 @@ namespace Simulation {
     }
 
     static void debug(int swap) {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboID);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboId);
         GLvoid * p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
         SSBO test;
         memcpy(&test, p, sizeof(SSBO));
@@ -358,11 +362,13 @@ namespace Simulation {
     static void computeOutline(int swap) {
         glUseProgram(OutlineShader::prog);
 
-        uint block_index = 0;
-        block_index = glGetProgramResourceIndex(OutlineShader::prog, GL_SHADER_STORAGE_BLOCK, "SSBO");
-        uint ssbo_binding_point_index = 0;
-        glShaderStorageBlockBinding(OutlineShader::prog, block_index, ssbo_binding_point_index);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding_point_index, s_ssboID);
+        uint block_index = glGetProgramResourceIndex(OutlineShader::prog, GL_SHADER_STORAGE_BLOCK, "SSBO");
+        glShaderStorageBlockBinding(OutlineShader::prog, block_index, 0);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
+
+        block_index = glGetProgramResourceIndex(OutlineShader::prog, GL_SHADER_STORAGE_BLOCK, "MapSSBO");
+        glShaderStorageBlockBinding(OutlineShader::prog, block_index, 1);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
 
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         glBindImageTexture(3, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
@@ -384,12 +390,13 @@ namespace Simulation {
     static void computeMove(int swap) {
         glUseProgram(MoveShader::prog);
 
-        //bind compute buffers
-        uint block_index = 0;
-        block_index = glGetProgramResourceIndex(MoveShader::prog, GL_SHADER_STORAGE_BLOCK, "SSBO");
-        uint ssbo_binding_point_index = 0;
-        glShaderStorageBlockBinding(MoveShader::prog, block_index, ssbo_binding_point_index);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding_point_index, s_ssboID);
+        uint block_index = glGetProgramResourceIndex(OutlineShader::prog, GL_SHADER_STORAGE_BLOCK, "SSBO");
+        glShaderStorageBlockBinding(OutlineShader::prog, block_index, 0);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
+
+        block_index = glGetProgramResourceIndex(OutlineShader::prog, GL_SHADER_STORAGE_BLOCK, "MapSSBO");
+        glShaderStorageBlockBinding(OutlineShader::prog, block_index, 1);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
 
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         glBindImageTexture(3, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
@@ -407,12 +414,13 @@ namespace Simulation {
     static void computeDraw(int swap) {
         glUseProgram(DrawShader::prog);
 
-        // bind compute buffers
-        uint block_index = 0;
-        block_index = glGetProgramResourceIndex(DrawShader::prog, GL_SHADER_STORAGE_BLOCK, "SSBO");
-        uint ssbo_binding_point_index = 0;
-        glShaderStorageBlockBinding(DrawShader::prog, block_index, ssbo_binding_point_index);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding_point_index, s_ssboID);
+        uint block_index = glGetProgramResourceIndex(OutlineShader::prog, GL_SHADER_STORAGE_BLOCK, "SSBO");
+        glShaderStorageBlockBinding(OutlineShader::prog, block_index, 0);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
+
+        block_index = glGetProgramResourceIndex(OutlineShader::prog, GL_SHADER_STORAGE_BLOCK, "MapSSBO");
+        glShaderStorageBlockBinding(OutlineShader::prog, block_index, 1);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
 
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         glBindImageTexture(3, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
@@ -428,28 +436,30 @@ namespace Simulation {
         //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
     }
 
-    static void computeReset(int swap) {
-        // erase atomic counter
-        //glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, ac_buffer);
-        //uint* ptr = (uint*)glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(uint),
-        //GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
-        //ptr[0] = 0;
-        //glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
-        //glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
-
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboID);
-        void * p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
+    static void downloadSSBO() {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboId);
+        void * p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
         std::memcpy(&s_ssbo, p, sizeof(SSBO));
-
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    }
+
+    static void uploadSSBO() {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboId);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssbo, GL_DYNAMIC_COPY);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    }
+
+    static void computeReset(int swap) {
+        downloadSSBO();
 
         // TODO: is this okay?
         s_sweepLift += vec3(s_ssbo.force) * 1.0e-6f;
 
         s_ssbo.reset(swap);
-        // reset pixel ssbo and flag_img
-        //static ssbo_liftdrag temp;
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssbo, GL_DYNAMIC_COPY);
+
+        uploadSSBO();
+
         int clearColor[4]{};
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
 
@@ -470,7 +480,7 @@ namespace Simulation {
 
         mat4 V, M, P; //View, Model and Perspective matrix
 
-        float zNear = k_sliceSize * (s_currentSlice - 1.5f);
+        float zNear = k_sliceSize * (s_currentSlice);
         P = glm::ortho(
             -1.0f / s_ssbo.screenSpec.z, // left
              1.0f / s_ssbo.screenSpec.z, // right
@@ -486,7 +496,7 @@ namespace Simulation {
         block_index = glGetProgramResourceIndex(s_foilProg->pid, GL_SHADER_STORAGE_BLOCK, "SSBO");
         uint ssbo_binding_point_index = 0;
         glShaderStorageBlockBinding(s_foilProg->pid, block_index, ssbo_binding_point_index);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding_point_index, s_ssboID);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding_point_index, s_ssboId);
         
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         
@@ -545,9 +555,9 @@ namespace Simulation {
             return false;
         }    
 
-        // Setup ssbo
-        glGenBuffers(1, &s_ssboID);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboID);
+        // Setup SSBO
+        glGenBuffers(1, &s_ssboId);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboId);
         s_ssbo.screenSpec.x = float(k_width);
         s_ssbo.screenSpec.y = float(k_height);
         if (k_width >= k_height) {
@@ -558,8 +568,19 @@ namespace Simulation {
             s_ssbo.screenSpec.z = 1.0f;
             s_ssbo.screenSpec.w = float(k_width) / float(k_height);
         }
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboID);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssbo, GL_DYNAMIC_COPY);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        if (glGetError() != GL_NO_ERROR) {
+            std::cerr << "OpenGL error" << std::endl;
+            return false;
+        }
+
+        // Setup map SSBO
+        glGenBuffers(1, &s_mapSSBOId);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mapSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixelsSum * sizeof(s32), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;
@@ -573,7 +594,7 @@ namespace Simulation {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_width, k_height * 2, 0, GL_RED_INTEGER, GL_INT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_width, k_height, 0, GL_RED_INTEGER, GL_INT, nullptr);
         uint clearcolor = 0;
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearcolor);
         glBindImageTexture(2, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
@@ -636,16 +657,24 @@ namespace Simulation {
             s_sweepLift = vec3();
         }
 
+        s_swap = !s_swap; // set next slice to current slice
+        s_ssbo.reset(s_swap);
+        uploadSSBO();
         clearFlagTex();
         renderToFramebuffer();
-        computeDraw(s_swap);
+        clearFlagTex();
+        computeMove(!s_swap);
+        computeDraw(!s_swap);
+        downloadSSBO();
+        s_ssbo.airCount[0] = 0;
+        s_ssbo.airCount[1] = 0;
+        uploadSSBO();
         computeOutline(s_swap);
+        downloadSSBO();
         clearFlagTex(); // TODO: find a way to not repeat this
         renderToFramebuffer(); // TODO: find a way to not repeat this
         computeDraw(s_swap); // TODO: find a way to not repeat this
-        computeMove(s_swap);
-        computeReset(s_swap);
-        s_swap = !s_swap; // set next slice to current slice
+        s_sweepLift += vec3(s_ssbo.force) * 1.0e-6f;
 
         if (++s_currentSlice >= k_nSlices) {
             s_currentSlice = 0;
