@@ -30,7 +30,8 @@ layout (binding = 6, rgba32f) uniform image2D u_fboNormImg;
 layout (binding = 0, offset = 0) uniform atomic_uint u_geoCount;
 
 layout (binding = 0, std430) restrict buffer SSBO {
-    vec4 screenSpec;
+    ivec2 screenSize;
+    vec2 screenAspectFactor;
     ivec4 momentum;
     ivec4 force;
 } ssbo;
@@ -50,7 +51,7 @@ layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
 
 void main() {
     ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
-    if (texCoord.x >= int(ssbo.screenSpec.x) || texCoord.y >= int(ssbo.screenSpec.y)) {
+    if (texCoord.x >= ssbo.screenSize.x || texCoord.y >= ssbo.screenSize.y) {
         return;
     }   
 

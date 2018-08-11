@@ -36,7 +36,8 @@ layout (binding = 0, offset = 0) uniform atomic_uint u_geoCount;
 layout (binding = 0, offset = 4) uniform atomic_uint u_airCount[2];
 
 layout (binding = 0, std430) restrict buffer SSBO {
-    vec4 screenSpec;
+    ivec2 screenSize;
+    vec2 screenAspectFactor;
     ivec4 momentum;
     ivec4 force;
 } ssbo;
@@ -56,9 +57,9 @@ layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
 
 vec2 worldToScreen(vec3 world) {
     vec2 screenPos = world.xy;
-    screenPos *= ssbo.screenSpec.zw; // compensate for aspect ratio
+    screenPos *= ssbo.screenAspectFactor; // compensate for aspect ratio
     screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= ssbo.screenSpec.xy; // scale to texture space
+    screenPos *= vec2(ssbo.screenSize); // scale to texture space
     return screenPos;
 }
 

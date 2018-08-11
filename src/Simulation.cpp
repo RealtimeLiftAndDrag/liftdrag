@@ -38,13 +38,14 @@ namespace Simulation {
 
     struct SSBO {
 
-        // TODO: separate screenSpec out
-        vec4 screenSpec; // screen width, screen height, x aspect factor, y aspect factor
+        ivec2 screenSize;
+        vec2 screenAspectFactor;
         ivec4 momentum;
         ivec4 force;
 
         SSBO() :
-            screenSpec(),
+            screenSize(),
+            screenAspectFactor(),
             momentum(),
             force()
         {}
@@ -495,10 +496,10 @@ namespace Simulation {
 
         float zNear = k_sliceSize * (s_currentSlice);
         P = glm::ortho(
-            -1.0f / s_ssbo.screenSpec.z, // left
-             1.0f / s_ssbo.screenSpec.z, // right
-            -1.0f / s_ssbo.screenSpec.w, // bottom
-             1.0f / s_ssbo.screenSpec.w, // top
+            -1.0f / s_ssbo.screenAspectFactor.x, // left
+             1.0f / s_ssbo.screenAspectFactor.x, // right
+            -1.0f / s_ssbo.screenAspectFactor.y, // bottom
+             1.0f / s_ssbo.screenAspectFactor.y, // top
             zNear, // near
             zNear + k_sliceSize // far
         );
@@ -573,15 +574,15 @@ namespace Simulation {
         // Setup SSBO
         glGenBuffers(1, &s_ssboId);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboId);
-        s_ssbo.screenSpec.x = float(k_width);
-        s_ssbo.screenSpec.y = float(k_height);
+        s_ssbo.screenSize.x = k_width;
+        s_ssbo.screenSize.y = k_height;
         if (k_width >= k_height) {
-            s_ssbo.screenSpec.z = float(k_height) / float(k_width);
-            s_ssbo.screenSpec.w = 1.0f;
+            s_ssbo.screenAspectFactor.x = float(k_height) / float(k_width);
+            s_ssbo.screenAspectFactor.y = 1.0f;
         }
         else {
-            s_ssbo.screenSpec.z = 1.0f;
-            s_ssbo.screenSpec.w = float(k_width) / float(k_height);
+            s_ssbo.screenAspectFactor.x = 1.0f;
+            s_ssbo.screenAspectFactor.y = float(k_width) / float(k_height);
         }
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssbo, GL_DYNAMIC_COPY);

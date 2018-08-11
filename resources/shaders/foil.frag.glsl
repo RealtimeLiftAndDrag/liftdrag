@@ -19,7 +19,8 @@ layout (location = 2) out vec4 out_norm;
 layout (binding = 4, rgba8) uniform  image2D u_sideImg;
 
 layout (binding = 0, std430) restrict buffer SSBO { 
-    vec4 screenSpec;
+    ivec2 screenSize;
+    vec2 screenAspectFactor;
     ivec4 momentum;
     ivec4 force;
 } ssbo;
@@ -28,9 +29,9 @@ layout (binding = 0, std430) restrict buffer SSBO {
 
 vec2 worldToScreen(vec3 world) {
     vec2 screenPos = world.xy;
-    screenPos *= ssbo.screenSpec.zw; // compensate for aspect ratio
+    screenPos *= ssbo.screenAspectFactor; // compensate for aspect ratio
     screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= ssbo.screenSpec.xy; // scale to texture space
+    screenPos *= vec2(ssbo.screenSize); // scale to texture space
     return screenPos;
 }
 
