@@ -19,7 +19,7 @@ namespace grl {
 	{
 	public:
 		string name;
-		std::vector<vertex*> vertices;
+		std::vector<vertex*>* vertices;
 		glm::mat4 O;
 	};
 
@@ -37,17 +37,20 @@ namespace grl {
 			exit(EXIT_FAILURE);
 		}
 		submodel* curSubModel = nullptr;
-		
+
 		int state = 0; //0 = unset; 1 = matrix; 2 = vertices
 
-		static int lineNum = 1;
+		int lineNum = 0;
 		int maxVertCount = 0;
 		int vertCount = 0;
 		lineNum++;
 		string line;
 		while (getline(file, line)) {
+			//only used for debugging
+			lineNum++;
+
 			//TODO trim whitespace before line
-			
+
 			//skip empty line
 			if (line.length() == 0) {
 				continue;
@@ -69,33 +72,60 @@ namespace grl {
 			//meta tags
 			if (tokens.at(0)[0] == '#') {
 				string metaType = tokens.at(1);
-				if (metaType == "name") {
+				if (metaType == "name:") {
+					//push back previous sub model if we are on the first submodel
+					if (curSubModel) {
+						subModels.push_back(curSubModel);
+					}
 					curSubModel = new submodel();
 					curSubModel->name = tokens.back();
 					state = 0;
-				} else if (metaType == "origin") {
+				}
+				else if (metaType == "origin") {
 					state = 1;
 				}
 				else if (metaType == "vertices_count:") {
 					maxVertCount = stoi(tokens.back());
 					vertCount = 0;
+					curSubModel->vertices = new vector<vertex*>();
+					curSubModel->vertices->reserve(maxVertCount);
 					state = 2;
 				}
 				//TODO implement other meta tags if wanted
 			}
 			else { //either matrix or vertices
-				if (state == 1) {
+				if (state == 2) {
 					if (vertCount < maxVertCount) {
+						if (tokens.size() < 8) {
+							cerr << "Not a valid vertex in " << filename << ":" << lineNum << endl;
+							exit(EXIT_FAILURE);
+						}
 						vertex * v = new vertex();
 						float pos_x = stof(tokens.at(0));
-						float pos_x = stof(tokens.at(1));
-						float pos_x = stof(tokens.at(2));
+						float pos_y = stof(tokens.at(1));
+						float pos_z = stof(tokens.at(2));
+
+						float nor_x = stof(tokens.at(3));
+						float nor_y = stof(tokens.at(4));
+						float nor_z = stof(tokens.at(5));
+
+						float tex_u = stof(tokens.at(6));
+						float tex_v = stof(tokens.at(7));
+
+						v->pos = vec3(pos_x, pos_y, pos_z);
+						v->norm = vec3(nor_x, nor_y, nor_z);
+						v->texCoord = vec2(tex_u, tex_v);
+
+						curSubModel->vertices->push_back(v);
 					}
 				}
 			}
 
 		}
-		
+
+		//push back the last submodel
+		subModels.push_back(curSubModel);
+
 	}
 }
 
