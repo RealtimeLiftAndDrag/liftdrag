@@ -23,9 +23,9 @@ const int k_invocCount = 1024;
 
 // Uniforms --------------------------------------------------------------------
                                 
-layout (binding = 0,   rgba8) uniform image2D u_fboImg;
-layout (binding = 5, rgba32f) uniform image2D u_fboPosImg;
-layout (binding = 6, rgba32f) uniform image2D u_fboNormImg;
+layout (binding = 0, rgba8) uniform image2D u_fboImg;
+layout (binding = 1, rgba32f) uniform image2D u_fboPosImg;
+layout (binding = 2, rgba32f) uniform image2D u_fboNormImg;
 
 layout (binding = 0, offset = 0) uniform atomic_uint u_geoCount;
 

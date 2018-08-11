@@ -16,7 +16,7 @@ layout (location = 2) out vec4 out_norm;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 4, rgba8) uniform  image2D u_sideImg;
+layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
 layout (binding = 0, std430) restrict buffer SSBO { 
     ivec2 screenSize;

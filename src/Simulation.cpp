@@ -67,17 +67,18 @@ namespace Simulation {
 
     static std::shared_ptr<Program> s_foilProg, s_fbProg;
 
-    static uint s_vertexArrayId;
-    static uint s_vertexBufferId, s_vertexTexBox, s_indexBufferIdBox, s_sideviewVBO;
+    static uint s_screenVAO;
+    static uint s_screenVBO, s_vertexTexBox, s_indexBufferIdBox;
+    static uint s_sideVBO;
 
     static int s_geoCount, s_airCount[2];
-    static uint s_acbId; // atomic counter buffer
+    static uint s_acb; // atomic counter buffer
 
-    static SSBO s_ssbo;
-    static uint s_ssboId;
-    static uint s_geoPixelsSSBOId;
-    static uint s_airPixelsSSBOId;
-    static uint s_airGeoMapSSBOId;
+    static SSBO s_ssboLocal;
+    static uint s_ssbo;
+    static uint s_geoPixelsSSBO;
+    static uint s_airPixelsSSBO;
+    static uint s_airGeoMapSSBO;
 
     static uint s_fbo;
     static uint s_fboTex;
@@ -86,24 +87,16 @@ namespace Simulation {
     static uint s_flagTex;
     static uint s_sideTex;
 
-    namespace ProspectShader {
-        static uint prog;
-    }
+    static uint prospectProg;
 
-    namespace OutlineShader {
-        static uint prog;
-        static uint u_swap;
-    }
+    static uint outlineProg;
+    static uint outlineSwapUniform;
 
-    namespace MoveShader {
-        static uint prog;
-        static uint u_swap;
-    }
+    static uint moveProg;
+    static uint moveSwapUniform;
 
-    namespace DrawShader {
-        static uint prog;
-        static uint u_swap;
-    }
+    static uint drawProg;
+    static uint drawSwapUniform;
 
 
 
@@ -181,32 +174,31 @@ namespace Simulation {
 
 
         // Prospect Compute Shader
-        if (!(ProspectShader::prog = loadShader(shadersDir + "/sim_prospect.comp.glsl"))) {
+        if (!(prospectProg = loadShader(shadersDir + "/sim_prospect.comp.glsl"))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
             return false;
         }
-        OutlineShader::u_swap = glGetUniformLocation(ProspectShader::prog, "u_swap");
 
         // Outline Compute Shader
-        if (!(OutlineShader::prog = loadShader(shadersDir + "/sim_outline.comp.glsl"))) {
+        if (!(outlineProg = loadShader(shadersDir + "/sim_outline.comp.glsl"))) {
             std::cerr << "Failed to load outline shader" << std::endl;
             return false;
         }
-        OutlineShader::u_swap = glGetUniformLocation(OutlineShader::prog, "u_swap");
+        outlineSwapUniform = glGetUniformLocation(outlineProg, "u_swap");
     
         // Move Compute Shader
-        if (!(MoveShader::prog = loadShader(shadersDir + "/sim_move.comp.glsl"))) {
+        if (!(moveProg = loadShader(shadersDir + "/sim_move.comp.glsl"))) {
             std::cerr << "Failed to load move shader" << std::endl;
             return false;
         }
-        MoveShader::u_swap = glGetUniformLocation(MoveShader::prog, "u_swap");
+        moveSwapUniform = glGetUniformLocation(moveProg, "u_swap");
     
         // Draw Compute Shader
-        if (!(DrawShader::prog = loadShader(shadersDir + "/sim_draw.comp.glsl"))) {
+        if (!(drawProg = loadShader(shadersDir + "/sim_draw.comp.glsl"))) {
             std::cerr << "Failed to load draw shader" << std::endl;
             return false;
         }
-        DrawShader::u_swap = glGetUniformLocation(DrawShader::prog, "u_swap");
+        drawSwapUniform = glGetUniformLocation(drawProg, "u_swap");
 
         return true;
     }
@@ -221,16 +213,16 @@ namespace Simulation {
         s_shape->init();
 
         //generate VBO for sideview
-        glGenBuffers(1, &s_sideviewVBO);
+        glGenBuffers(1, &s_sideVBO);
 
         // generate the VAO
-        glGenVertexArrays(1, &s_vertexArrayId);
-        glBindVertexArray(s_vertexArrayId);
+        glGenVertexArrays(1, &s_screenVAO);
+        glBindVertexArray(s_screenVAO);
 
         // generate vertex buffer to hand off to OGL
-        glGenBuffers(1, &s_vertexBufferId);
+        glGenBuffers(1, &s_screenVBO);
         // set the current state to focus on our vertex buffer
-        glBindBuffer(GL_ARRAY_BUFFER, s_vertexBufferId);
+        glBindBuffer(GL_ARRAY_BUFFER, s_screenVBO);
 
         GLfloat cube_vertices[] = {
             // front
@@ -360,92 +352,92 @@ namespace Simulation {
     }
 
     static void computeProspect() {
-        glUseProgram(ProspectShader::prog);
+        glUseProgram(prospectProg);
 
-        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
+        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acb);
 
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
 
         glBindImageTexture(0, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-        glBindImageTexture(5, s_fboPosTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(6, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(1, s_fboPosTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
         glDispatchCompute((k_width + 7) / 8, (k_height + 7) / 8, 1); // Must also tweak in shader
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all     
     }
 
     static void computeOutline(int swap) {
-        glUseProgram(OutlineShader::prog);
+        glUseProgram(outlineProg);
 
-        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
+        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acb);
 
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
 
-        glBindImageTexture(0,  s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-        glBindImageTexture(1, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
+        glBindImageTexture(0, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+        glBindImageTexture(3, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
 
-        glUniform1i(OutlineShader::u_swap, swap);
+        glUniform1i(outlineSwapUniform, swap);
 
         glDispatchCompute(1024, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
     static void computeMove(int swap) {
-        glUseProgram(MoveShader::prog);
+        glUseProgram(moveProg);
 
-        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
+        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acb);
 
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
 
-        glBindImageTexture(0,  s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+        glBindImageTexture(0, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         glBindImageTexture(1, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
 
-        glUniform1i(MoveShader::u_swap, swap);
+        glUniform1i(moveSwapUniform, swap);
 
         glDispatchCompute(1024, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all  
     }
 
     static void computeDraw(int swap) {
-        glUseProgram(DrawShader::prog);
+        glUseProgram(drawProg);
 
-        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
+        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acb);
 
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
 
-        glBindImageTexture(0,  s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-        glBindImageTexture(1, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
+        glBindImageTexture(0, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+        glBindImageTexture(3, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
         glBindImageTexture(4, s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
 
-        glUniform1i(DrawShader::u_swap, swap);
+        glUniform1i(drawSwapUniform, swap);
     
         glDispatchCompute(1024, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
     static void downloadSSBO() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboId);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
         void * p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-        std::memcpy(&s_ssbo, p, sizeof(SSBO));
+        std::memcpy(&s_ssboLocal, p, sizeof(SSBO));
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
     static void uploadSSBO() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboId);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssbo, GL_DYNAMIC_COPY);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssboLocal, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
@@ -453,9 +445,9 @@ namespace Simulation {
         downloadSSBO();
 
         // TODO: is this okay?
-        s_sweepLift += vec3(s_ssbo.force) * 1.0e-6f;
+        s_sweepLift += vec3(s_ssboLocal.force) * 1.0e-6f;
 
-        s_ssbo.reset();
+        s_ssboLocal.reset();
 
         uploadSSBO();
 
@@ -472,7 +464,7 @@ namespace Simulation {
     }
 
     static void resetCounters(int swap) {
-        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, s_acbId);
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, s_acb);
         u32 * p(reinterpret_cast<u32 *>(glMapBuffer(GL_ATOMIC_COUNTER_BUFFER, GL_READ_WRITE)));
         s_geoCount = p[0];
         s_airCount[0] = p[1];
@@ -496,19 +488,19 @@ namespace Simulation {
 
         float zNear = k_sliceSize * (s_currentSlice);
         P = glm::ortho(
-            -1.0f / s_ssbo.screenAspectFactor.x, // left
-             1.0f / s_ssbo.screenAspectFactor.x, // right
-            -1.0f / s_ssbo.screenAspectFactor.y, // bottom
-             1.0f / s_ssbo.screenAspectFactor.y, // top
+            -1.0f / s_ssboLocal.screenAspectFactor.x, // left
+             1.0f / s_ssboLocal.screenAspectFactor.x, // right
+            -1.0f / s_ssboLocal.screenAspectFactor.y, // bottom
+             1.0f / s_ssboLocal.screenAspectFactor.y, // top
             zNear, // near
             zNear + k_sliceSize // far
         );
 
         s_foilProg->bind();
 
-        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
+        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acb);
     
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
         
         glBindImageTexture(4, s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         
@@ -565,27 +557,27 @@ namespace Simulation {
         }
 
         // Setup atomic counters
-        glGenBuffers(1, &s_acbId);
-        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, s_acbId);
+        glGenBuffers(1, &s_acb);
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, s_acb);
         u32 zeroData[3]{};
         glBufferData(GL_ATOMIC_COUNTER_BUFFER, 3 * sizeof(u32), zeroData, GL_DYNAMIC_COPY);
         glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
 
         // Setup SSBO
-        glGenBuffers(1, &s_ssboId);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboId);
-        s_ssbo.screenSize.x = k_width;
-        s_ssbo.screenSize.y = k_height;
+        glGenBuffers(1, &s_ssbo);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
+        s_ssboLocal.screenSize.x = k_width;
+        s_ssboLocal.screenSize.y = k_height;
         if (k_width >= k_height) {
-            s_ssbo.screenAspectFactor.x = float(k_height) / float(k_width);
-            s_ssbo.screenAspectFactor.y = 1.0f;
+            s_ssboLocal.screenAspectFactor.x = float(k_height) / float(k_width);
+            s_ssboLocal.screenAspectFactor.y = 1.0f;
         }
         else {
-            s_ssbo.screenAspectFactor.x = 1.0f;
-            s_ssbo.screenAspectFactor.y = float(k_width) / float(k_height);
+            s_ssboLocal.screenAspectFactor.x = 1.0f;
+            s_ssboLocal.screenAspectFactor.y = float(k_width) / float(k_height);
         }
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssbo, GL_DYNAMIC_COPY);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssboLocal, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;
@@ -593,9 +585,9 @@ namespace Simulation {
         }
 
         // Setup geometry pixels SSBO
-        glGenBuffers(1, &s_geoPixelsSSBOId);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_geoPixelsSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBOId);
+        glGenBuffers(1, &s_geoPixelsSSBO);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_geoPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
         glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxGeoPixels * sizeof(GeoPixel), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         if (glGetError() != GL_NO_ERROR) {
@@ -604,9 +596,9 @@ namespace Simulation {
         }
 
         // Setup air pixels SSBO
-        glGenBuffers(1, &s_airPixelsSSBOId);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBOId);
+        glGenBuffers(1, &s_airPixelsSSBO);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO);
         glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * 2 * sizeof(AirPixel), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         if (glGetError() != GL_NO_ERROR) {
@@ -615,9 +607,9 @@ namespace Simulation {
         }
 
         // Setup air geo map SSBO
-        glGenBuffers(1, &s_airGeoMapSSBOId);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airGeoMapSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airGeoMapSSBOId);
+        glGenBuffers(1, &s_airGeoMapSSBO);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airGeoMapSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airGeoMapSSBO);
         glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * sizeof(s32), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         if (glGetError() != GL_NO_ERROR) {
@@ -658,7 +650,7 @@ namespace Simulation {
             uint clearColor[4]{};
             glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
             glClearTexImage(s_sideTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
-            s_ssbo.reset();
+            s_ssboLocal.reset();
             s_sweepLift = vec3();
         }
 
@@ -699,7 +691,7 @@ namespace Simulation {
         s_fbProg->bind();
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, s_fboTex);
-        glBindVertexArray(s_vertexArrayId);
+        glBindVertexArray(s_screenVAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
         s_fbProg->unbind();
     }

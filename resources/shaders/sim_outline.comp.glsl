@@ -28,8 +28,8 @@ const int k_maxSteps = 50;
 
 uniform int u_swap;
 
-layout (binding = 0, rgba8) uniform  image2D u_fboImg;
-layout (binding = 1,  r32i) uniform iimage2D u_flagImg;
+layout (binding = 0, rgba8) uniform image2D u_fboImg;
+layout (binding = 3, r32i) uniform iimage2D u_flagImg;
 
 layout (binding = 0, offset = 0) uniform atomic_uint u_geoCount;
 layout (binding = 0, offset = 4) uniform atomic_uint u_airCount[2];

@@ -28,9 +28,9 @@ const vec3 k_sideAirColor = vec3(0.0f, 1.0f, 0.0f);
 
 uniform int u_swap;
 
-layout (binding = 0,   rgba8) uniform  image2D u_fboImg;
-layout (binding = 1,    r32i) uniform iimage2D u_flagImg;
-layout (binding = 4,   rgba8) uniform  image2D u_sideImg;
+layout (binding = 0, rgba8) uniform image2D u_fboImg;
+layout (binding = 3, r32i) uniform iimage2D u_flagImg;
+layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
 layout (binding = 0, offset = 0) uniform atomic_uint u_geoCount;
 layout (binding = 0, offset = 4) uniform atomic_uint u_airCount[2];
