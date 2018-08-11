@@ -68,7 +68,7 @@ namespace Simulation {
     static std::shared_ptr<Program> s_foilProg, s_fbProg;
 
     static uint s_screenVAO;
-    static uint s_screenVBO, s_vertexTexBox, s_indexBufferIdBox;
+    static uint s_screenVBO;
     static uint s_sideVBO;
 
     static int s_geoCount, s_airCount[2];
@@ -212,59 +212,26 @@ namespace Simulation {
         //shape->resize();
         s_shape->init();
 
-        //generate VBO for sideview
         glGenBuffers(1, &s_sideVBO);
 
-        // generate the VAO
-        glGenVertexArrays(1, &s_screenVAO);
-        glBindVertexArray(s_screenVAO);
-
-        // generate vertex buffer to hand off to OGL
         glGenBuffers(1, &s_screenVBO);
-        // set the current state to focus on our vertex buffer
         glBindBuffer(GL_ARRAY_BUFFER, s_screenVBO);
 
-        GLfloat cube_vertices[] = {
-            // front
-            -1.0f, -1.0f, 0.0f, //LD
-            1.0f, -1.0f, 0.0f, //RD
-            1.0f,  1.0f, 0.0f, //RU
-            -1.0f,  1.0f, 0.0f, //LU
+        float vertData[]{
+            -1.0f, -1.0f,
+            1.0f, -1.0f,
+            1.0f,  1.0f,
+
+            1.0f,  1.0f,
+            -1.0f,  1.0f,
+            -1.0f, -1.0f
         };
+        glBufferData(GL_ARRAY_BUFFER, 2 * 3 * 2 * sizeof(float), vertData, GL_STATIC_DRAW);
 
-        // actually memcopy the data - only do this once
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
-
-        // we need to set up the vertex array
+        glGenVertexArrays(1, &s_screenVAO);
+        glBindVertexArray(s_screenVAO);
         glEnableVertexAttribArray(0);
-        // key function to get up how many elements to pull out at a time (3)
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-
-        // color
-        vec2 cube_tex[] = {
-            // front colors
-            vec2(0.0f, 0.0f),
-            vec2(1.0f, 0.0f),
-            vec2(1.0f, 1.0f),
-            vec2(0.0f, 1.0f),
-        };
-        glGenBuffers(1, &s_vertexTexBox);
-        // set the current state to focus on our vertex buffer
-        glBindBuffer(GL_ARRAY_BUFFER, s_vertexTexBox);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_tex), cube_tex, GL_STATIC_DRAW);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-        // indices
-        glGenBuffers(1, &s_indexBufferIdBox);
-        // set the current state to focus on our vertex buffer
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_indexBufferIdBox);
-        GLushort cube_elements[] = {
-            // front
-            0, 1, 2,
-            2, 3, 0,
-        };
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_elements), cube_elements, GL_STATIC_DRAW);
-
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
         glBindVertexArray(0);
 
         if (glGetError() != GL_NO_ERROR) {
@@ -692,7 +659,7 @@ namespace Simulation {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, s_fboTex);
         glBindVertexArray(s_screenVAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
         s_fbProg->unbind();
     }
 
