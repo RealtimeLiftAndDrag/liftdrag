@@ -1,18 +1,23 @@
 ﻿#version 450 core
 
-#define WORLD_POS_OFF 0
-#define MOMENTUM_OFF 1
-#define TEX_POS_OFF 2
-
 #define MAX_GEO_PIXELS 32768
+#define MAX_AIR_PIXELS 32768
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
-// Constants -------------------------------------------------------------------
+// Types -----------------------------------------------------------------------
 
-const int k_estMaxAirPixels = 16384;
-const int k_maxAirPixelsRows = 27 * 2;
-const int k_maxAirPixelsSum = k_estMaxAirPixels * (k_maxAirPixelsRows / 2 / 3);
+struct GeoPixel {
+    vec4 worldPos;
+    vec4 normal;
+};
+
+struct AirPixel {
+    vec4 worldPos;
+    vec4 velocity;
+};
+
+// Constants -------------------------------------------------------------------
 
 const int k_invocCount = 1024;
 
@@ -25,8 +30,6 @@ uniform int u_swap;
 
 layout (binding = 0,   rgba8) uniform  image2D u_fboImg;
 layout (binding = 1,    r32i) uniform iimage2D u_flagImg;
-layout (binding = 2, rgba32f) uniform  image2D u_geoImg;
-layout (binding = 3, rgba32f) uniform  image2D u_airImg;
 
 layout (binding = 0, offset = 0) uniform atomic_uint u_geoCount;
 layout (binding = 0, offset = 4) uniform atomic_uint u_airCount[2];
@@ -37,24 +40,18 @@ layout (binding = 0, std430) restrict buffer SSBO {
     ivec4 force;
 } ssbo;
 
-struct GeoPixel {
-    vec4 worldPos;
-    vec4 normal;
+// Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason
+layout (binding = 1, std430) buffer GeoPixels { // TODO: should be restrict?
+    GeoPixel geoPixels[];
+};
+layout (binding = 2, std430) buffer AirPixels { // TODO: should be restrict?
+    AirPixel airPixels[];
+};
+layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
+    int airGeoMap[];
 };
 
-layout (binding = 1, std430) buffer MapSSBO { // TODO: should be restrict?
-    GeoPixel geoPixels[MAX_GEO_PIXELS];
-    int map[k_maxAirPixelsSum];
-} mapSSBO;
-
 // Functions -------------------------------------------------------------------
-
-ivec2 getAirTexCoord(int index, int offset, int swap) { // with offset being 0, 1, or 2  (world, momentum, tex)
-    return ivec2(
-        index % k_estMaxAirPixels,
-        offset + 3 * (index / k_estMaxAirPixels) + swap * (k_maxAirPixelsRows / 2)
-    );
-}
 
 vec2 worldToScreen(vec3 world) {
     vec2 screenPos = world.xy;
@@ -70,13 +67,13 @@ vec2 screenToWorldDir(vec2 screenDir) {
 
 bool addAir(vec3 worldPos, vec3 velocity, int geoI) {
     int airI = int(atomicCounterIncrement(u_airCount[u_swap]));
-    if (airI >= k_maxAirPixelsSum) {
+    if (airI >= MAX_AIR_PIXELS) {
         return false;
     }
 
-    imageStore(u_airImg, getAirTexCoord(airI, WORLD_POS_OFF, u_swap), vec4(worldPos, 0.0f));
-    imageStore(u_airImg, getAirTexCoord(airI, MOMENTUM_OFF, u_swap), vec4(velocity, 0.0f));
-    mapSSBO.map[airI] = geoI;
+    airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(worldPos, 0.0f);
+    airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(velocity, 0.0f);
+    airGeoMap[airI] = geoI;
 
     return true;
 }
@@ -92,8 +89,8 @@ void main() {
             return;
         }
 
-        vec3 geoWorldPos = mapSSBO.geoPixels[geoI].worldPos.xyz;
-        vec3 geoNormal = mapSSBO.geoPixels[geoI].normal.xyz;
+        vec3 geoWorldPos = geoPixels[geoI].worldPos.xyz;
+        vec3 geoNormal = geoPixels[geoI].normal.xyz;
 
         vec2 screenPos = floor(worldToScreen(geoWorldPos)) + 0.5f;
         vec2 screenDir = normalize(geoNormal.xy);
@@ -117,8 +114,8 @@ void main() {
                 }
                 --prevAirI;
                 
-                vec3 airWorldPos = imageLoad(u_airImg, getAirTexCoord(prevAirI, WORLD_POS_OFF, 1 - u_swap)).xyz;
-                vec3 airVelocity = imageLoad(u_airImg, getAirTexCoord(prevAirI, MOMENTUM_OFF, 1 - u_swap)).xyz;
+                vec3 airWorldPos = airPixels[prevAirI + (1 - u_swap) * MAX_AIR_PIXELS].worldPos.xyz;
+                vec3 airVelocity = airPixels[prevAirI + (1 - u_swap) * MAX_AIR_PIXELS].velocity.xyz;
                 if (!addAir(airWorldPos, airVelocity, geoI)) {
                     return;
                 }

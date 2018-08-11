@@ -22,16 +22,18 @@ namespace Simulation {
     static constexpr float k_sliceSize(0.025f); // z distance between slices, MUST ALSO CHANGE IN MOVE SHADER!!!
 
     static constexpr int k_maxGeoPixels = 32768; // 1 MB worth, must also change in shaders
-
-    static constexpr int k_maxAirPixels = 16384;
-    static constexpr int k_maxAirPixelsRows = 27 * 2;
-    static constexpr int k_maxAirPixelsSum = k_maxAirPixels * (k_maxAirPixelsRows / 2 / 3);
+    static constexpr int k_maxAirPixels = 32768; // 1 MB worth, must also change in shaders
 
 
 
     struct GeoPixel {
         vec4 worldPos;
         vec4 normal;
+    };
+
+    struct AirPixel {
+        vec4 worldPos;
+        vec4 velocity;
     };
 
     struct SSBO {
@@ -54,11 +56,6 @@ namespace Simulation {
 
     };
 
-    struct MapSSBO {
-        GeoPixel geoPixels[k_maxGeoPixels];
-        s32 map[k_maxAirPixelsSum];
-    };
-
 
 
     static std::shared_ptr<Shape> s_shape;
@@ -77,16 +74,16 @@ namespace Simulation {
 
     static SSBO s_ssbo;
     static uint s_ssboId;
-    static uint s_mapSSBOId;
+    static uint s_geoPixelsSSBOId;
+    static uint s_airPixelsSSBOId;
+    static uint s_airGeoMapSSBOId;
 
     static uint s_fbo;
     static uint s_fboTex;
     static uint s_fboPosTex;
     static uint s_fboNormTex;
     static uint s_flagTex;
-    static uint s_geoTex; // texture holding the pixels of the geometry
-    static uint s_sideTex; // texture holding the pixels of the geometry from the side
-    static uint s_airTex; // texture holding the pixels of air
+    static uint s_sideTex;
 
     namespace ProspectShader {
         static uint prog;
@@ -114,6 +111,8 @@ namespace Simulation {
     }
 
     static uint loadShader(const std::string & compPath) {
+        std::cout << "Loading shader: " << compPath << std::endl;
+
         auto [res, str](Util::readTextFile(compPath));
         if (!res) {
             std::cerr << "Failed to read file: " << compPath << std::endl;
@@ -365,10 +364,11 @@ namespace Simulation {
         glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
 
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBOId);
 
         glBindImageTexture(0, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-        glBindImageTexture(2, s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(5, s_fboPosTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(6, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
@@ -382,12 +382,12 @@ namespace Simulation {
         glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
 
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBOId);
 
         glBindImageTexture(0,  s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         glBindImageTexture(1, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
-        glBindImageTexture(2,  s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(3,  s_airTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
         glUniform1i(OutlineShader::u_swap, swap);
 
@@ -401,12 +401,12 @@ namespace Simulation {
         glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
 
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBOId);
 
         glBindImageTexture(0,  s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         glBindImageTexture(1, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
-        glBindImageTexture(2,  s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(3,  s_airTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
         glUniform1i(MoveShader::u_swap, swap);
 
@@ -420,12 +420,12 @@ namespace Simulation {
         glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
 
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBOId);
 
         glBindImageTexture(0,  s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         glBindImageTexture(1, s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
-        glBindImageTexture(2,  s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(3,  s_airTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
         glBindImageTexture(4, s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
 
         glUniform1i(DrawShader::u_swap, swap);
@@ -445,13 +445,6 @@ namespace Simulation {
     static void uploadSSBO() {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssboId);
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssbo, GL_DYNAMIC_COPY);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    }
-
-    static void checkMapSSBO() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mapSSBOId);
-        const MapSSBO * mapSSBO(reinterpret_cast<const MapSSBO *>(glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY)));
-        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
@@ -475,13 +468,6 @@ namespace Simulation {
     static void clearFlagTex() {
         static int clearColor[4]{};
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
-    }
-
-    static void clearMapSSBO() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mapSSBOId);
-        int i(0);
-        glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32I, GL_INT, GL_INT, &i);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
     static void resetCounters(int swap) {
@@ -605,11 +591,33 @@ namespace Simulation {
             return false;
         }
 
-        // Setup map SSBO
-        glGenBuffers(1, &s_mapSSBOId);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mapSSBOId);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxGeoPixels * sizeof(GeoPixel) + k_maxAirPixelsSum * sizeof(s32), nullptr, GL_DYNAMIC_COPY);
+        // Setup geometry pixels SSBO
+        glGenBuffers(1, &s_geoPixelsSSBOId);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_geoPixelsSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBOId);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxGeoPixels * sizeof(GeoPixel), nullptr, GL_DYNAMIC_COPY);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        if (glGetError() != GL_NO_ERROR) {
+            std::cerr << "OpenGL error" << std::endl;
+            return false;
+        }
+
+        // Setup air pixels SSBO
+        glGenBuffers(1, &s_airPixelsSSBOId);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBOId);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * 2 * sizeof(AirPixel), nullptr, GL_DYNAMIC_COPY);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        if (glGetError() != GL_NO_ERROR) {
+            std::cerr << "OpenGL error" << std::endl;
+            return false;
+        }
+
+        // Setup air geo map SSBO
+        glGenBuffers(1, &s_airGeoMapSSBOId);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airGeoMapSSBOId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airGeoMapSSBOId);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * sizeof(s32), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;
@@ -626,33 +634,6 @@ namespace Simulation {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_width, k_height, 0, GL_RED_INTEGER, GL_INT, nullptr);
         uint clearcolor = 0;
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearcolor);
-        if (glGetError() != GL_NO_ERROR) {
-            std::cerr << "OpenGL error" << std::endl;
-            return false;
-        }
-
-        // Setup dense geometry pixel texture
-        glGenTextures(1, &s_geoTex);
-        glBindTexture(GL_TEXTURE_2D, s_geoTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 16000, 27, 0, GL_RGBA, GL_FLOAT, NULL);
-        if (glGetError() != GL_NO_ERROR) {
-            std::cerr << "OpenGL error" << std::endl;
-            return false;
-        }
-
-        // Setup dense air pixel texture
-        glGenTextures(1, &s_airTex);
-        glBindTexture(GL_TEXTURE_2D, s_airTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_maxAirPixels, k_maxAirPixelsRows, 0, GL_RGBA, GL_FLOAT, NULL);
-
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;
             return false;
@@ -675,8 +656,6 @@ namespace Simulation {
         if (s_currentSlice == 0) {
             uint clearColor[4]{};
             glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
-            glClearTexImage(s_geoTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
-            glClearTexImage(s_airTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
             glClearTexImage(s_sideTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
             s_ssbo.reset();
             s_sweepLift = vec3();

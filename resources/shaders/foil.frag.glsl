@@ -1,9 +1,5 @@
 #version 450 core
 
-#define WORLD_POS_OFF 0
-#define MOMENTUM_OFF 1
-#define TEX_POS_OFF 2
-
 // Inputs ----------------------------------------------------------------------
 
 layout (location = 0) in vec3 in_pos;
