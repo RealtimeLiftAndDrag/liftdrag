@@ -6,6 +6,7 @@
 #include "glad/glad.h"
 #include "Program.h"
 #include "Shape.h"
+#include "GrlLoader.hpp"
 #include "GLSL.h"
 #include "glm/gtc/matrix_transform.hpp"
 
@@ -14,8 +15,6 @@
 
 
 namespace Simulation {
-
-
 
     static constexpr int k_width(720), k_height(480);
     static constexpr int k_nSlices(50);
@@ -205,7 +204,10 @@ namespace Simulation {
 
 
     static bool setupGeom(const std::string & resourcesDir) {
-        std::string objsDir = resourcesDir + "/objs";
+        
+		std::string grlsDir = resourcesDir + "/grls";
+		grl::loadSubModels(grlsDir + "/f18.grl");
+		std::string objsDir = resourcesDir + "/objs";
         // Initialize mesh.
         s_shape = std::make_shared<Shape>();
         s_shape->loadMesh(objsDir + "/0012.obj");

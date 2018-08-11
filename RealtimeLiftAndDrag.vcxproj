@@ -141,6 +141,7 @@
     <ClCompile Include="src\glad.c" />
     <ClCompile Include="src\GLSL.cpp" />
     <ClCompile Include="src\Graph.cpp" />
+    <ClCompile Include="src\GrlLoader.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Program.cpp" />
     <ClCompile Include="src\Results.cpp" />
@@ -153,6 +154,7 @@
   <ItemGroup>
     <ClInclude Include="src\GLSL.h" />
     <ClInclude Include="src\Graph.hpp" />
+    <ClInclude Include="src\GrlLoader.hpp" />
     <ClInclude Include="src\Program.h" />
     <ClInclude Include="src\Results.hpp" />
     <ClInclude Include="src\Shape.h" />
