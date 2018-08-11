@@ -21,15 +21,18 @@ namespace Simulation {
     static constexpr int k_nSlices(50);
     static constexpr float k_sliceSize(0.025f); // z distance between slices, MUST ALSO CHANGE IN MOVE SHADER!!!
 
-    static constexpr int k_maxGeoPixels = 16384;
-    static constexpr int k_maxGeoPixelsRows = 27;
-    static constexpr int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
+    static constexpr int k_maxGeoPixels = 32768; // 1 MB worth, must also change in shaders
 
     static constexpr int k_maxAirPixels = 16384;
     static constexpr int k_maxAirPixelsRows = 27 * 2;
     static constexpr int k_maxAirPixelsSum = k_maxAirPixels * (k_maxAirPixelsRows / 2 / 3);
 
 
+
+    struct GeoPixel {
+        vec4 worldPos;
+        vec4 normal;
+    };
 
     struct SSBO {
 
@@ -49,6 +52,11 @@ namespace Simulation {
             momentum = ivec4();
         }
 
+    };
+
+    struct MapSSBO {
+        GeoPixel geoPixels[k_maxGeoPixels];
+        s32 map[k_maxAirPixelsSum];
     };
 
 
@@ -171,12 +179,13 @@ namespace Simulation {
         glUniform1i(s_fbProg->getUniform("u_tex"), 0);
         glUseProgram(0);
 
+
         // Prospect Compute Shader
         if (!(ProspectShader::prog = loadShader(shadersDir + "/sim_prospect.comp.glsl"))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
             return false;
         }
-        OutlineShader::u_swap = glGetUniformLocation(OutlineShader::prog, "u_swap");
+        OutlineShader::u_swap = glGetUniformLocation(ProspectShader::prog, "u_swap");
 
         // Outline Compute Shader
         if (!(OutlineShader::prog = loadShader(shadersDir + "/sim_outline.comp.glsl"))) {
@@ -356,6 +365,7 @@ namespace Simulation {
         glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
 
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
 
         glBindImageTexture(0, s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         glBindImageTexture(2, s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
@@ -438,6 +448,13 @@ namespace Simulation {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
+    static void checkMapSSBO() {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mapSSBOId);
+        const MapSSBO * mapSSBO(reinterpret_cast<const MapSSBO *>(glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY)));
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    }
+
     static void computeReset(int swap) {
         downloadSSBO();
 
@@ -505,8 +522,7 @@ namespace Simulation {
         glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, s_acbId);
     
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssboId);
-            
-        glBindImageTexture(2,  s_geoTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        
         glBindImageTexture(4, s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
         
         glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, &P[0][0]);
@@ -593,7 +609,7 @@ namespace Simulation {
         glGenBuffers(1, &s_mapSSBOId);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mapSSBOId);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mapSSBOId);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixelsSum * sizeof(s32), nullptr, GL_DYNAMIC_COPY);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxGeoPixels * sizeof(GeoPixel) + k_maxAirPixelsSum * sizeof(s32), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;
@@ -622,7 +638,7 @@ namespace Simulation {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_maxGeoPixels, k_maxGeoPixelsRows, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 16000, 27, 0, GL_RGBA, GL_FLOAT, NULL);
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;
             return false;
@@ -672,6 +688,7 @@ namespace Simulation {
         resetCounters(s_swap);
         renderGeometry();
         computeProspect();
+        //checkMapSSBO();
         clearFlagTex();
         computeDraw(!s_swap);
         //downloadSSBO();

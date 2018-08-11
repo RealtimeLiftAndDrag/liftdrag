@@ -1,7 +1,5 @@
 #version 450 core
 
-#define DEBUG_SIZE 4096
-
 #define WORLD_POS_OFF 0
 #define MOMENTUM_OFF 1
 #define TEX_POS_OFF 2
@@ -20,14 +18,9 @@ layout (location = 2) out vec4 out_norm;
 
 // Constants -------------------------------------------------------------------
 
-const int k_maxGeoPixels = 16384;
-const int k_maxGeoPixelsRows = 27;
-const int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
-
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 2, rgba32f) uniform  image2D u_geoImg;
-layout (binding = 4,   rgba8) uniform  image2D u_sideImg;
+layout (binding = 4, rgba8) uniform  image2D u_sideImg;
 
 layout (binding = 0, std430) restrict buffer SSBO { 
     vec4 screenSpec;

@@ -4,15 +4,15 @@
 #define MOMENTUM_OFF 1
 #define TEX_POS_OFF 2
 
-#define DEBUG_SIZE 4096
+#define MAX_GEO_PIXELS 32768
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 // Constants -------------------------------------------------------------------
 
-const int k_maxGeoPixels = 16384;
-const int k_maxGeoPixelsRows = 27;
-const int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
+const int k_estMaxAirPixels = 16384;
+const int k_maxAirPixelsRows = 27 * 2;
+const int k_maxAirPixelsSum = k_estMaxAirPixels * (k_maxAirPixelsRows / 2 / 3);
 
 const int k_invocCount = 1024;
 
@@ -31,14 +31,17 @@ layout (binding = 0, std430) restrict buffer SSBO {
     ivec4 force;
 } ssbo;
 
-// Functions -------------------------------------------------------------------
+struct GeoPixel {
+    vec4 worldPos;
+    vec4 normal;
+};
 
-ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (world, momentum, tex)
-    return ivec2(
-        index % k_maxGeoPixels,
-        offset + 3 * (index / k_maxGeoPixels)
-    );
-}
+layout (binding = 1, std430) buffer MapSSBO { // TODO: should be restrict?
+    GeoPixel geoPixels[MAX_GEO_PIXELS];
+    int map[k_maxAirPixelsSum];
+} mapSSBO;
+
+// Functions -------------------------------------------------------------------
 
 void main() {
     ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
@@ -52,13 +55,13 @@ void main() {
     }
 
     int geoI = int(atomicCounterIncrement(u_geoCount));
-    if (geoI >= k_maxGeoPixelsSum) {
+    if (geoI >= MAX_GEO_PIXELS) {
         return;
     }
 
     vec4 geoWorldPos = imageLoad(u_fboPosImg, texCoord);
     vec4 geoNormal = imageLoad(u_fboNormImg, texCoord);
 
-    imageStore(u_geoImg, getGeoTexCoord(geoI, WORLD_POS_OFF), geoWorldPos);
-    imageStore(u_geoImg, getGeoTexCoord(geoI, MOMENTUM_OFF), geoNormal);      
+    mapSSBO.geoPixels[geoI].worldPos = geoWorldPos;
+    mapSSBO.geoPixels[geoI].normal = geoNormal;  
 }
