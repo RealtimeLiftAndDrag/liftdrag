@@ -92,8 +92,7 @@ void main() {
         int geoI = mapSSBO.map[airI];
         vec3 geoWorldPos = imageLoad(u_geoImg, getGeoTexCoord(geoI, WORLD_POS_OFF)).xyz;
         vec3 geoNormal = imageLoad(u_geoImg, getGeoTexCoord(geoI, MOMENTUM_OFF)).xyz;
-        geoNormal = vec3(0.0, 1.0f, 0.0f);
-        vec2 backForce = normalize(-geoNormal.xy) * 0.25f;// * distance(airWorldPos.xy, geoWorldPos.xy) * 0.5f;
+        vec2 backForce = normalize(-geoNormal.xy) * distance(airWorldPos.xy, geoWorldPos.xy) * 2.0f;
 
         //float force = length(backforceDir);
         //backforceDir=normalize(backforceDir);
@@ -111,7 +110,7 @@ void main() {
         vec3 dir = normalize(airVelocity);
         dir.z = -1.0f;
         dir = normalize(dir);
-        airVelocity = dir * 5.0f; // TODO: magic constant
+        airVelocity = dir * 10.0f; // TODO: magic constant
 
         // Update location
         airWorldPos.xy += screenToWorldDir(airVelocity.xy); // TODO: right now a velocity of 1 corresponds to moving 1 pixel. Is this right?

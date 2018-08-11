@@ -72,6 +72,19 @@ vec2 screenToWorldDir(vec2 screenDir) {
     return screenDir / (min(ssbo.screenSpec.x, ssbo.screenSpec.y) * 0.5f);
 }
 
+bool addAir(vec3 worldPos, vec3 velocity, int geoI) {
+    int airI = int(atomicCounterIncrement(u_airCount[u_swap]));
+    if (airI >= k_maxAirPixelsSum) {
+        return false;
+    }
+
+    imageStore(u_airImg, getAirTexCoord(airI, WORLD_POS_OFF, u_swap), vec4(worldPos, 0.0f));
+    imageStore(u_airImg, getAirTexCoord(airI, MOMENTUM_OFF, u_swap), vec4(velocity, 0.0f));
+    mapSSBO.map[airI] = geoI;
+
+    return true;
+}
+
 void main() {
     int geoCount = int(atomicCounter(u_geoCount));
     int invocI = int(gl_GlobalInvocationID.x);
@@ -87,49 +100,34 @@ void main() {
         vec3 geoNormal = imageLoad(u_geoImg, getGeoTexCoord(geoI, MOMENTUM_OFF)).xyz;
 
         vec2 screenPos = floor(worldToScreen(geoWorldPos)) + 0.5f;
-
-        // Check if actually a geometry pixel
-        // TODO: this should not be necessary
-        vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
-        if (col.r == 0.0f) {
-            continue;
-        }
-
         vec2 screenDir = normalize(geoNormal.xy);
 
         // TODO: magic numbers
-        bool shouldSpawn = geoNormal.z >= 0.01f && geoNormal.z <= 0.99f && geoWorldPos.z >= -0.03f;
+        bool shouldSpawn = geoNormal.z >= 0.01f && geoNormal.z <= 0.99f;
 
         // Check if at edge of geometry
-        col = imageLoad(u_fboImg, ivec2(screenPos + screenDir));
-        if (col.r > 0.0f) {
+        vec4 color = imageLoad(u_fboImg, ivec2(screenPos + screenDir));
+        if (color.r > 0.0f) {
             shouldSpawn = false;
         }
 
-        // Look for air pixel
+        // Look for existing air pixel
         for (int steps = 0; steps < k_maxSteps; ++steps) {
-            col = imageLoad(u_fboImg, ivec2(screenPos));
-            if (col.g > 0.0f) { // we found an air pixel
-                shouldSpawn = false;                
-
-                int prevAirI = imageAtomicAdd(u_flagImg, ivec2(screenPos), 0); // TODO: replace with non-atomic operation
-                // TODO: this should not be necessary
-                if (prevAirI == 0) {
-                    break;
+            color = imageLoad(u_fboImg, ivec2(screenPos));
+            if (color.g > 0.0f) { // we found an air pixel
+                int prevAirI = imageLoad(u_flagImg, ivec2(screenPos)).x;               
+                if (prevAirI == 0) { // TODO: this should not be necessary, just here for sanity
+                    continue;
                 }
                 --prevAirI;
-
-                int airI = int(atomicCounterIncrement(u_airCount[u_swap]));
-                if (airI >= k_maxAirPixelsSum) {
-                    break;
+                
+                vec3 airWorldPos = imageLoad(u_airImg, getAirTexCoord(prevAirI, WORLD_POS_OFF, 1 - u_swap)).xyz;
+                vec3 airVelocity = imageLoad(u_airImg, getAirTexCoord(prevAirI, MOMENTUM_OFF, 1 - u_swap)).xyz;
+                if (!addAir(airWorldPos, airVelocity, geoI)) {
+                    return;
                 }
 
-                vec4 airWorldPos = imageLoad(u_airImg, getAirTexCoord(prevAirI, WORLD_POS_OFF, 1 - u_swap));
-                vec4 airVelocity = imageLoad(u_airImg, getAirTexCoord(prevAirI, MOMENTUM_OFF, 1 - u_swap));
-                imageStore(u_airImg, getAirTexCoord(airI, WORLD_POS_OFF, u_swap), airWorldPos);
-                imageStore(u_airImg, getAirTexCoord(airI, MOMENTUM_OFF, u_swap), airVelocity);
-                mapSSBO.map[airI] = geoI;
-
+                shouldSpawn = false;   
                 break;
             }
             
@@ -141,10 +139,9 @@ void main() {
             vec3 airWorldPos = geoWorldPos;
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
             vec3 airVelocity = refl * 10.0f;
-            int airI = int(atomicCounterIncrement(u_airCount[u_swap]));
-            imageStore(u_airImg, getAirTexCoord(airI, WORLD_POS_OFF, u_swap), vec4(airWorldPos, 0.0f));
-            imageStore(u_airImg, getAirTexCoord(airI, MOMENTUM_OFF, u_swap), vec4(airVelocity, 0.0f));
-            mapSSBO.map[airI] = geoI;
+            if (!addAir(airWorldPos, airVelocity, geoI)) {
+                return;
+            }
         }
     }
 }

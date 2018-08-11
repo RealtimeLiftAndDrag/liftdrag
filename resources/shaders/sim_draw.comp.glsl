@@ -80,9 +80,10 @@ void main() {
         if (airI >= airCount) {
             break;
         }
+        int geoI = mapSSBO.map[airI];
 
-        vec3 geoWorldPos = imageLoad(u_geoImg, getGeoTexCoord(airI, WORLD_POS_OFF)).xyz; // TODO: this needs to not be airI
-        vec3 geoNormal = imageLoad(u_geoImg, getGeoTexCoord(airI, MOMENTUM_OFF)).xyz;
+        vec3 geoWorldPos = imageLoad(u_geoImg, getGeoTexCoord(geoI, WORLD_POS_OFF)).xyz; // TODO: this needs to not be airI
+        vec3 geoNormal = imageLoad(u_geoImg, getGeoTexCoord(geoI, MOMENTUM_OFF)).xyz;
         vec3 airWorldPos = imageLoad(u_airImg, getAirTexCoord(airI, WORLD_POS_OFF, u_swap)).xyz;
         vec3 airVelocity = imageLoad(u_airImg, getAirTexCoord(airI, MOMENTUM_OFF, u_swap)).xyz;
         
@@ -91,15 +92,11 @@ void main() {
         ivec2 airSideTexPos = ivec2(worldToScreen(vec3(-airWorldPos.z, airWorldPos.y, 0)));
         
         vec4 color = imageLoad(u_fboImg, airScreenPos);
-        //color.gb = mix(vec2(1.0f, 0.0f), vec2(0.0f, 1.0f), airVelocity.x * 0.5f + 0.5f);
-        color.gb = mix(vec2(1.0f, 0.0f), vec2(0.0f, 1.0f), geoNormal.y * 0.5f + 0.5f);
-        color.g += 0.01f;
+        color.g = 1.0f;
 
-        imageStore(u_fboImg, airScreenPos, color);
-        if (abs(airWorldPos.x) <= 0.9f) { // ignore crazy stragglers on the edges
-            imageStore(u_geoSideImg, geoSideTexPos, vec4(k_sideGeoColor, 1.0f));
-            imageStore(u_geoSideImg, airSideTexPos, vec4(k_sideAirColor, 1.0f));
-        }
+        imageStore(u_fboImg, airScreenPos, color);        
+        imageStore(u_geoSideImg, geoSideTexPos, vec4(k_sideGeoColor, 1.0f));
+        imageStore(u_geoSideImg, airSideTexPos, vec4(k_sideAirColor, 1.0f));
         imageAtomicExchange(u_flagImg, airScreenPos, airI + 1);
     }        
 }
