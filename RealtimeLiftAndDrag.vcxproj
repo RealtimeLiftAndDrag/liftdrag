@@ -77,6 +77,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>include</AdditionalIncludeDirectories>
+      <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -90,6 +91,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>include</AdditionalIncludeDirectories>
+      <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -106,6 +108,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_OPENGL_ERROR_CHECKS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -124,6 +127,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_OPENGL_ERROR_CHECKS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -154,11 +158,12 @@
     <ClInclude Include="src\SideView.hpp" />
     <ClInclude Include="src\Simulation.hpp" />
     <ClInclude Include="src\Text.hpp" />
+    <ClInclude Include="src\Util.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="resources\shaders\compute_draw.glsl" />
-    <None Include="resources\shaders\compute_move.glsl" />
-    <None Include="resources\shaders\compute_outline.glsl" />
+    <None Include="resources\shaders\sim_draw.comp.glsl" />
+    <None Include="resources\shaders\sim_move.comp.glsl" />
+    <None Include="resources\shaders\sim_outline.comp.glsl" />
     <None Include="resources\shaders\fb.frag.glsl" />
     <None Include="resources\shaders\fb.vert.glsl" />
     <None Include="resources\shaders\foil.frag.glsl" />
@@ -166,6 +171,7 @@
     <None Include="resources\shaders\graph_curve.vert.glsl" />
     <None Include="resources\shaders\graph_lines.frag.glsl" />
     <None Include="resources\shaders\graph_lines.vert.glsl" />
+    <None Include="resources\shaders\sim_prospect.comp.glsl" />
     <None Include="resources\shaders\text.frag.glsl" />
     <None Include="resources\shaders\text.vert.glsl" />
     <None Include="resources\shaders\foil.vert.glsl" />

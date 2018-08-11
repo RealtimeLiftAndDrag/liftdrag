@@ -1,6 +1,8 @@
 ﻿// Realtime Lift and Drag SURP 2018
 // Christian Eckhart, William Newey, Austin Quick, Sebastian Seibert
 
+// What was the point of using textures for the dense arrays rather than ssbo?
+// Multiple geometry per air
 
 
 // Allows program to be run on dedicated graphics processor for laptops with

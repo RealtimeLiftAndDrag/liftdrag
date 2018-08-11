@@ -15,6 +15,8 @@ layout (location = 2) in vec2 in_texCoord;
 // Outputs ---------------------------------------------------------------------
 
 layout (location = 0) out vec4 out_color;
+layout (location = 1) out vec4 out_pos;
+layout (location = 2) out vec4 out_norm;
 
 // Constants -------------------------------------------------------------------
 
@@ -24,28 +26,16 @@ const int k_maxGeoPixelsSum = k_maxGeoPixels * (k_maxGeoPixelsRows / 3);
 
 // Uniforms --------------------------------------------------------------------
 
-layout (r32i, binding = 2) uniform iimage2D u_flagImg;
-layout (rgba32f, binding = 4) uniform image2D u_geoImg;
-layout (rgba8, binding = 6) uniform image2D u_sideImg;
+layout (binding = 2, rgba32f) uniform  image2D u_geoImg;
+layout (binding = 4,   rgba8) uniform  image2D u_sideImg;
 
-layout (std430, binding = 0) restrict buffer SSBO { 
-    int geoCount;
-    int test;
-    int airCount[2];
+layout (binding = 0, std430) restrict buffer SSBO { 
     vec4 screenSpec;
     ivec4 momentum;
     ivec4 force;
-    ivec4 debugShit[DEBUG_SIZE];
 } ssbo;
 
 // Functions -------------------------------------------------------------------
-
-ivec2 getGeoTexCoord(int index, int offset) { // with offset being 0, 1, or 2 (world, momentum, tex)
-    return ivec2(
-        index % k_maxGeoPixels,
-        offset + 3 * (index / k_maxGeoPixels)
-    );
-}
 
 vec2 worldToScreen(vec3 world) {
     vec2 screenPos = world.xy;
@@ -56,19 +46,11 @@ vec2 worldToScreen(vec3 world) {
 }
 
 void main() {
-    out_color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-
-    int oldFlag = imageAtomicExchange(u_flagImg, ivec2(gl_FragCoord.xy), 1);
-    if (oldFlag == 0) {        
-        int arrayI = atomicAdd(ssbo.geoCount, 1);
-        if (arrayI < k_maxGeoPixelsSum) {
-            imageStore(u_geoImg, getGeoTexCoord(arrayI, WORLD_POS_OFF), vec4(in_pos, 0.0f));
-            imageStore(u_geoImg, getGeoTexCoord(arrayI, MOMENTUM_OFF), vec4(in_norm, 0.0f));
-            imageStore(u_geoImg, getGeoTexCoord(arrayI, TEX_POS_OFF), vec4(gl_FragCoord.xy, arrayI, 0.0f));
+    out_color = vec4(1.0f, 0.0f, 0.0f, 0.0f);
+    out_pos = vec4(in_pos, 0.0f);
+    out_norm = vec4(in_norm, 0.0f);
             
-            //sideview
-            vec2 sideTexPos = worldToScreen(vec3(-in_pos.z, in_pos.y, 0));
-            imageStore(u_sideImg, ivec2(sideTexPos), vec4(1.0f, 0.f, 0.f, 1.0f));
-        }
-    }
+    // Side View
+    vec2 sideTexPos = worldToScreen(vec3(-in_pos.z, in_pos.y, 0));
+    imageStore(u_sideImg, ivec2(sideTexPos), vec4(1.0f, 0.0f, 0.0f, 0.0f));
 }
