@@ -59,6 +59,7 @@ namespace Simulation {
 
 
     static std::shared_ptr<Shape> s_shape;
+	static std::shared_ptr<GrlModel> s_f18Model;
     static bool s_swap(true);
     static int s_currentSlice(0); // slice index [0, k_nSlices)
     static float s_angleOfAttack(0.0f); // IN DEGREES
@@ -206,9 +207,9 @@ namespace Simulation {
     static bool setupGeom(const std::string & resourcesDir) {
         
 		std::string grlsDir = resourcesDir + "/grls";
-		std::shared_ptr<GrlModel> f18Model = std::make_shared<GrlModel>();
-		f18Model->loadSubModels(grlsDir + "/f18.grl");
-		f18Model->init();
+		s_f18Model = std::make_shared<GrlModel>();
+		s_f18Model->loadSubModels(grlsDir + "/f18.grl");
+		s_f18Model->init();
 
 		std::string objsDir = resourcesDir + "/objs";
         // Initialize mesh.
@@ -658,7 +659,8 @@ namespace Simulation {
     }
 
     void render() {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        /*
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         s_fbProg->bind();
         glActiveTexture(GL_TEXTURE0);
@@ -666,6 +668,9 @@ namespace Simulation {
         glBindVertexArray(s_screenVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         s_fbProg->unbind();
+		*/
+		
+
     }
 
     int getSlice() {

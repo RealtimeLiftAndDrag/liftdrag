@@ -18,6 +18,7 @@ void GrlModel::loadSubModels(string filename)
 		cerr << "File not found: " << filename << endl;
 		exit(EXIT_FAILURE);
 	}
+	cout << "Loading grl model: " << filename << endl;
 	grl::submodel* curSubModel = nullptr;
 
 	int state = 0; //0 = unset; 1 = matrix; 2 = vertices
@@ -68,6 +69,8 @@ void GrlModel::loadSubModels(string filename)
 				curSubModel = new grl::submodel();
 				curSubModel->name = tokens.back();
 				state = 0;
+
+				cout << "\tWith submodel: " << tokens.back() << endl;
 			}
 			else if (metaType == "origin") {
 				matrixLine = 0;
@@ -139,7 +142,7 @@ void GrlModel::loadSubModels(string filename)
 
 void GrlModel::init() {
 	for (int i = 0; i < subModels.size(); i++) {
-		int vertSize = subModels[i].posData.size();
+		size_t vertSize = subModels[i].posData.size();
 
 		glGenVertexArrays(1, &vaoID[i]);
 		glBindVertexArray(vaoID[i]);
@@ -148,16 +151,24 @@ void GrlModel::init() {
 		glGenBuffers(1, &posBufID[i]);
 		glBindBuffer(GL_ARRAY_BUFFER, posBufID[i]);
 		glBufferData(GL_ARRAY_BUFFER, vertSize * 3 * sizeof(float), subModels[i].posData.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
 
 		//normals
 		glGenBuffers(1, &norBufID[i]);
 		glBindBuffer(GL_ARRAY_BUFFER, norBufID[i]);
+		glEnableVertexAttribArray(1);
 		glBufferData(GL_ARRAY_BUFFER, vertSize * 3 * sizeof(float), subModels[i].norData.data(), GL_STATIC_DRAW);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
 		//texture coordinates
 		glGenBuffers(1, &texBufID[i]);
 		glBindBuffer(GL_ARRAY_BUFFER, texBufID[i]);
 		glBufferData(GL_ARRAY_BUFFER, vertSize * 2 * sizeof(float), subModels[i].texData.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(2);
+		glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -167,6 +178,32 @@ void GrlModel::init() {
 			cerr << "Error: << " << error << "initializing submodel " << subModels[i].name << endl;
 			exit(EXIT_FAILURE);
 		}
-
 	}
+}
+
+void GrlModel::draw(const shared_ptr<Program> prog, mat4 t, mat4 r, mat4 s) {
+	for (size_t i = 0; i < subModels.size(); i++) {
+		drawSubModel(prog, i);
+	}
+}
+
+void GrlModel::drawSubModel(const shared_ptr<Program> prog, string subModelName, mat4 t, mat4 r, mat4 s) {
+	//get correct index of submodel based off name
+	int i;
+	for (i = 0; i < subModels.size(); i++)
+	{
+		if (subModels[i].name == subModelName) {
+			break;
+		}
+	}
+	drawSubModel(prog, i);
+}
+
+void GrlModel::drawSubModel(const shared_ptr<Program> prog, unsigned int subModelIndex, mat4 t, mat4 r, mat4 s) {
+	mat4 T = t * subModels[subModelIndex].O;
+	mat4 M = T * r * s * inverse(T);
+	glUniformMatrix4fv(prog->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
+	glBindVertexArray(vaoID[subModelIndex]);
+	glDrawArrays(GL_TRIANGLES, 0, subModels[subModelIndex].posData.size());
+	glBindVertexArray(0);
 }
