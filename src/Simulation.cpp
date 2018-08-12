@@ -677,15 +677,17 @@ namespace Simulation {
 			0.1f,
 			1000.0f
 		);
-		V = mat4(1);
-		T = glm::translate(glm::mat4(1), glm::vec3(0, 10, -100));
+		V = glm::translate(mat4(1), vec3(0, 0, -20));
+		T = mat4(1);
 		R = mat4(1);
 		S = mat4(1);
 
 		s_foilProg->bind();
 		glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, &P[0][0]);
 		glUniformMatrix4fv(s_foilProg->getUniform("u_viewMat"), 1, GL_FALSE, &V[0][0]);
-		s_f18Model->draw(s_foilProg, T);
+		//s_f18Model->drawSubModel(s_foilProg, "ElevatorL01", T);
+		//s_f18Model->drawSubModel(s_foilProg, "ElevatorR01", T);
+		s_f18Model->draw(s_foilProg);
 		s_foilProg->unbind();
 
     }
