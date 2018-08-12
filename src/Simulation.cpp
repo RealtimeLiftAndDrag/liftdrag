@@ -208,6 +208,8 @@ namespace Simulation {
 		std::string grlsDir = resourcesDir + "/grls";
 		std::shared_ptr<GrlModel> f18Model = std::make_shared<GrlModel>();
 		f18Model->loadSubModels(grlsDir + "/f18.grl");
+		f18Model->init();
+
 		std::string objsDir = resourcesDir + "/objs";
         // Initialize mesh.
         s_shape = std::make_shared<Shape>();

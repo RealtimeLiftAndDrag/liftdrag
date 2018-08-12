@@ -2,22 +2,25 @@
 #include "glm/glm.hpp"
 
 namespace grl {
-	struct vertex {
-		glm::vec3 pos, norm;
-		glm::vec2 texCoord;
-	};
 	struct submodel
 	{
 		std::string name;
-		std::vector<vertex*>* vertices;
+		std::vector<glm::vec3> posData;
+		std::vector<glm::vec3> norData;
+		std::vector<glm::vec2> texData;
 		glm::mat4 O;
 	};
 }
 class GrlModel {	
-	std::vector<grl::submodel*> subModels;
-	grl::vertex* loadVertex(std::vector<std::string> tokens);
+private:
+	std::vector<grl::submodel> subModels;
+	unsigned int * vaoID;
+	unsigned int * posBufID;
+	unsigned int * norBufID;
+	unsigned int * texBufID;
 
 public:
 	void loadSubModels(std::string filename);
+	void init();
 
 };

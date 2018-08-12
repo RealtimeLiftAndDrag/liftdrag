@@ -3,6 +3,8 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include "glad/glad.h"
+
 using namespace glm;
 using namespace std;
 
@@ -46,17 +48,22 @@ void GrlModel::loadSubModels(string filename)
 		vector<string> tokens;
 		stringstream lineStream(line);
 		string token;
-		while (getline(lineStream, token, ' ')) {
-			tokens.push_back(token);
+		
+		//right now just grabbing 8 elements
+		//Change to while if all are needed/wanted
+		for (int i = 0; i < 8; i++){
+			if (getline(lineStream, token, ' ')) {
+				tokens.push_back(token);
+			}
 		}
 
 		//meta tags
 		if (tokens.at(0)[0] == '#') {
 			string metaType = tokens.at(1);
 			if (metaType == "name:") {
-				//push back previous sub model if we are on the first submodel
+				//push back previous sub model unless we are on the first submodel
 				if (curSubModel) {
-					subModels.push_back(curSubModel);
+					subModels.push_back(*curSubModel);
 				}
 				curSubModel = new grl::submodel();
 				curSubModel->name = tokens.back();
@@ -69,8 +76,9 @@ void GrlModel::loadSubModels(string filename)
 			else if (metaType == "vertices_count:") {
 				maxVertCount = stoi(tokens.back());
 				vertCount = 0;
-				curSubModel->vertices = new vector<grl::vertex*>();
-				curSubModel->vertices->reserve(maxVertCount);
+				curSubModel->posData.reserve(maxVertCount);
+				curSubModel->norData.reserve(maxVertCount);
+				curSubModel->texData.reserve(maxVertCount);
 				state = 2;
 			}
 			//TODO implement other meta tags if wanted
@@ -94,32 +102,71 @@ void GrlModel::loadSubModels(string filename)
 						cerr << "Not a valid vertex in " << filename << ":" << lineNum << endl;
 						exit(EXIT_FAILURE);
 					}
-					grl::vertex * v = loadVertex(tokens);
-					curSubModel->vertices->push_back(v);
+
+					//TODO speed up this by using something else than stof
+					float pos_x = stof(tokens.at(0));
+					float pos_y = stof(tokens.at(1));
+					float pos_z = stof(tokens.at(2));
+
+					float nor_x = stof(tokens.at(3));
+					float nor_y = stof(tokens.at(4));
+					float nor_z = stof(tokens.at(5));
+
+					float tex_u = stof(tokens.at(6));
+					float tex_v = stof(tokens.at(7));
+
+					curSubModel->posData.push_back(vec3(pos_x, pos_y, pos_z));
+					curSubModel->norData.push_back(vec3(nor_x, nor_y, nor_z));
+					curSubModel->texData.push_back(vec2(tex_u, tex_v));
+				}
+				else {
+					cerr << "Expected meta tag in " << filename << ":" << lineNum << endl;
+					exit(EXIT_FAILURE);
 				}
 			}
 		}
 	}
 	//push back the last submodel
-	subModels.push_back(curSubModel);
+	subModels.push_back(*curSubModel);
+
+	//initialize vao and buffers with the correct size
+	size_t numSubModels = subModels.size();
+	vaoID = new unsigned int[numSubModels];
+	posBufID = new unsigned int[numSubModels];
+	norBufID = new unsigned int[numSubModels];
+	texBufID = new unsigned int[numSubModels];
 }
 
-grl::vertex* GrlModel::loadVertex(vector<string> tokens){
-	grl::vertex * v = new grl::vertex();
+void GrlModel::init() {
+	for (int i = 0; i < subModels.size(); i++) {
+		int vertSize = subModels[i].posData.size();
 
-	float pos_x = stof(tokens.at(0));
-	float pos_y = stof(tokens.at(1));
-	float pos_z = stof(tokens.at(2));
+		glGenVertexArrays(1, &vaoID[i]);
+		glBindVertexArray(vaoID[i]);
 
-	float nor_x = stof(tokens.at(3));
-	float nor_y = stof(tokens.at(4));
-	float nor_z = stof(tokens.at(5));
+		//positions
+		glGenBuffers(1, &posBufID[i]);
+		glBindBuffer(GL_ARRAY_BUFFER, posBufID[i]);
+		glBufferData(GL_ARRAY_BUFFER, vertSize * 3 * sizeof(float), subModels[i].posData.data(), GL_STATIC_DRAW);
 
-	float tex_u = stof(tokens.at(6));
-	float tex_v = stof(tokens.at(7));
+		//normals
+		glGenBuffers(1, &norBufID[i]);
+		glBindBuffer(GL_ARRAY_BUFFER, norBufID[i]);
+		glBufferData(GL_ARRAY_BUFFER, vertSize * 3 * sizeof(float), subModels[i].norData.data(), GL_STATIC_DRAW);
 
-	v->pos = vec3(pos_x, pos_y, pos_z);
-	v->norm = vec3(nor_x, nor_y, nor_z);
-	v->texCoord = vec2(tex_u, tex_v);
-	return v;
+		//texture coordinates
+		glGenBuffers(1, &texBufID[i]);
+		glBindBuffer(GL_ARRAY_BUFFER, texBufID[i]);
+		glBufferData(GL_ARRAY_BUFFER, vertSize * 2 * sizeof(float), subModels[i].texData.data(), GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+		GLenum error = glGetError();
+		if (error != GL_NO_ERROR) {
+			cerr << "Error: << " << error << "initializing submodel " << subModels[i].name << endl;
+			exit(EXIT_FAILURE);
+		}
+
+	}
 }
