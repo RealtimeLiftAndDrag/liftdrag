@@ -161,6 +161,8 @@
     <ClInclude Include="src\Util.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="resources\shaders\lineFrag.glsl" />
+    <None Include="resources\shaders\lineVert.glsl" />
     <None Include="resources\shaders\sim_draw.comp.glsl" />
     <None Include="resources\shaders\sim_move.comp.glsl" />
     <None Include="resources\shaders\sim_outline.comp.glsl" />

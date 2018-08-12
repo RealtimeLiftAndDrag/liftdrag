@@ -39,6 +39,8 @@ layout (binding = 0, std430) restrict buffer SSBO {
     vec2 screenAspectFactor;
     ivec4 momentum;
     ivec4 force;
+    ivec4 dragForce;
+    ivec4 dragMomentum;
 } ssbo;
 
 // Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason
@@ -106,6 +108,19 @@ void main() {
         // Update location
         airWorldPos.xy += screenToWorldDir(airVelocity.xy); // TODO: right now a velocity of 1 corresponds to moving 1 pixel. Is this right?
         airWorldPos.z -= k_sliceSize;
+
+
+
+        // Drag
+        float worldDist = distance(airWorldPos.xy, geoWorldPos.xy);
+        float massDensity = 1.0f;
+        float flowVelocity = 1.0f;
+        float area = screenToWorldDir(vec2(1.0f, 0.0f)).x;
+        area = area * area;
+        float dragC = 1.0f;
+        float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
+        atomicAdd(ssbo.dragForce.x, int(round(dragForce * 1e6)));
+
 
         //vec2 screenPos = floor(worldToScreen(airWorldPos)) + 0.5f;
 

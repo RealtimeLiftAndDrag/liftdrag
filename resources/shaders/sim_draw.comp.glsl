@@ -40,6 +40,8 @@ layout (binding = 0, std430) restrict buffer SSBO {
     vec2 screenAspectFactor;
     ivec4 momentum;
     ivec4 force;
+    ivec4 dragForce;
+    ivec4 dragMomentum;
 } ssbo;
 
 // Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason

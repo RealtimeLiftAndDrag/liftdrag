@@ -42,17 +42,23 @@ namespace Simulation {
         vec2 screenAspectFactor;
         ivec4 momentum;
         ivec4 force;
+        ivec4 dragForce;
+        ivec4 dragMomentum;
 
         SSBO() :
             screenSize(),
             screenAspectFactor(),
             momentum(),
-            force()
+            force(),
+            dragForce(),
+            dragMomentum()
         {}
 
         void reset() {
             force = ivec4();
             momentum = ivec4();
+            dragForce = ivec4();
+            dragMomentum = ivec4();
         }
 
     };
@@ -64,6 +70,7 @@ namespace Simulation {
     static int s_currentSlice(0); // slice index [0, k_nSlices)
     static float s_angleOfAttack(0.0f); // IN DEGREES
     static vec3 s_sweepLift; // accumulating lift force for entire sweep
+    static float s_sweepDrag; // accumulating drag force for entire sweep
 
     static std::shared_ptr<Program> s_foilProg, s_fbProg;
 
@@ -408,23 +415,6 @@ namespace Simulation {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
-    static void computeReset(int swap) {
-        downloadSSBO();
-
-        // TODO: is this okay?
-        s_sweepLift += vec3(s_ssboLocal.force) * 1.0e-6f;
-
-        s_ssboLocal.reset();
-
-        uploadSSBO();
-
-        int clearColor[4]{};
-        glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
-
-        //glClearTexSubImage(air_tex, 0, 0, swap*(k_estimateMaxAirPixelsRows / 2), 0, k_estimateMaxAirPixels, k_estimateMaxAirPixelsRows / 2, 1, GL_RGBA, GL_FLOAT, clearColor);
-        //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nulldata);
-    }
-
     static void clearFlagTex() {
         static int clearColor[4]{};
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
@@ -453,7 +443,7 @@ namespace Simulation {
 
         mat4 V, M, P; //View, Model and Perspective matrix
 
-        float zNear = k_sliceSize * (s_currentSlice);
+        float zNear = k_sliceSize * (s_currentSlice - 10);
         P = glm::ortho(
             -1.0f / s_ssboLocal.screenAspectFactor.x, // left
              1.0f / s_ssboLocal.screenAspectFactor.x, // right
@@ -619,30 +609,26 @@ namespace Simulation {
             glClearTexImage(s_sideTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
             s_ssboLocal.reset();
             s_sweepLift = vec3();
+            s_sweepDrag = 0.0f;
         }
 
         s_swap = !s_swap; // set next slice to current slice
-        //s_ssbo.reset(s_swap);
-        //uploadSSBO();
         resetCounters(s_swap);
         renderGeometry();
         computeProspect();
-        //checkMapSSBO();
         clearFlagTex();
         computeDraw(!s_swap);
-        //downloadSSBO();
-        //s_ssbo.airCount[0] = 0;
-        //s_ssbo.airCount[1] = 0;
-        //uploadSSBO();
-        //clearMapSSBO();
         computeOutline(s_swap);
-        //downloadSSBO();
+        downloadSSBO();
+        s_sweepLift += vec3(s_ssboLocal.force) * 1.0e-6f;
+        s_sweepDrag += float(s_ssboLocal.dragForce.x) * 1.0e-6f;
+        s_ssboLocal.reset();
+        uploadSSBO();
         if (true) { // If we want to see the result at end of step
             renderGeometry(); // TODO: find a way to not repeat this
             computeDraw(s_swap); // TODO: find a way to not repeat this
         }
         computeMove(s_swap);
-        //s_sweepLift += vec3(s_ssbo.force) * 1.0e-6f;
 
         if (++s_currentSlice >= k_nSlices) {
             s_currentSlice = 0;
@@ -684,8 +670,7 @@ namespace Simulation {
     }
 
     vec3 getDrag() {
-        // TODO
-        return vec3();
+        return vec3(s_sweepDrag);
     }
 
     uint getSideTextureID() {

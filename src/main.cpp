@@ -1,8 +1,10 @@
 ﻿// Realtime Lift and Drag SURP 2018
 // Christian Eckhart, William Newey, Austin Quick, Sebastian Seibert
 
-// What was the point of using textures for the dense arrays rather than ssbo?
 // Multiple geometry per air
+
+// TODO: must keep track of outline pixels
+// TODO: 
 
 
 // Allows program to be run on dedicated graphics processor for laptops with
@@ -215,8 +217,9 @@ int main(int argc, char ** argv) {
                 s_shouldSweep = false;
                 float angle(Simulation::getAngleOfAttack());
                 vec3 lift(Simulation::getLift());
-                std::cout << "angle: " << angle << ", lift: " << lift.x << std::endl;
-                Results::submit(Simulation::getAngleOfAttack(), lift.x, 0.0f);
+                vec3 drag(Simulation::getDrag());
+                std::cout << "angle: " << angle << ", lift: " << lift.x << ", drag: " << drag.x << std::endl;
+                Results::submit(Simulation::getAngleOfAttack(), lift.x, drag.x * 10000.0f);
 
                 if (s_shouldAutoProgress) {
                     angle += k_autoAngleIncrement;
