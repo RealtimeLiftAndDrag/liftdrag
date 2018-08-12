@@ -669,7 +669,24 @@ namespace Simulation {
         glDrawArrays(GL_TRIANGLES, 0, 6);
         s_fbProg->unbind();
 		*/
-		
+
+		mat4 P, V, M, T, R, S;
+		P = glm::perspective(
+			glm::radians(45.f),
+			(float)k_width / (float)k_height,
+			0.1f,
+			1000.0f
+		);
+		V = mat4(1);
+		T = glm::translate(glm::mat4(1), glm::vec3(0, 10, -100));
+		R = mat4(1);
+		S = mat4(1);
+
+		s_foilProg->bind();
+		glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, &P[0][0]);
+		glUniformMatrix4fv(s_foilProg->getUniform("u_viewMat"), 1, GL_FALSE, &V[0][0]);
+		s_f18Model->draw(s_foilProg, T);
+		s_foilProg->unbind();
 
     }
 

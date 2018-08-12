@@ -12,7 +12,7 @@ namespace grl {
 		glm::mat4 O;
 	};
 }
-class GrlModel {	
+class GrlModel {
 private:
 	std::vector<grl::submodel> subModels;
 	unsigned int * vaoID;
@@ -24,24 +24,27 @@ public:
 	void loadSubModels(std::string filename);
 	void init();
 	void draw(
-				const std::shared_ptr<Program> prog,
-				glm::mat4 t = glm::mat4(1),
-				glm::mat4 r = glm::mat4(1),
-				glm::mat4 s = glm::mat4(1)
-			 );
-	void drawSubModel(	
-						const std::shared_ptr<Program> prog,
-						std::string subModelName,
-						glm::mat4 t = glm::mat4(1),
-						glm::mat4 r = glm::mat4(1),
-						glm::mat4 s = glm::mat4(1)
-					 );
+		const std::shared_ptr<Program> prog,
+		glm::mat4 t = glm::mat4(1),
+		glm::mat4 global_r = glm::mat4(1),
+		glm::mat4 s = glm::mat4(1),
+		glm::mat4 local_r = glm::mat4(1)
+	);
 	void drawSubModel(
-						const std::shared_ptr<Program> prog,
-						unsigned int subModelIndex,
-						glm::mat4 t = glm::mat4(1),
-						glm::mat4 r = glm::mat4(1),
-						glm::mat4 s = glm::mat4(1)
-					 );
+		const std::shared_ptr<Program> prog,
+		std::string subModelName,
+		glm::mat4 t = glm::mat4(1),
+		glm::mat4 global_r = glm::mat4(1),
+		glm::mat4 s = glm::mat4(1),
+		glm::mat4 local_r = glm::mat4(1)
+	);
+	void drawSubModel(
+		const std::shared_ptr<Program> prog,
+		unsigned int subModelIndex,
+		glm::mat4 t = glm::mat4(1),
+		glm::mat4 global_r = glm::mat4(1),
+		glm::mat4 s = glm::mat4(1),
+		glm::mat4 local_r = glm::mat4(1)
+	);
 
 };

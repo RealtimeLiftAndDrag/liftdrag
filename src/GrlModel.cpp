@@ -181,13 +181,13 @@ void GrlModel::init() {
 	}
 }
 
-void GrlModel::draw(const shared_ptr<Program> prog, mat4 t, mat4 r, mat4 s) {
+void GrlModel::draw(const shared_ptr<Program> prog, mat4 t, mat4 global_r, mat4 s, mat4 local_r) {
 	for (size_t i = 0; i < subModels.size(); i++) {
-		drawSubModel(prog, i);
+		drawSubModel(prog, i, t, global_r, s, local_r);
 	}
 }
 
-void GrlModel::drawSubModel(const shared_ptr<Program> prog, string subModelName, mat4 t, mat4 r, mat4 s) {
+void GrlModel::drawSubModel(const shared_ptr<Program> prog, string subModelName, mat4 t, mat4 global_r, mat4 s, mat4 local_r) {
 	//get correct index of submodel based off name
 	int i;
 	for (i = 0; i < subModels.size(); i++)
@@ -196,12 +196,19 @@ void GrlModel::drawSubModel(const shared_ptr<Program> prog, string subModelName,
 			break;
 		}
 	}
-	drawSubModel(prog, i);
+	drawSubModel(prog, i, t, global_r, s, local_r);
 }
 
-void GrlModel::drawSubModel(const shared_ptr<Program> prog, unsigned int subModelIndex, mat4 t, mat4 r, mat4 s) {
-	mat4 T = t * subModels[subModelIndex].O;
-	mat4 M = T * r * s * inverse(T);
+void GrlModel::drawSubModel(const shared_ptr<Program> prog, unsigned int subModelIndex, mat4 t, mat4 global_r, mat4 s, mat4 local_r) {
+	//rotate locally
+	//total transformation from origin
+	mat4 combinedT = t * subModels[subModelIndex].O;
+	//matrix where we move to origin, rotate, and move back
+	mat4 T = combinedT * local_r * inverse(combinedT);
+	
+	//final model matrix
+	mat4 M = T * global_r * s;
+
 	glUniformMatrix4fv(prog->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
 	glBindVertexArray(vaoID[subModelIndex]);
 	glDrawArrays(GL_TRIANGLES, 0, subModels[subModelIndex].posData.size());
