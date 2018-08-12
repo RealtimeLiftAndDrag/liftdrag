@@ -98,6 +98,7 @@ void GrlModel::loadSubModels(string filename)
 				curSubModel->O[matrixLine][1] = stof(tokens.at(1));
 				curSubModel->O[matrixLine][2] = stof(tokens.at(2));
 				curSubModel->O[matrixLine][3] = stof(tokens.at(3));
+				matrixLine++;
 			}
 			else if (state == 2) {
 				if (vertCount < maxVertCount) {
@@ -200,6 +201,7 @@ void GrlModel::drawSubModel(const shared_ptr<Program> prog, string subModelName,
 }
 
 void GrlModel::drawSubModel(const shared_ptr<Program> prog, unsigned int subModelIndex, mat4 t, mat4 global_r, mat4 s, mat4 local_r) {
+	//TODO submodel.O isn't just translation
 	//rotate locally
 	//total transformation from origin
 	mat4 combinedT = t * subModels[subModelIndex].O;
