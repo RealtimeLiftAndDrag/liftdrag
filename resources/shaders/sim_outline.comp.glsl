@@ -30,11 +30,12 @@ uniform int u_swap;
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
 layout (binding = 3, r32i) uniform iimage2D u_flagImg;
-
-layout (binding = 0, offset = 0) uniform atomic_uint u_geoCount;
-layout (binding = 0, offset = 4) uniform atomic_uint u_airCount[2];
+layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
 layout (binding = 0, std430) restrict buffer SSBO {
+    int geoCount;
+    coherent int airCount[2];
+    int _0; // padding
     ivec2 screenSize;
     vec2 screenAspectFactor;
     ivec4 momentum;
@@ -65,7 +66,7 @@ vec2 worldToScreen(vec3 world) {
 }
 
 bool addAir(vec3 worldPos, vec3 velocity, int geoI) {
-    int airI = int(atomicCounterIncrement(u_airCount[u_swap]));
+    int airI = atomicAdd(ssbo.airCount[u_swap], 1);
     if (airI >= MAX_AIR_PIXELS) {
         return false;
     }
@@ -78,34 +79,39 @@ bool addAir(vec3 worldPos, vec3 velocity, int geoI) {
 }
 
 void main() {
-    int geoCount = int(atomicCounter(u_geoCount));
     int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (geoCount + k_invocCount - 1) / k_invocCount;    
+    int invocWorkload = (ssbo.geoCount + k_invocCount - 1) / k_invocCount;    
     for (int ii = 0; ii < invocWorkload; ++ii) {
     
         int geoI = invocI + (k_invocCount * ii);
-        if (geoI >= geoCount) {
+        if (geoI >= ssbo.geoCount) {
             return;
         }
 
         vec3 geoWorldPos = geoPixels[geoI].worldPos.xyz;
         vec3 geoNormal = geoPixels[geoI].normal.xyz;
 
-        vec2 screenPos = floor(worldToScreen(geoWorldPos)) + 0.5f;
-        vec2 screenDir = normalize(geoNormal.xy);
+        ivec2 geoTexCoord = ivec2(worldToScreen(geoWorldPos));
+
+        // Color geo pixels
+        vec4 color = imageLoad(u_fboImg, geoTexCoord);
+        color.r = 1.0f;
+        imageStore(u_fboImg, geoTexCoord, color);
+
+        // Color geo pixels in side view
+        ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-geoWorldPos.z, geoWorldPos.y, 0)));
+        color = imageLoad(u_sideImg, sideTexCoord);
+        color.r = 1.0f;
+        imageStore(u_sideImg, sideTexCoord, color);
 
         // TODO: magic numbers
         bool shouldSpawn = geoNormal.z >= 0.01f && geoNormal.z <= 0.99f;
 
-        // Check if at edge of geometry
-        vec4 color = imageLoad(u_fboImg, ivec2(screenPos + screenDir));
-        if (color.r > 0.0f) {
-            shouldSpawn = false;
-        }
-
         // Look for existing air pixel
+        vec2 screenPos = vec2(geoTexCoord) + 0.5f;
+        vec2 screenDir = normalize(geoNormal.xy);
         for (int steps = 0; steps < k_maxSteps; ++steps) {
-            color = imageLoad(u_fboImg, ivec2(screenPos));
+            vec4 color = imageLoad(u_fboImg, ivec2(screenPos));
             if (color.g > 0.0f) { // we found an air pixel
                 int prevAirI = imageLoad(u_flagImg, ivec2(screenPos)).x;               
                 if (prevAirI == 0) { // TODO: this should not be necessary, just here for sanity
@@ -134,6 +140,11 @@ void main() {
             if (!addAir(airWorldPos, airVelocity, geoI)) {
                 return;
             }
+
+            // Draw to fbo to avoid another draw later
+            vec4 color = imageLoad(u_fboImg, geoTexCoord);
+            color.g = 1.0f;
+            imageStore(u_fboImg, geoTexCoord, color);
         }
     }
 }

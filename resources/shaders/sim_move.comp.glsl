@@ -28,13 +28,10 @@ const float k_sliceSize = 0.025f;
 
 uniform int u_swap;
 
-layout (binding = 0, rgba8) uniform image2D u_fboImg;
-layout (binding = 3, r32i) uniform iimage2D u_flagImg;
-
-layout (binding = 0, offset = 0) uniform atomic_uint u_geoCount;
-layout (binding = 0, offset = 4) uniform atomic_uint u_airCount[2];
-
 layout (binding = 0, std430) restrict buffer SSBO {
+    int geoCount;
+    int airCount[2];
+    int _0; // padding
     ivec2 screenSize;
     vec2 screenAspectFactor;
     ivec4 momentum;
@@ -69,13 +66,12 @@ vec2 screenToWorldDir(vec2 screenDir) {
 }
 
 void main() {
-    int airCount = int(atomicCounter(u_airCount[u_swap]));
     int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (airCount + k_invocCount - 1) / k_invocCount;
+    int invocWorkload = (ssbo.airCount[u_swap] + k_invocCount - 1) / k_invocCount;
     for (int ii = 0; ii < invocWorkload; ++ii) {
     
         int airI = invocI + (k_invocCount * ii);
-        if (airI >= airCount) {
+        if (airI >= ssbo.airCount[u_swap]) {
             return;
         }
 

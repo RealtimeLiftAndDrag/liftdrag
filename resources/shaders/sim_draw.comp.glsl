@@ -21,9 +21,6 @@ struct AirPixel {
 
 const int k_invocCount = 1024;
 
-const vec3 k_sideGeoColor = vec3(1.0f, 0.0f, 1.0f);
-const vec3 k_sideAirColor = vec3(0.0f, 1.0f, 0.0f);
-
 // Uniforms --------------------------------------------------------------------
 
 uniform int u_swap;
@@ -32,10 +29,10 @@ layout (binding = 0, rgba8) uniform image2D u_fboImg;
 layout (binding = 3, r32i) uniform iimage2D u_flagImg;
 layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
-layout (binding = 0, offset = 0) uniform atomic_uint u_geoCount;
-layout (binding = 0, offset = 4) uniform atomic_uint u_airCount[2];
-
 layout (binding = 0, std430) restrict buffer SSBO {
+    int geoCount;
+    int airCount[2];
+    int _0; // padding
     ivec2 screenSize;
     vec2 screenAspectFactor;
     ivec4 momentum;
@@ -66,32 +63,32 @@ vec2 worldToScreen(vec3 world) {
 }
 
 void main() {
-    int airCount = int(atomicCounter(u_airCount[u_swap]));
     int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (airCount + k_invocCount - 1) / k_invocCount;
+    int invocWorkload = (ssbo.airCount[u_swap] + k_invocCount - 1) / k_invocCount;
     for (int ii = 0; ii < invocWorkload; ++ii) {
 
         int airI = invocI + (k_invocCount * ii);
-        if (airI >= airCount) {
+        if (airI >= ssbo.airCount[u_swap]) {
             return;
         }
-        int geoI = airGeoMap[airI];
 
-        vec3 geoWorldPos = geoPixels[geoI].worldPos.xyz;
-        vec3 geoNormal = geoPixels[geoI].normal.xyz;
-        vec3 airWorldPos = airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos.xyz;
-        vec3 airVelocity = airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity.xyz;
+        vec3 worldPos = airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos.xyz;
+        vec3 velocity = airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity.xyz;
         
-        ivec2 airScreenPos = ivec2(worldToScreen(airWorldPos));
-        ivec2 geoSideTexPos = ivec2(worldToScreen(vec3(-geoWorldPos.z, geoWorldPos.y, 0)));
-        ivec2 airSideTexPos = ivec2(worldToScreen(vec3(-airWorldPos.z, airWorldPos.y, 0)));
+        ivec2 texCoord = ivec2(worldToScreen(worldPos));
+        ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z, worldPos.y, 0)));
         
-        vec4 color = imageLoad(u_fboImg, airScreenPos);
+        // Draw to front view
+        vec4 color = imageLoad(u_fboImg, texCoord);
         color.g = 1.0f;
+        imageStore(u_fboImg, texCoord, color);
 
-        imageStore(u_fboImg, airScreenPos, color);        
-        imageStore(u_sideImg, geoSideTexPos, vec4(k_sideGeoColor, 1.0f));
-        imageStore(u_sideImg, airSideTexPos, vec4(k_sideAirColor, 1.0f));
-        imageAtomicExchange(u_flagImg, airScreenPos, airI + 1);
+        // Draw to side view
+        color = imageLoad(u_sideImg, sideTexCoord);
+        color.g = 1.0f;
+        imageStore(u_sideImg, sideTexCoord, color);
+
+        // Store air index
+        imageAtomicExchange(u_flagImg, texCoord, airI + 1);
     }        
 }
