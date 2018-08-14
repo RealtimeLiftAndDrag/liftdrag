@@ -25,26 +25,23 @@ public:
 	void init();
 	void draw(
 		const std::shared_ptr<Program> prog,
-		glm::mat4 t = glm::mat4(1),
-		glm::mat4 global_r = glm::mat4(1),
-		glm::mat4 s = glm::mat4(1),
+		glm::mat4 m = glm::mat4(1),
 		glm::mat4 local_r = glm::mat4(1)
 	);
 	void drawSubModel(
 		const std::shared_ptr<Program> prog,
 		std::string subModelName,
-		glm::mat4 t = glm::mat4(1),
-		glm::mat4 global_r = glm::mat4(1),
-		glm::mat4 s = glm::mat4(1),
+		glm::mat4 m = glm::mat4(1),
 		glm::mat4 local_r = glm::mat4(1)
 	);
 	void drawSubModel(
 		const std::shared_ptr<Program> prog,
 		unsigned int subModelIndex,
-		glm::mat4 t = glm::mat4(1),
-		glm::mat4 global_r = glm::mat4(1),
-		glm::mat4 s = glm::mat4(1),
+		glm::mat4 m = glm::mat4(1),
 		glm::mat4 local_r = glm::mat4(1)
 	);
+
+	size_t getNumSubModels();
+	std::string getNameOfSubModel(int index);
 
 };

@@ -448,6 +448,29 @@ namespace Simulation {
         glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
     }
 
+	void drawf18Model(mat4 M = mat4(1)) {
+		s_f18Model->drawSubModel(s_foilProg, "VoletR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "ElevatorL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "Glass_Canopy", M);
+		s_f18Model->drawSubModel(s_foilProg, "RudderL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "AileronL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "Pilot", M);
+		s_f18Model->drawSubModel(s_foilProg, "Glass", M);
+		s_f18Model->drawSubModel(s_foilProg, "VoletL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "LOD0", M);
+		s_f18Model->drawSubModel(s_foilProg, "Hook", M);
+		s_f18Model->drawSubModel(s_foilProg, "EngineR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "FlapL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "AileronR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "Eject_Seat", M);
+		s_f18Model->drawSubModel(s_foilProg, "FlapR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "RudderR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "ElevatorR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "Glass_HUD", M);
+		s_f18Model->drawSubModel(s_foilProg, "EngineL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "Canopy01", M);
+	}
+
     static void renderGeometry() {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
 
@@ -482,15 +505,18 @@ namespace Simulation {
 
         mat4 Rx = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
         
-        mat3 N;
-        glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, &N[0][0]);
+		mat3 N;
         M = Rx;
-        glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
+		M = glm::rotate(M, 3.14f, vec3(1, 0, 0));
+		M = glm::rotate(M, 3.14f, vec3(0, 1, 0));
+		N = glm::transpose(glm::inverse(M));
+		glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, &N[0][0]);
+		glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        s_shape->draw(s_foilProg, false);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        s_shape->draw(s_foilProg, false);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+		drawf18Model();
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		drawf18Model();
+		glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
 
         s_foilProg->unbind();
 
@@ -660,7 +686,7 @@ namespace Simulation {
 
     void render() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        /*
+        
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         s_fbProg->bind();
         glActiveTexture(GL_TEXTURE0);
@@ -668,28 +694,6 @@ namespace Simulation {
         glBindVertexArray(s_screenVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         s_fbProg->unbind();
-		*/
-
-		mat4 P, V, M, T, R, S;
-		P = glm::perspective(
-			glm::radians(45.f),
-			(float)k_width / (float)k_height,
-			0.1f,
-			1000.0f
-		);
-		V = glm::translate(mat4(1), vec3(0, 0, -20));
-		T = mat4(1);
-		R = mat4(1);
-		S = mat4(1);
-
-		s_foilProg->bind();
-		glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, &P[0][0]);
-		glUniformMatrix4fv(s_foilProg->getUniform("u_viewMat"), 1, GL_FALSE, &V[0][0]);
-		//s_f18Model->drawSubModel(s_foilProg, "ElevatorL01", T);
-		//s_f18Model->drawSubModel(s_foilProg, "ElevatorR01", T);
-		s_f18Model->draw(s_foilProg);
-		s_foilProg->unbind();
-
     }
 
     int getSlice() {

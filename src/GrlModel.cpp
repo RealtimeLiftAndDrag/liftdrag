@@ -182,13 +182,13 @@ void GrlModel::init() {
 	}
 }
 
-void GrlModel::draw(const shared_ptr<Program> prog, mat4 t, mat4 global_r, mat4 s, mat4 local_r) {
+void GrlModel::draw(const shared_ptr<Program> prog, mat4 m, mat4 local_r) {
 	for (size_t i = 0; i < subModels.size(); i++) {
-		drawSubModel(prog, i, t, global_r, s, local_r);
+		drawSubModel(prog, i, m, local_r);
 	}
 }
 
-void GrlModel::drawSubModel(const shared_ptr<Program> prog, string subModelName, mat4 t, mat4 global_r, mat4 s, mat4 local_r) {
+void GrlModel::drawSubModel(const shared_ptr<Program> prog, string subModelName, mat4 m, mat4 local_r) {
 	//get correct index of submodel based off name
 	int i;
 	bool found = false;
@@ -203,31 +203,23 @@ void GrlModel::drawSubModel(const shared_ptr<Program> prog, string subModelName,
 		cerr << "could not find submodel: " << subModelName << endl;
 		exit(EXIT_FAILURE);
 	}
-	drawSubModel(prog, i, t, global_r, s, local_r);
+	drawSubModel(prog, i, m, local_r);
 }
 
-void GrlModel::drawSubModel(const shared_ptr<Program> prog, unsigned int subModelIndex, mat4 t, mat4 global_r, mat4 s, mat4 local_r) {
-	mat4 M, T, R, S;
-	
-	//rotate locally
-	//get translation from submodel matrix
-	mat4 subModTranslate = mat4(1);
-	subModTranslate[0][3] = subModels[subModelIndex].O[0][3];
-	subModTranslate[1][3] = subModels[subModelIndex].O[1][3];
-	subModTranslate[2][3] = subModels[subModelIndex].O[2][3];
-	//total translation from origin
-	mat4 combinedT = t * subModTranslate;
-	//matrix where we move to origin, rotate, and move back without local transform
-	T = t;
-	R = global_r;
-	S = s;
-	mat4 localR = t * local_r * inverse(combinedT);
-
-	//final model matrix
-	M = T * R * S * subModels[subModelIndex].O;
+void GrlModel::drawSubModel(const shared_ptr<Program> prog, unsigned int subModelIndex, mat4 m, mat4 local_r) {
+	mat4 M, combinedM;
+	M = m * subModels[subModelIndex].O * local_r * inverse(subModels[subModelIndex].O);
 	string name = subModels[subModelIndex].name; //for temp debugging only
 	glUniformMatrix4fv(prog->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
 	glBindVertexArray(vaoID[subModelIndex]);
 	glDrawArrays(GL_TRIANGLES, 0, subModels[subModelIndex].posData.size());
 	glBindVertexArray(0);
+}
+
+size_t GrlModel::getNumSubModels() {
+	return subModels.size();
+}
+
+std::string GrlModel::getNameOfSubModel(int index) {
+	return subModels[index].name;
 }
