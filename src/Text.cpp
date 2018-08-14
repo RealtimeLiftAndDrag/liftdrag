@@ -10,7 +10,7 @@
 
 
 static const std::string k_fontTextureFilename("ubuntu_mono.png");
-static const std::string k_vertFilename("text.vert.glsl"), k_fragFilename("text.frag.glsl");
+static const std::string k_vertFilename("text.vert"), k_fragFilename("text.frag");
 
 static uint s_squareVBO;
 static uint s_fontTex;

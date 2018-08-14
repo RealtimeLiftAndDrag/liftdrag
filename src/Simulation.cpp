@@ -17,7 +17,7 @@
 namespace Simulation {
 
     static constexpr int k_width(720), k_height(480);
-    static constexpr int k_nSlices(50);
+    static constexpr int k_nSlices(200);
     static constexpr float k_sliceSize(0.025f); // z distance between slices, MUST ALSO CHANGE IN MOVE SHADER!!!
 
     static constexpr int k_maxGeoPixels = 32768; // 1 MB worth, must also change in shaders
@@ -149,7 +149,7 @@ namespace Simulation {
         // Foil Shader
         s_foilProg = std::make_shared<Program>();
         s_foilProg->setVerbose(true);
-        s_foilProg->setShaderNames(shadersDir + "/foil.vert.glsl", shadersDir + "/foil.frag.glsl");
+        s_foilProg->setShaderNames(shadersDir + "/foil.vert", shadersDir + "/foil.frag");
         if (!s_foilProg->init()) {
             std::cerr << "Failed to initialize foil shader" << std::endl;
             return false;
@@ -162,7 +162,7 @@ namespace Simulation {
         // FB Shader
         s_fbProg = std::make_shared<Program>();
         s_fbProg->setVerbose(true);
-        s_fbProg->setShaderNames(shadersDir + "/fb.vert.glsl", shadersDir + "/fb.frag.glsl");
+        s_fbProg->setShaderNames(shadersDir + "/fb.vert", shadersDir + "/fb.frag");
         if (!s_fbProg->init()) {
             std::cerr << "Failed to initialize fb shader" << std::endl;
             return false;
@@ -174,27 +174,27 @@ namespace Simulation {
 
 
         // Prospect Compute Shader
-        if (!(prospectProg = loadShader(shadersDir + "/sim_prospect.comp.glsl"))) {
+        if (!(prospectProg = loadShader(shadersDir + "/sim_prospect.comp"))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
             return false;
         }
 
         // Outline Compute Shader
-        if (!(outlineProg = loadShader(shadersDir + "/sim_outline.comp.glsl"))) {
+        if (!(outlineProg = loadShader(shadersDir + "/sim_outline.comp"))) {
             std::cerr << "Failed to load outline shader" << std::endl;
             return false;
         }
         outlineSwapUniform = glGetUniformLocation(outlineProg, "u_swap");
     
         // Move Compute Shader
-        if (!(moveProg = loadShader(shadersDir + "/sim_move.comp.glsl"))) {
+        if (!(moveProg = loadShader(shadersDir + "/sim_move.comp"))) {
             std::cerr << "Failed to load move shader" << std::endl;
             return false;
         }
         moveSwapUniform = glGetUniformLocation(moveProg, "u_swap");
     
         // Draw Compute Shader
-        if (!(drawProg = loadShader(shadersDir + "/sim_draw.comp.glsl"))) {
+        if (!(drawProg = loadShader(shadersDir + "/sim_draw.comp"))) {
             std::cerr << "Failed to load draw shader" << std::endl;
             return false;
         }
@@ -481,6 +481,7 @@ namespace Simulation {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         mat4 V, M, P; //View, Model and Perspective matrix
+		mat3 N;
 
         float zNear = k_sliceSize * (s_currentSlice);
         P = glm::ortho(
@@ -503,12 +504,14 @@ namespace Simulation {
         glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, &P[0][0]);
         glUniformMatrix4fv(s_foilProg->getUniform("u_viewMat"), 1, GL_FALSE, &V[0][0]);
 
-        mat4 Rx = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+        mat4 R_angleOfAttack = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
         
-		mat3 N;
-        M = Rx;
-		M = glm::rotate(M, 3.14f, vec3(1, 0, 0));
-		M = glm::rotate(M, 3.14f, vec3(0, 1, 0));
+		mat4 T_back = glm::translate(mat4(1.f), vec3(0, 0, -20.f));
+		mat4 S_uniform = glm::scale(mat4(1.f), vec3(.1f));
+		mat4 R_frontFacing = glm::rotate(mat4(1), 3.14f, vec3(1, 0, 0));
+		R_frontFacing = glm::rotate(R_frontFacing, 3.14f, vec3(0, 1, 0));
+
+		M = R_angleOfAttack * R_frontFacing * S_uniform;
 		N = glm::transpose(glm::inverse(M));
 		glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, &N[0][0]);
 		glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
