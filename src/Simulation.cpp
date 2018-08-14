@@ -17,7 +17,7 @@
 namespace Simulation {
 
     static constexpr int k_width(720), k_height(480);
-    static constexpr int k_nSlices(200);
+    static constexpr int k_nSlices(180);
     static constexpr float k_sliceSize(0.025f); // z distance between slices, MUST ALSO CHANGE IN MOVE SHADER!!!
 
     static constexpr int k_maxGeoPixels = 32768; // 1 MB worth, must also change in shaders
@@ -483,7 +483,7 @@ namespace Simulation {
         mat4 V, M, P; //View, Model and Perspective matrix
 		mat3 N;
 
-        float zNear = k_sliceSize * (s_currentSlice);
+        float zNear = (-k_sliceSize * (k_nSlices/2.f)) + k_sliceSize * (s_currentSlice);
         P = glm::ortho(
             -1.0f / s_ssboLocal.screenAspectFactor.x, // left
              1.0f / s_ssboLocal.screenAspectFactor.x, // right
@@ -506,19 +506,18 @@ namespace Simulation {
 
         mat4 R_angleOfAttack = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
         
-		mat4 T_back = glm::translate(mat4(1.f), vec3(0, 0, -20.f));
-		mat4 S_uniform = glm::scale(mat4(1.f), vec3(.1f));
+		mat4 T_back = glm::translate(mat4(1.f), vec3(0, 0, -.2f));
+		mat4 S_uniform = glm::scale(mat4(1.f), vec3(.15f));
 		mat4 R_frontFacing = glm::rotate(mat4(1), 3.14f, vec3(1, 0, 0));
 		R_frontFacing = glm::rotate(R_frontFacing, 3.14f, vec3(0, 1, 0));
 
-		M = R_angleOfAttack * R_frontFacing * S_uniform;
+		M = T_back * R_angleOfAttack * R_frontFacing * S_uniform;
 		N = glm::transpose(glm::inverse(M));
 		glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, &N[0][0]);
-		glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		drawf18Model();
+		drawf18Model(M);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		drawf18Model();
+		drawf18Model(M);
 		glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
 
         s_foilProg->unbind();
