@@ -28,7 +28,7 @@ extern "C" {
 
 
 
-static const std::string k_defResourceDir("../resources");
+static const std::string k_defResourceDir("C:\\liftdrag\\resources\\");
 static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the angle of attack by when using arrow keys
 static constexpr float k_autoAngleIncrement(7.0f); // how many degrees to change the angle of attack by when auto progressing
 static constexpr float k_maxAngleOfAttack(90.0f);

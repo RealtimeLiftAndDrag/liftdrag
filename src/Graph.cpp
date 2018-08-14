@@ -8,8 +8,8 @@
 
 
 
-static const std::string k_curveVertFilename("graph_curve.vert.glsl"), k_curveFragFilename("graph_curve.frag.glsl");
-static const std::string k_linesVertFilename("graph_lines.vert.glsl"), k_linesFragFilename("graph_lines.frag.glsl");
+static const std::string k_curveVertFilename("graph_curve.vert"), k_curveFragFilename("graph_curve.frag");
+static const std::string k_linesVertFilename("graph_lines.vert"), k_linesFragFilename("graph_lines.frag");
 
 static std::unique_ptr<Program> s_curveProg, s_linesProg;
 static uint s_squareVAO, s_squareVBO;

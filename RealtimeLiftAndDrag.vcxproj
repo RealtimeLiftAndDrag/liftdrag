@@ -96,6 +96,7 @@
     <Link>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>glfw3dll.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -140,6 +141,7 @@
     <ClCompile Include="src\glad.c" />
     <ClCompile Include="src\GLSL.cpp" />
     <ClCompile Include="src\Graph.cpp" />
+    <ClCompile Include="src\GrlModel.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Program.cpp" />
     <ClCompile Include="src\Results.cpp" />
@@ -152,6 +154,7 @@
   <ItemGroup>
     <ClInclude Include="src\GLSL.h" />
     <ClInclude Include="src\Graph.hpp" />
+    <ClInclude Include="src\GrlModel.hpp" />
     <ClInclude Include="src\Program.h" />
     <ClInclude Include="src\Results.hpp" />
     <ClInclude Include="src\Shape.h" />

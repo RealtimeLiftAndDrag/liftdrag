@@ -6,6 +6,7 @@
 #include "glad/glad.h"
 #include "Program.h"
 #include "Shape.h"
+#include "GrlModel.hpp"
 #include "GLSL.h"
 #include "glm/gtc/matrix_transform.hpp"
 
@@ -15,10 +16,8 @@
 
 namespace Simulation {
 
-
-
     static constexpr int k_width(720), k_height(480);
-    static constexpr int k_nSlices(50);
+    static constexpr int k_nSlices(120); //TODO do this based of model bounds
     static constexpr float k_sliceSize(0.025f); // z distance between slices, MUST ALSO CHANGE IN MOVE SHADER!!!
 
     static constexpr int k_maxGeoPixels = 32768; // 1 MB worth, must also change in shaders
@@ -60,6 +59,7 @@ namespace Simulation {
 
 
     static std::shared_ptr<Shape> s_shape;
+	static std::shared_ptr<GrlModel> s_f18Model;
     static bool s_swap(true);
     static int s_currentSlice(0); // slice index [0, k_nSlices)
     static float s_angleOfAttack(0.0f); // IN DEGREES
@@ -149,7 +149,7 @@ namespace Simulation {
         // Foil Shader
         s_foilProg = std::make_shared<Program>();
         s_foilProg->setVerbose(true);
-        s_foilProg->setShaderNames(shadersDir + "/foil.vert.glsl", shadersDir + "/foil.frag.glsl");
+        s_foilProg->setShaderNames(shadersDir + "/foil.vert", shadersDir + "/foil.frag");
         if (!s_foilProg->init()) {
             std::cerr << "Failed to initialize foil shader" << std::endl;
             return false;
@@ -162,7 +162,7 @@ namespace Simulation {
         // FB Shader
         s_fbProg = std::make_shared<Program>();
         s_fbProg->setVerbose(true);
-        s_fbProg->setShaderNames(shadersDir + "/fb.vert.glsl", shadersDir + "/fb.frag.glsl");
+        s_fbProg->setShaderNames(shadersDir + "/fb.vert", shadersDir + "/fb.frag");
         if (!s_fbProg->init()) {
             std::cerr << "Failed to initialize fb shader" << std::endl;
             return false;
@@ -174,27 +174,27 @@ namespace Simulation {
 
 
         // Prospect Compute Shader
-        if (!(prospectProg = loadShader(shadersDir + "/sim_prospect.comp.glsl"))) {
+        if (!(prospectProg = loadShader(shadersDir + "/sim_prospect.comp"))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
             return false;
         }
 
         // Outline Compute Shader
-        if (!(outlineProg = loadShader(shadersDir + "/sim_outline.comp.glsl"))) {
+        if (!(outlineProg = loadShader(shadersDir + "/sim_outline.comp"))) {
             std::cerr << "Failed to load outline shader" << std::endl;
             return false;
         }
         outlineSwapUniform = glGetUniformLocation(outlineProg, "u_swap");
     
         // Move Compute Shader
-        if (!(moveProg = loadShader(shadersDir + "/sim_move.comp.glsl"))) {
+        if (!(moveProg = loadShader(shadersDir + "/sim_move.comp"))) {
             std::cerr << "Failed to load move shader" << std::endl;
             return false;
         }
         moveSwapUniform = glGetUniformLocation(moveProg, "u_swap");
     
         // Draw Compute Shader
-        if (!(drawProg = loadShader(shadersDir + "/sim_draw.comp.glsl"))) {
+        if (!(drawProg = loadShader(shadersDir + "/sim_draw.comp"))) {
             std::cerr << "Failed to load draw shader" << std::endl;
             return false;
         }
@@ -205,7 +205,13 @@ namespace Simulation {
 
 
     static bool setupGeom(const std::string & resourcesDir) {
-        std::string objsDir = resourcesDir + "/objs";
+        
+		std::string grlsDir = resourcesDir + "/grls";
+		s_f18Model = std::make_shared<GrlModel>();
+		s_f18Model->loadSubModels(grlsDir + "/f18.grl");
+		s_f18Model->init();
+
+		std::string objsDir = resourcesDir + "/objs";
         // Initialize mesh.
         s_shape = std::make_shared<Shape>();
         s_shape->loadMesh(objsDir + "/0012.obj");
@@ -442,6 +448,29 @@ namespace Simulation {
         glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
     }
 
+	void drawf18Model(mat4 M = mat4(1)) {
+		s_f18Model->drawSubModel(s_foilProg, "VoletR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "ElevatorL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "Glass_Canopy", M);
+		s_f18Model->drawSubModel(s_foilProg, "RudderL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "AileronL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "Pilot", M);
+		s_f18Model->drawSubModel(s_foilProg, "Glass", M);
+		s_f18Model->drawSubModel(s_foilProg, "VoletL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "LOD0", M);
+		s_f18Model->drawSubModel(s_foilProg, "Hook", M);
+		s_f18Model->drawSubModel(s_foilProg, "EngineR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "FlapL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "AileronR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "Eject_Seat", M);
+		s_f18Model->drawSubModel(s_foilProg, "FlapR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "RudderR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "ElevatorR01", M);
+		s_f18Model->drawSubModel(s_foilProg, "Glass_HUD", M);
+		s_f18Model->drawSubModel(s_foilProg, "EngineL01", M);
+		s_f18Model->drawSubModel(s_foilProg, "Canopy01", M);
+	}
+
     static void renderGeometry() {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
 
@@ -452,8 +481,9 @@ namespace Simulation {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         mat4 V, M, P; //View, Model and Perspective matrix
+		mat3 N;
 
-        float zNear = k_sliceSize * (s_currentSlice);
+        float zNear = (-k_sliceSize * (k_nSlices/2.f)) + k_sliceSize * (s_currentSlice);
         P = glm::ortho(
             -1.0f / s_ssboLocal.screenAspectFactor.x, // left
              1.0f / s_ssboLocal.screenAspectFactor.x, // right
@@ -474,19 +504,24 @@ namespace Simulation {
         glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, &P[0][0]);
         glUniformMatrix4fv(s_foilProg->getUniform("u_viewMat"), 1, GL_FALSE, &V[0][0]);
 
-        mat4 Rx = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+        mat4 R_angleOfAttack = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
         
-        mat3 N;
-        glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, &N[0][0]);
-        M = Rx;
-        glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
+		mat4 T_back = glm::translate(mat4(1.f), vec3(0, 0, -.2f));
+		mat4 S_uniform = glm::scale(mat4(1.f), vec3(.15f));
+		mat4 R_frontFacing = glm::rotate(mat4(1), 3.14f, vec3(1, 0, 0));
+		R_frontFacing = glm::rotate(R_frontFacing, 3.14f, vec3(0, 1, 0));
+
+		M = T_back * R_angleOfAttack * R_frontFacing * S_uniform;
+		N = glm::transpose(glm::inverse(M));
+		glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, &N[0][0]);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        s_shape->draw(s_foilProg, false);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        s_shape->draw(s_foilProg, false);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+		drawf18Model(M);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		drawf18Model(M);
+		glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
 
         s_foilProg->unbind();
+		std::cout << s_currentSlice << std::endl;
 
         /*
         glViewport(width / 2, height / 4, width / 2, height / 2);
@@ -653,7 +688,8 @@ namespace Simulation {
     }
 
     void render() {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         s_fbProg->bind();
         glActiveTexture(GL_TEXTURE0);
