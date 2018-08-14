@@ -5,20 +5,17 @@
 #include <sstream>
 #include "glad/glad.h"
 
-using namespace glm;
-using namespace std;
-
-
-
-void GrlModel::loadSubModels(string filename)
+void GrlModel::loadSubModels(std::string filename)
 {
-	ifstream file(filename);
+	using std::string;
+
+	std::ifstream file(filename);
 	if (file.bad())
 	{
-		cerr << "File not found: " << filename << endl;
+		std::cerr << "File not found: " << filename << std::endl;
 		exit(EXIT_FAILURE);
 	}
-	cout << "Loading grl model: " << filename << endl;
+	std::cout << "Loading grl model: " << filename << std::endl;
 	grl::submodel* curSubModel = nullptr;
 
 	int state = 0; //0 = unset; 1 = matrix; 2 = vertices
@@ -28,7 +25,7 @@ void GrlModel::loadSubModels(string filename)
 	int vertCount = 0;
 	int matrixLine = 0;
 	lineNum++;
-	string line;
+	std::string line;
 	while (getline(file, line)) {
 		//only used for debugging
 		lineNum++;
@@ -46,8 +43,8 @@ void GrlModel::loadSubModels(string filename)
 		}
 
 		//tokenize
-		vector<string> tokens;
-		stringstream lineStream(line);
+		std::vector<string> tokens;
+		std::stringstream lineStream(line);
 		string token;
 		
 		//right now just grabbing 8 elements
@@ -70,7 +67,7 @@ void GrlModel::loadSubModels(string filename)
 				curSubModel->name = tokens.back();
 				state = 0;
 
-				cout << "\tWith submodel: " << tokens.back() << endl;
+				std::cout << "\tWith submodel: " << tokens.back() << std::endl;
 			}
 			else if (metaType == "origin") {
 				matrixLine = 0;
@@ -89,7 +86,7 @@ void GrlModel::loadSubModels(string filename)
 		else { //either matrix or vertices
 			if (state == 1) {
 				if (tokens.size() < 4) {
-					cerr << "Not a valid matrix row in " << filename << ":" << lineNum << endl;
+					std::cerr << "Not a valid matrix row in " << filename << ":" << lineNum << std::endl;
 					exit(EXIT_FAILURE);
 				}
 
@@ -103,7 +100,7 @@ void GrlModel::loadSubModels(string filename)
 			else if (state == 2) {
 				if (vertCount < maxVertCount) {
 					if (tokens.size() < 8) {
-						cerr << "Not a valid vertex in " << filename << ":" << lineNum << endl;
+						std::cerr << "Not a valid vertex in " << filename << ":" << lineNum << std::endl;
 						exit(EXIT_FAILURE);
 					}
 
@@ -119,12 +116,12 @@ void GrlModel::loadSubModels(string filename)
 					float tex_u = stof(tokens.at(6));
 					float tex_v = stof(tokens.at(7));
 
-					curSubModel->posData.push_back(vec3(pos_x, pos_y, pos_z));
-					curSubModel->norData.push_back(vec3(nor_x, nor_y, nor_z));
-					curSubModel->texData.push_back(vec2(tex_u, tex_v));
+					curSubModel->posData.push_back(glm::vec3(pos_x, pos_y, pos_z));
+					curSubModel->norData.push_back(glm::vec3(nor_x, nor_y, nor_z));
+					curSubModel->texData.push_back(glm::vec2(tex_u, tex_v));
 				}
 				else {
-					cerr << "Expected meta tag in " << filename << ":" << lineNum << endl;
+					std::cerr << "Expected meta tag in " << filename << ":" << lineNum << std::endl;
 					exit(EXIT_FAILURE);
 				}
 			}
@@ -176,19 +173,19 @@ void GrlModel::init() {
 
 		GLenum error = glGetError();
 		if (error != GL_NO_ERROR) {
-			cerr << "Error: << " << error << "initializing submodel " << subModels[i].name << endl;
+			std::cerr << "Error: << " << error << "initializing submodel " << subModels[i].name << std::endl;
 			exit(EXIT_FAILURE);
 		}
 	}
 }
 
-void GrlModel::draw(const shared_ptr<Program> prog, mat4 m, mat4 local_r) {
+void GrlModel::draw(const std::shared_ptr<Program> prog, glm::mat4 m, glm::mat4 local_r) {
 	for (size_t i = 0; i < subModels.size(); i++) {
 		drawSubModel(prog, i, m, local_r);
 	}
 }
 
-void GrlModel::drawSubModel(const shared_ptr<Program> prog, string subModelName, mat4 m, mat4 local_r) {
+void GrlModel::drawSubModel(const std::shared_ptr<Program> prog, std::string subModelName, glm::mat4 m, glm::mat4 local_r) {
 	//get correct index of submodel based off name
 	int i;
 	bool found = false;
@@ -200,16 +197,15 @@ void GrlModel::drawSubModel(const shared_ptr<Program> prog, string subModelName,
 		}
 	}
 	if (!found) {
-		cerr << "could not find submodel: " << subModelName << endl;
+		std::cerr << "could not find submodel: " << subModelName << std::endl;
 		exit(EXIT_FAILURE);
 	}
 	drawSubModel(prog, i, m, local_r);
 }
 
-void GrlModel::drawSubModel(const shared_ptr<Program> prog, unsigned int subModelIndex, mat4 m, mat4 local_r) {
-	mat4 M, combinedM;
-	M = m * subModels[subModelIndex].O * local_r * inverse(subModels[subModelIndex].O);
-	string name = subModels[subModelIndex].name; //for temp debugging only
+void GrlModel::drawSubModel(const std::shared_ptr<Program> prog, unsigned int subModelIndex, glm::mat4 m, glm::mat4 local_r) {
+	glm::mat4 M = m * subModels[subModelIndex].O * local_r * inverse(subModels[subModelIndex].O);
+	std::string name = subModels[subModelIndex].name; //for temp debugging only
 	glUniformMatrix4fv(prog->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
 	glBindVertexArray(vaoID[subModelIndex]);
 	glDrawArrays(GL_TRIANGLES, 0, subModels[subModelIndex].posData.size());

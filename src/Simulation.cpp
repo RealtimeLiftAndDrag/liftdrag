@@ -17,7 +17,7 @@
 namespace Simulation {
 
     static constexpr int k_width(720), k_height(480);
-    static constexpr int k_nSlices(180);
+    static constexpr int k_nSlices(120); //TODO do this based of model bounds
     static constexpr float k_sliceSize(0.025f); // z distance between slices, MUST ALSO CHANGE IN MOVE SHADER!!!
 
     static constexpr int k_maxGeoPixels = 32768; // 1 MB worth, must also change in shaders
@@ -521,6 +521,7 @@ namespace Simulation {
 		glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
 
         s_foilProg->unbind();
+		std::cout << s_currentSlice << std::endl;
 
         /*
         glViewport(width / 2, height / 4, width / 2, height / 2);
