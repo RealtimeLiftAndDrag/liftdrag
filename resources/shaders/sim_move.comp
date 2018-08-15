@@ -105,8 +105,8 @@ void main() {
             vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
             float dist = distance(airWorldPos.xy, geoWorldPos.xy);
-            float adjustedDist = dist * 10.0f;
-            backForce = normalize(-geoNormal.xy) * adjustedDist * adjustedDist;
+            backForce = normalize(-geoNormal.xy) * dist;
+            backForce *= 4.0f;
 
             //float force = length(backforceDir);
             //backforceDir=normalize(backforceDir);
@@ -114,8 +114,8 @@ void main() {
             //if(force<0)force=0;
                 
             // Calculate lift     
-            float liftForce = backForce.y * 1e6; // TODO: currently linear			  
-            atomicAdd(u_force.x, int(round(liftForce)));
+            float liftForce = backForce.y * 0.005f; // TODO: currently linear			  
+            atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
 
             // Calculate drag
             float massDensity = 1.0f;
@@ -124,7 +124,8 @@ void main() {
             area = area * area;
             float dragC = 1.0f;
             float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
-            atomicAdd(u_dragForce.x, int(round(dragForce * 1e6)));
+            dragForce *= 100.0f;
+            atomicAdd(u_dragForce.x, int(round(dragForce * 1.0e6f)));
 
             // Color active air pixels more brightly
             if (k_distinguishActivePixels) {

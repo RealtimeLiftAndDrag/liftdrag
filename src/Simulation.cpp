@@ -16,11 +16,11 @@
 
 namespace Simulation {
 
-    static constexpr bool k_doF18(true); // Enables or disables using the F18
+    static constexpr bool k_doF18(false); // Enables or disables using the F18
 
     static constexpr int k_width(720), k_height(480);
     static constexpr int k_nSlices(k_doF18 ? 120 : 50);
-    static constexpr float k_sliceSize(k_doF18 ? 0.025 : 0.03f); // z distance between slices
+    static constexpr float k_sliceSize(k_doF18 ? 0.025f : 0.03f); // z distance between slices
     static constexpr float k_windSpeed(10.0f); // Speed of air in -z direction
     static constexpr float k_dt(k_sliceSize / k_windSpeed); // Delta time for each slice
 
@@ -92,10 +92,10 @@ namespace Simulation {
     static std::shared_ptr<Shape> s_shape;
     static std::shared_ptr<GrlModel> s_f18Model;
     static int s_currentSlice(0); // slice index [0, k_nSlices)
-	static float s_angleOfAttack(0.0f); // IN DEGREES
-	static float s_rudderAngle(0.0f); // IN DEGREES
-	static float s_elevatorAngle(0.0f); // IN DEGREES
-	static float s_aileronAngle(0.0f); // IN DEGREES
+    static float s_angleOfAttack(0.0f); // IN DEGREES
+    static float s_rudderAngle(0.0f); // IN DEGREES
+    static float s_elevatorAngle(0.0f); // IN DEGREES
+    static float s_aileronAngle(0.0f); // IN DEGREES
     static vec3 s_sweepLift; // accumulating lift force for entire sweep
     static float s_sweepDrag; // accumulating drag force for entire sweep
     static int s_swap;
@@ -441,8 +441,8 @@ namespace Simulation {
             drawf18Model(modelMat);
         }
         else {
-            mat4 modelMat(glm::translate(mat4(), vec3(0.0f, 0.0f, 0.5f)));
-            modelMat = glm::rotate(modelMat, glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+            mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f)));
+            modelMat = glm::translate(modelMat, vec3(0.0f, 0.0f, 0.5f));
             glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&modelMat));
 
             mat3 normMat(glm::transpose(glm::inverse(glm::mat3(modelMat))));
@@ -593,6 +593,8 @@ namespace Simulation {
         if (s_currentSlice == 0) {
             s_ssboLocal.reset();
             clearSideTex();
+            s_sweepLift = vec3();
+            s_sweepDrag = 0.0f;
             s_swap = 1;
         }
         
@@ -645,33 +647,33 @@ namespace Simulation {
         return s_angleOfAttack;
     }
 
-	float getRudderAngle() {
-		return s_rudderAngle;
-	}
+    float getRudderAngle() {
+        return s_rudderAngle;
+    }
 
-	float getElevatorAngle() {
-		return s_elevatorAngle;
-	}
+    float getElevatorAngle() {
+        return s_elevatorAngle;
+    }
 
-	float getAileronAngle() {
-		return s_aileronAngle;
-	}
+    float getAileronAngle() {
+        return s_aileronAngle;
+    }
 
     void setAngleOfAttack(float angle) {
         s_angleOfAttack = angle;
     }
 
-	void setRudderAngle(float angle) {
-		s_rudderAngle = angle;
-	}
+    void setRudderAngle(float angle) {
+        s_rudderAngle = angle;
+    }
 
-	void setElevatorAngle(float angle) {
-		s_elevatorAngle = angle;
-	}
+    void setElevatorAngle(float angle) {
+        s_elevatorAngle = angle;
+    }
 
-	void setAileronAngle(float angle) {
-		s_aileronAngle = angle;
-	}
+    void setAileronAngle(float angle) {
+        s_aileronAngle = angle;
+    }
 
     vec3 getLift() {
         return s_sweepLift;

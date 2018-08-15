@@ -1,11 +1,11 @@
 ﻿// Realtime Lift and Drag SURP 2018
 // Christian Eckhart, William Newey, Austin Quick, Sebastian Seibert
 
-// Multiple geometry per air
-
-// TODO: must keep track of outline pixels
+// TODO: Multiple geometry per air
+// TODO: air mergers
 // TODO: do we care about exact world position? could save a texture that way
 // TODO: can save normals as four 16 bit normalized ints
+// TODO: improve lift and drag accumulation
 
 
 // Allows program to be run on dedicated graphics processor for laptops with
@@ -129,66 +129,66 @@ static void keyCallback(GLFWwindow * window, int key, int scancode, int action, 
             }
         }
     }
-	// If O key is pressed, increase rudder angle
-	else if (key == GLFW_KEY_O && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-		if (!s_shouldAutoProgress) {
-			float nextAngle(s_nextRudderAngle + k_manualAngleIncrement);
-			if (abs(nextAngle) < k_maxRudderAngle) {
-				s_nextRudderAngle = nextAngle;
-				s_rudderAngleChanged = true;
-			}
-		}
-	}
-	// If I key is pressed, decrease rudder angle
-	else if (key == GLFW_KEY_I && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-		if (!s_shouldAutoProgress) {
-			float nextAngle(s_nextRudderAngle - k_manualAngleIncrement);
-			if (abs(nextAngle) < k_maxRudderAngle) {
-				s_nextRudderAngle = nextAngle;
-				s_rudderAngleChanged = true;
-			}
-		}
-	}
-	// If K key is pressed, increase elevator angle
-	else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-		if (!s_shouldAutoProgress) {
-			float nextAngle(s_nextElevatorAngle + k_manualAngleIncrement);
-			if (abs(nextAngle) < k_maxElevatorAngle) {
-				s_nextElevatorAngle = nextAngle;
-				s_elevatorAngleChanged = true;
-			}
-		}
-	}
-	// If J key is pressed, decrease elevator angle
-	else if (key == GLFW_KEY_J && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-		if (!s_shouldAutoProgress) {
-			float nextAngle(s_nextElevatorAngle - k_manualAngleIncrement);
-			if (abs(nextAngle) < k_maxElevatorAngle) {
-				s_nextElevatorAngle = nextAngle;
-				s_elevatorAngleChanged = true;
-			}
-		}
-	}
-	// If M key is pressed, increase aileron angle
-	else if (key == GLFW_KEY_M && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-		if (!s_shouldAutoProgress) {
-			float nextAngle(s_nextAileronAngle + k_manualAngleIncrement);
-			if (abs(nextAngle) < k_maxRudderAngle) {
-				s_nextAileronAngle = nextAngle;
-				s_aileronAngleChanged = true;
-			}
-		}
-	}
-	// If N key is pressed, decrease aileron angle
-	else if (key == GLFW_KEY_N && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-		if (!s_shouldAutoProgress) {
-			float nextAngle(s_nextAileronAngle - k_manualAngleIncrement);
-			if (abs(nextAngle) < k_maxRudderAngle) {
-				s_nextAileronAngle = nextAngle;
-				s_aileronAngleChanged = true;
-			}
-		}
-	}
+    // If O key is pressed, increase rudder angle
+    else if (key == GLFW_KEY_O && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+        if (!s_shouldAutoProgress) {
+            float nextAngle(s_nextRudderAngle + k_manualAngleIncrement);
+            if (abs(nextAngle) < k_maxRudderAngle) {
+                s_nextRudderAngle = nextAngle;
+                s_rudderAngleChanged = true;
+            }
+        }
+    }
+    // If I key is pressed, decrease rudder angle
+    else if (key == GLFW_KEY_I && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+        if (!s_shouldAutoProgress) {
+            float nextAngle(s_nextRudderAngle - k_manualAngleIncrement);
+            if (abs(nextAngle) < k_maxRudderAngle) {
+                s_nextRudderAngle = nextAngle;
+                s_rudderAngleChanged = true;
+            }
+        }
+    }
+    // If K key is pressed, increase elevator angle
+    else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+        if (!s_shouldAutoProgress) {
+            float nextAngle(s_nextElevatorAngle + k_manualAngleIncrement);
+            if (abs(nextAngle) < k_maxElevatorAngle) {
+                s_nextElevatorAngle = nextAngle;
+                s_elevatorAngleChanged = true;
+            }
+        }
+    }
+    // If J key is pressed, decrease elevator angle
+    else if (key == GLFW_KEY_J && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+        if (!s_shouldAutoProgress) {
+            float nextAngle(s_nextElevatorAngle - k_manualAngleIncrement);
+            if (abs(nextAngle) < k_maxElevatorAngle) {
+                s_nextElevatorAngle = nextAngle;
+                s_elevatorAngleChanged = true;
+            }
+        }
+    }
+    // If M key is pressed, increase aileron angle
+    else if (key == GLFW_KEY_M && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+        if (!s_shouldAutoProgress) {
+            float nextAngle(s_nextAileronAngle + k_manualAngleIncrement);
+            if (abs(nextAngle) < k_maxRudderAngle) {
+                s_nextAileronAngle = nextAngle;
+                s_aileronAngleChanged = true;
+            }
+        }
+    }
+    // If N key is pressed, decrease aileron angle
+    else if (key == GLFW_KEY_N && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+        if (!s_shouldAutoProgress) {
+            float nextAngle(s_nextAileronAngle - k_manualAngleIncrement);
+            if (abs(nextAngle) < k_maxRudderAngle) {
+                s_nextAileronAngle = nextAngle;
+                s_aileronAngleChanged = true;
+            }
+        }
+    }
 }
 
 static bool setup() {
@@ -289,21 +289,21 @@ int main(int argc, char ** argv) {
                 s_angleOfAttackChanged = false;
                 std::cout << "angle of attack set to " << s_nextAngleOfAttack << " degrees" << std::endl;
             }
-			if (s_rudderAngleChanged) {
-				Simulation::setRudderAngle(s_nextRudderAngle);
-				s_rudderAngleChanged = false;
-				std::cout << "rudder angle set to " << s_nextRudderAngle << " degrees" << std::endl;
-			}
-			if (s_elevatorAngleChanged) {
-				Simulation::setElevatorAngle(s_nextElevatorAngle);
-				s_elevatorAngleChanged = false;
-				std::cout << "elevator/stabiliser angle set to " << s_nextElevatorAngle << " degrees" << std::endl;
-			}
-			if (s_aileronAngleChanged) {
-				Simulation::setAileronAngle(s_nextAileronAngle);
-				s_aileronAngleChanged = false;
-				std::cout << "aileron angle set to " << s_nextAileronAngle << " degrees" << std::endl;
-			}
+            if (s_rudderAngleChanged) {
+                Simulation::setRudderAngle(s_nextRudderAngle);
+                s_rudderAngleChanged = false;
+                std::cout << "rudder angle set to " << s_nextRudderAngle << " degrees" << std::endl;
+            }
+            if (s_elevatorAngleChanged) {
+                Simulation::setElevatorAngle(s_nextElevatorAngle);
+                s_elevatorAngleChanged = false;
+                std::cout << "elevator/stabiliser angle set to " << s_nextElevatorAngle << " degrees" << std::endl;
+            }
+            if (s_aileronAngleChanged) {
+                Simulation::setAileronAngle(s_nextAileronAngle);
+                s_aileronAngleChanged = false;
+                std::cout << "aileron angle set to " << s_nextAileronAngle << " degrees" << std::endl;
+            }
         }
         if (s_shouldStep || s_shouldSweep) {
             if (Simulation::step()) {
@@ -311,12 +311,13 @@ int main(int argc, char ** argv) {
                 s_shouldSweep = false;
                 float angleOfAttack(Simulation::getAngleOfAttack());
                 vec3 lift(Simulation::getLift());
-                std::cout << "angle: " << angleOfAttack << ", lift: " << lift.x << std::endl;
-				printf("Animation Angles:\n\tRudder: %f\n\tElevator: %f\n\tAileron: %f\n",
-					Simulation::getRudderAngle(),
-					Simulation::getElevatorAngle(),
-					Simulation::getAileronAngle()
-				);
+                vec3 drag(Simulation::getDrag());
+                std::cout << "angle: " << angleOfAttack << ", lift: " << lift.x << ", drag: " << drag.x << std::endl;
+                printf("Animation Angles:\n\tRudder: %f\n\tElevator: %f\n\tAileron: %f\n",
+                    Simulation::getRudderAngle(),
+                    Simulation::getElevatorAngle(),
+                    Simulation::getAileronAngle()
+                );
 
                 Results::submit(Simulation::getAngleOfAttack(), lift.x, drag.x);
 
