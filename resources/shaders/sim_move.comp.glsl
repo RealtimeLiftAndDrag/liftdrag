@@ -113,14 +113,13 @@ void main() {
             float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
             atomicAdd(u_dragForce.x, int(round(dragForce * 1e6)));
 
+            // Color active air pixels more brightly
             if (k_distinguishActivePixels) {
-                // Color active air pixels more brightly
                 ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
                 vec4 color = imageLoad(u_fboImg, texCoord);
                 color.g = 1.0f;
                 imageStore(u_fboImg, texCoord, color);
 
-                // Color active air pixels more brightly in side view
                 ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z, airWorldPos.y, 0)));
                 color = imageLoad(u_sideImg, sideTexCoord);
                 color.g = 1.0f;

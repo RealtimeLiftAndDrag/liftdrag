@@ -86,6 +86,11 @@ void main() {
         if (texCoord.x < 0 || texCoord.y < 0 || texCoord.x >= u_screenSize.x || texCoord.y >= u_screenSize.y) {
             continue;
         }
+        // Check if in geometry
+        vec4 color = imageLoad(u_fboImg, texCoord);
+        if (color.r != 0.0f) {
+            continue;
+        }
         
         // Move to current air pixel buffer
         int airI = atomicAdd(u_airCount[u_swap], 1);
@@ -100,7 +105,6 @@ void main() {
         imageAtomicExchange(u_flagImg, texCoord, airI + 1);
         
         // Draw to front view
-        vec4 color = imageLoad(u_fboImg, texCoord);
         color.g = k_greenVal;
         imageStore(u_fboImg, texCoord, color);
 

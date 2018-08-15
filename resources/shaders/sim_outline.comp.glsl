@@ -82,19 +82,6 @@ void main() {
 
         ivec2 geoTexCoord = ivec2(worldToScreen(geoWorldPos));
 
-        if (k_distinguishActivePixels) {
-            // Color active geo pixels more brightly
-            vec4 color = imageLoad(u_fboImg, geoTexCoord);
-            color.r = 1.0f;
-            imageStore(u_fboImg, geoTexCoord, color);
-
-            // Color active geo pixels more brightly in side view
-            ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-geoWorldPos.z, geoWorldPos.y, 0)));
-            color = imageLoad(u_sideImg, sideTexCoord);
-            color.r = 1.0f;
-            imageStore(u_sideImg, sideTexCoord, color);
-        }
-
         // TODO: magic numbers
         bool shouldSpawn = geoNormal.z >= 0.01f && geoNormal.z <= 0.99f;
 
@@ -103,7 +90,7 @@ void main() {
         vec2 screenDir = normalize(geoNormal.xy);
         for (int steps = 0; steps < k_maxSteps; ++steps) {
             vec4 color = imageLoad(u_fboImg, ivec2(screenPos));
-            if (color.g > 0.0f) { // we found an air pixel
+            if (color.g != 0.0f) { // we found an air pixel
                 int airI = imageLoad(u_flagImg, ivec2(screenPos)).x;               
                 if (airI == 0) { // TODO: this should not be necessary, just here for sanity
                     continue;
@@ -137,6 +124,18 @@ void main() {
             vec4 color = imageLoad(u_fboImg, geoTexCoord);
             color.g = 0.33f;
             imageStore(u_fboImg, geoTexCoord, color);
+        }
+
+        // Color active geo pixels more brightly
+        if (k_distinguishActivePixels) {
+            vec4 color = imageLoad(u_fboImg, geoTexCoord);
+            color.r = 1.0f;
+            imageStore(u_fboImg, geoTexCoord, color);
+
+            ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-geoWorldPos.z, geoWorldPos.y, 0)));
+            color = imageLoad(u_sideImg, sideTexCoord);
+            color.r = 1.0f;
+            imageStore(u_sideImg, sideTexCoord, color);
         }
     }
 }

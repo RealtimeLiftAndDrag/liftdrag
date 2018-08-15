@@ -335,29 +335,25 @@ namespace Simulation {
         // Clear framebuffer.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        mat4 V, M, P; //View, Model and Perspective matrix
+        s_foilProg->bind();
 
-        float zNear = k_sliceSize * (s_currentSlice);
-        P = glm::ortho(
+        float zNear(k_sliceSize * (s_currentSlice));
+        mat4 projMat(glm::ortho(
             -1.0f / s_ssboLocal.screenAspectFactor.x, // left
              1.0f / s_ssboLocal.screenAspectFactor.x, // right
             -1.0f / s_ssboLocal.screenAspectFactor.y, // bottom
              1.0f / s_ssboLocal.screenAspectFactor.y, // top
             zNear, // near
             zNear + k_sliceSize // far
-        );
+        ));        
+        glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&projMat));
 
-        s_foilProg->bind();
-        
-        glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, &P[0][0]);
-        glUniformMatrix4fv(s_foilProg->getUniform("u_viewMat"), 1, GL_FALSE, &V[0][0]);
+        mat4 modelMat(glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f)));        
+        glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&modelMat));
 
-        mat4 Rx = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
-        
-        mat3 N;
-        glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, &N[0][0]);
-        M = Rx;
-        glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
+        mat3 normMat(glm::transpose(glm::inverse(modelMat)));
+        glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&normMat));
+
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         s_shape->draw(s_foilProg, false);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
