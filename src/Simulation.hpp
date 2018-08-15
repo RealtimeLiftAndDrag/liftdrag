@@ -32,9 +32,16 @@ namespace Simulation {
 
     // Angle is in degrees
     float getAngleOfAttack();
+	float getRudderAngle();
+	float getElevatorAngle();
+	float getAileronAngle();
 
     // Angle is in degrees
     void setAngleOfAttack(float angle);
+	void setRudderAngle(float angle);
+	void setElevatorAngle(float angle);
+	void setAileronAngle(float angle);
+
 
     // Returns the lift of the previous sweep
     vec3 getLift();
