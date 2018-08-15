@@ -92,7 +92,10 @@ namespace Simulation {
     static std::shared_ptr<Shape> s_shape;
     static std::shared_ptr<GrlModel> s_f18Model;
     static int s_currentSlice(0); // slice index [0, k_nSlices)
-    static float s_angleOfAttack(0.0f); // IN DEGREES
+	static float s_angleOfAttack(0.0f); // IN DEGREES
+	static float s_rudderAngle(0.0f); // IN DEGREES
+	static float s_elevatorAngle(0.0f); // IN DEGREES
+	static float s_aileronAngle(0.0f); // IN DEGREES
     static vec3 s_sweepLift; // accumulating lift force for entire sweep
     static float s_sweepDrag; // accumulating drag force for entire sweep
     static int s_swap;
@@ -373,12 +376,22 @@ namespace Simulation {
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
+
+
     void drawf18Model(mat4 M = mat4(1)) {
+
+        mat4 rudderRotate = glm::rotate(mat4(1), s_rudderAngle, vec3(0, 1, 0));
+        mat4 elevatorRotate = glm::rotate(mat4(1), s_elevatorAngle, vec3(1, 0, 0));
+
+        s_f18Model->drawSubModel(s_foilProg, "RudderL01", M, rudderRotate);
+        s_f18Model->drawSubModel(s_foilProg, "RudderR01", M, rudderRotate);
+        s_f18Model->drawSubModel(s_foilProg, "ElevatorL01", M, elevatorRotate);
+        s_f18Model->drawSubModel(s_foilProg, "ElevatorR01", M, elevatorRotate);
+        s_f18Model->drawSubModel(s_foilProg, "AileronL01", M, glm::rotate(mat4(1), s_aileronAngle, vec3(1, 0, 0)));
+        s_f18Model->drawSubModel(s_foilProg, "AileronR01", M, glm::rotate(mat4(1), -s_aileronAngle, vec3(1, 0, 0)));
+
         s_f18Model->drawSubModel(s_foilProg, "VoletR01", M);
-        s_f18Model->drawSubModel(s_foilProg, "ElevatorL01", M);
         s_f18Model->drawSubModel(s_foilProg, "Glass_Canopy", M);
-        s_f18Model->drawSubModel(s_foilProg, "RudderL01", M);
-        s_f18Model->drawSubModel(s_foilProg, "AileronL01", M);
         s_f18Model->drawSubModel(s_foilProg, "Pilot", M);
         s_f18Model->drawSubModel(s_foilProg, "Glass", M);
         s_f18Model->drawSubModel(s_foilProg, "VoletL01", M);
@@ -386,11 +399,8 @@ namespace Simulation {
         s_f18Model->drawSubModel(s_foilProg, "Hook", M);
         s_f18Model->drawSubModel(s_foilProg, "EngineR01", M);
         s_f18Model->drawSubModel(s_foilProg, "FlapL01", M);
-        s_f18Model->drawSubModel(s_foilProg, "AileronR01", M);
         s_f18Model->drawSubModel(s_foilProg, "Eject_Seat", M);
         s_f18Model->drawSubModel(s_foilProg, "FlapR01", M);
-        s_f18Model->drawSubModel(s_foilProg, "RudderR01", M);
-        s_f18Model->drawSubModel(s_foilProg, "ElevatorR01", M);
         s_f18Model->drawSubModel(s_foilProg, "Glass_HUD", M);
         s_f18Model->drawSubModel(s_foilProg, "EngineL01", M);
         s_f18Model->drawSubModel(s_foilProg, "Canopy01", M);
@@ -635,9 +645,33 @@ namespace Simulation {
         return s_angleOfAttack;
     }
 
+	float getRudderAngle() {
+		return s_rudderAngle;
+	}
+
+	float getElevatorAngle() {
+		return s_elevatorAngle;
+	}
+
+	float getAileronAngle() {
+		return s_aileronAngle;
+	}
+
     void setAngleOfAttack(float angle) {
         s_angleOfAttack = angle;
     }
+
+	void setRudderAngle(float angle) {
+		s_rudderAngle = angle;
+	}
+
+	void setElevatorAngle(float angle) {
+		s_elevatorAngle = angle;
+	}
+
+	void setAileronAngle(float angle) {
+		s_aileronAngle = angle;
+	}
 
     vec3 getLift() {
         return s_sweepLift;
