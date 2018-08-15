@@ -16,9 +16,11 @@
 
 namespace Simulation {
 
+    static constexpr bool k_doF18(true); // Enables or disables using the F18
+
     static constexpr int k_width(720), k_height(480);
-    static constexpr int k_nSlices(50);
-    static constexpr float k_sliceSize(0.03f); // z distance between slices
+    static constexpr int k_nSlices(k_doF18 ? 120 : 50);
+    static constexpr float k_sliceSize(k_doF18 ? 0.025 : 0.03f); // z distance between slices
     static constexpr float k_windSpeed(10.0f); // Speed of air in -z direction
     static constexpr float k_dt(k_sliceSize / k_windSpeed); // Delta time for each slice
 
@@ -89,7 +91,6 @@ namespace Simulation {
 
     static std::shared_ptr<Shape> s_shape;
     static std::shared_ptr<GrlModel> s_f18Model;
-    static bool s_swap(true);
     static int s_currentSlice(0); // slice index [0, k_nSlices)
     static float s_angleOfAttack(0.0f); // IN DEGREES
     static vec3 s_sweepLift; // accumulating lift force for entire sweep
@@ -224,11 +225,12 @@ namespace Simulation {
 
 
     static bool setupGeom(const std::string & resourcesDir) {
-        
-        std::string grlsDir = resourcesDir + "/grls";
-        s_f18Model = std::make_shared<GrlModel>();
-        s_f18Model->loadSubModels(grlsDir + "/f18.grl");
-        s_f18Model->init();
+        if (k_doF18) {
+            std::string grlsDir = resourcesDir + "/grls";
+            s_f18Model = std::make_shared<GrlModel>();
+            s_f18Model->loadSubModels(grlsDir + "/f18.grl");
+            s_f18Model->init();
+        }
 
         std::string objsDir = resourcesDir + "/objs";
         // Initialize mesh.
@@ -405,7 +407,7 @@ namespace Simulation {
 
         s_foilProg->bind();
 
-        float zNear(k_sliceSize * s_currentSlice - 0.25f);
+        float zNear(k_sliceSize * s_currentSlice - (k_sliceSize * k_nSlices * 0.5f));
         mat4 projMat(glm::ortho(
             -1.0f / s_ssboLocal.screenAspectFactor.x, // left
              1.0f / s_ssboLocal.screenAspectFactor.x, // right
@@ -416,29 +418,35 @@ namespace Simulation {
         ));        
         glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&projMat));
 
-        mat4 modelMat(glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f)));        
-        glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&modelMat));
+        if (k_doF18) {
+            mat4 R_angleOfAttack = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+            mat4 T_back = glm::translate(mat4(), vec3(0.0f, 0.0f, -0.2f));
+            mat4 S_uniform = glm::scale(mat4(), vec3(0.15f));
+            mat4 R_frontFacing = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f));
 
-        mat4 R_angleOfAttack = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+            mat4 modelMat = T_back * R_angleOfAttack * R_frontFacing * S_uniform;
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            drawf18Model(modelMat);
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            drawf18Model(modelMat);
+        }
+        else {
+            mat4 modelMat(glm::translate(mat4(), vec3(0.0f, 0.0f, 0.5f)));
+            modelMat = glm::rotate(modelMat, glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+            glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&modelMat));
 
-        mat4 T_back = glm::translate(mat4(1.f), vec3(0, 0, -.2f));
-        mat4 S_uniform = glm::scale(mat4(1.f), vec3(.15f));
-        mat4 R_frontFacing = glm::rotate(mat4(1), 3.14f, vec3(1, 0, 0));
-        R_frontFacing = glm::rotate(R_frontFacing, 3.14f, vec3(0, 1, 0));
+            mat3 normMat(glm::transpose(glm::inverse(glm::mat3(modelMat))));
+            glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&normMat));
 
-        M = T_back * R_angleOfAttack * R_frontFacing * S_uniform;
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            s_shape->draw(s_foilProg, false);
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            s_shape->draw(s_foilProg, false);
+        }
 
-        mat3 normMat(glm::transpose(glm::inverse(modelMat)));
-        glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&normMat));
-
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        drawf18Model(M);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        drawf18Model(M);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
 
         s_foilProg->unbind();
-        std::cout << s_currentSlice << std::endl;
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }

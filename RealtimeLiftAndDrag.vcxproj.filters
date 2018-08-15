@@ -47,6 +47,9 @@
     <ClCompile Include="src\glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\GrlModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\GLSL.h">
@@ -76,48 +79,49 @@
     <ClInclude Include="src\Util.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\GrlModel.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="resources\shaders\graph_curve.frag.glsl">
+    <None Include="resources\shaders\fb.frag">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\graph_curve.vert.glsl">
+    <None Include="resources\shaders\fb.vert">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\graph_lines.frag.glsl">
+    <None Include="resources\shaders\foil.frag">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\graph_lines.vert.glsl">
+    <None Include="resources\shaders\foil.vert">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\text.frag.glsl">
+    <None Include="resources\shaders\graph_curve.frag">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\text.vert.glsl">
+    <None Include="resources\shaders\graph_curve.vert">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\foil.frag.glsl">
+    <None Include="resources\shaders\graph_lines.frag">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\foil.vert.glsl">
+    <None Include="resources\shaders\graph_lines.vert">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\fb.frag.glsl">
+    <None Include="resources\shaders\sim_draw.comp">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\fb.vert.glsl">
+    <None Include="resources\shaders\sim_move.comp">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\sim_prospect.comp.glsl">
+    <None Include="resources\shaders\sim_outline.comp">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\sim_draw.comp.glsl">
+    <None Include="resources\shaders\sim_prospect.comp">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\sim_move.comp.glsl">
+    <None Include="resources\shaders\text.frag">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\sim_outline.comp.glsl">
+    <None Include="resources\shaders\text.vert">
       <Filter>Resource Files\shaders</Filter>
     </None>
   </ItemGroup>
