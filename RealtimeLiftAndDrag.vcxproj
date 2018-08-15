@@ -140,6 +140,7 @@
     <ClCompile Include="src\glad.c" />
     <ClCompile Include="src\GLSL.cpp" />
     <ClCompile Include="src\Graph.cpp" />
+    <ClCompile Include="src\GrlModel.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Program.cpp" />
     <ClCompile Include="src\Results.cpp" />
@@ -152,6 +153,7 @@
   <ItemGroup>
     <ClInclude Include="src\GLSL.h" />
     <ClInclude Include="src\Graph.hpp" />
+    <ClInclude Include="src\GrlModel.hpp" />
     <ClInclude Include="src\Program.h" />
     <ClInclude Include="src\Results.hpp" />
     <ClInclude Include="src\Shape.h" />
@@ -161,8 +163,6 @@
     <ClInclude Include="src\Util.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="resources\shaders\lineFrag.glsl" />
-    <None Include="resources\shaders\lineVert.glsl" />
     <None Include="resources\shaders\sim_draw.comp.glsl" />
     <None Include="resources\shaders\sim_move.comp.glsl" />
     <None Include="resources\shaders\sim_outline.comp.glsl" />
