@@ -203,12 +203,12 @@ void GrlModel::drawSubModel(const std::shared_ptr<Program> prog, std::string sub
 	drawSubModel(prog, i, m, local_r);
 }
 
-void GrlModel::drawSubModel(const std::shared_ptr<Program> prog, unsigned int subModelIndex, glm::mat4 m, glm::mat4 local_r) {
+void GrlModel::drawSubModel(const std::shared_ptr<Program> prog, size_t subModelIndex, glm::mat4 m, glm::mat4 local_r) {
 	glm::mat4 M = m * subModels[subModelIndex].O * local_r * inverse(subModels[subModelIndex].O);
 	std::string name = subModels[subModelIndex].name; //for temp debugging only
 	glUniformMatrix4fv(prog->getUniform("u_modelMat"), 1, GL_FALSE, &M[0][0]);
 	glBindVertexArray(vaoID[subModelIndex]);
-	glDrawArrays(GL_TRIANGLES, 0, subModels[subModelIndex].posData.size());
+	glDrawArrays(GL_TRIANGLES, 0, unsigned int(subModels[subModelIndex].posData.size()));
 	glBindVertexArray(0);
 }
 

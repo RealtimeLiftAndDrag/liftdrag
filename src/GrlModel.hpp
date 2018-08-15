@@ -36,7 +36,7 @@ public:
 	);
 	void drawSubModel(
 		const std::shared_ptr<Program> prog,
-		unsigned int subModelIndex,
+		size_t subModelIndex,
 		glm::mat4 m = glm::mat4(1),
 		glm::mat4 local_r = glm::mat4(1)
 	);
