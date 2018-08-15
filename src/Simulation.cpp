@@ -19,7 +19,9 @@ namespace Simulation {
 
     static constexpr int k_width(720), k_height(480);
     static constexpr int k_nSlices(50);
-    static constexpr float k_sliceSize(0.025f); // z distance between slices, MUST ALSO CHANGE IN MOVE SHADER!!!
+    static constexpr float k_sliceSize(0.03f); // z distance between slices
+    static constexpr float k_windSpeed(10.0f); // Speed of air in -z direction
+    static constexpr float k_dt(k_sliceSize / k_windSpeed); // Delta time for each slice
 
     static constexpr int k_maxGeoPixels = 32768; // 1 MB worth, must also change in shaders
     static constexpr int k_maxAirPixels = 32768; // 1 MB worth, must also change in shaders
@@ -42,10 +44,39 @@ namespace Simulation {
         s32 airCount[2];
         ivec2 screenSize;
         vec2 screenAspectFactor;
+        float sliceSize;
+        float windSpeed;
+        float dt;
+        s32 _0; // padding
         ivec4 momentum;
         ivec4 force;
         ivec4 dragForce;
         ivec4 dragMomentum;
+
+        void reset() {
+            swap = 0;
+            geoCount = 0;
+            airCount[0] = 0;
+            airCount[1] = 0;
+            screenSize.x = k_width;
+            screenSize.y = k_height;
+            if (k_width >= k_height) {
+                screenAspectFactor.x = float(k_height) / float(k_width);
+                screenAspectFactor.y = 1.0f;
+            }
+            else {
+                screenAspectFactor.x = 1.0f;
+                screenAspectFactor.y = float(k_width) / float(k_height);
+            }
+            sliceSize = k_sliceSize;
+            windSpeed = k_windSpeed;
+            dt = k_dt;
+            momentum = ivec4();
+            force = ivec4();
+            dragForce = ivec4();
+            dragMomentum = ivec4();
+        }
+
     };
 
 
@@ -337,7 +368,7 @@ namespace Simulation {
 
         s_foilProg->bind();
 
-        float zNear(k_sliceSize * (s_currentSlice));
+        float zNear(k_sliceSize * s_currentSlice - 0.25f);
         mat4 projMat(glm::ortho(
             -1.0f / s_ssboLocal.screenAspectFactor.x, // left
              1.0f / s_ssboLocal.screenAspectFactor.x, // right
@@ -362,20 +393,7 @@ namespace Simulation {
 
         s_foilProg->unbind();
 
-        /*
-        glViewport(width / 2, height / 4, width / 2, height / 2);
-        V = glm::rotate(mat4(1),0.23f, vec3(0, 1, 0));
-        progfoil->bind();
-        glUniformMatrix4fv(progfoil->getUniform("V"), 1, GL_FALSE, &V[0][0]);
-        shape->draw(progfoil, false);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        shape->draw(progfoil, false);
-        progfoil->unbind();
-        */
-
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        //glBindTexture(GL_TEXTURE_2D, FBOtex);
-        //glGenerateMipmap(GL_TEXTURE_2D);
     }
 
     static void downloadSSBO() {
@@ -422,18 +440,9 @@ namespace Simulation {
         }
 
         // Setup SSBO
+        s_ssboLocal.reset();
         glGenBuffers(1, &s_ssbo);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
-        s_ssboLocal.screenSize.x = k_width;
-        s_ssboLocal.screenSize.y = k_height;
-        if (k_width >= k_height) {
-            s_ssboLocal.screenAspectFactor.x = float(k_height) / float(k_width);
-            s_ssboLocal.screenAspectFactor.y = 1.0f;
-        }
-        else {
-            s_ssboLocal.screenAspectFactor.x = 1.0f;
-            s_ssboLocal.screenAspectFactor.y = float(k_width) / float(k_height);
-        }
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssboLocal, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -517,12 +526,8 @@ namespace Simulation {
 
         // Reset for new sweep
         if (s_currentSlice == 0) {
+            s_ssboLocal.reset();
             clearSideTex();
-            s_ssboLocal.airCount[1] = 0;
-            s_ssboLocal.force = ivec4();
-            s_ssboLocal.momentum = ivec4();
-            s_ssboLocal.dragForce = ivec4();
-            s_ssboLocal.dragMomentum = ivec4();
             s_swap = 1;
         }
         

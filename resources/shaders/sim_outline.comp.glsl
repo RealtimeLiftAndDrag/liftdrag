@@ -23,8 +23,6 @@ const int k_invocCount = 1024;
 
 const int k_maxSteps = 50;
 
-const float k_windSpeed = 10.0f;
-
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
 
@@ -40,6 +38,10 @@ layout (binding = 0, std430) restrict buffer SSBO {
     coherent int u_airCount[2];
     ivec2 u_screenSize;
     vec2 u_screenAspectFactor;
+    float u_sliceSize;
+    float u_windSpeed;
+    float u_dt;
+    int _0; // padding
     ivec4 u_momentum;
     ivec4 u_force;
     ivec4 u_dragForce;
@@ -115,7 +117,7 @@ void main() {
 
             vec3 airWorldPos = geoWorldPos;
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
-            vec3 airVelocity = refl * k_windSpeed;
+            vec3 airVelocity = refl * u_windSpeed;
 
             u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
             u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);

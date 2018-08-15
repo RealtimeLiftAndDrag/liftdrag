@@ -21,10 +21,6 @@ struct AirPixel {
 
 const int k_invocCount = 1024;
 
-const float k_windSpeed = 10.0f;
-const float k_sliceSize = 0.025f;
-const float k_dt = k_sliceSize / k_windSpeed;
-
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
 // Uniforms --------------------------------------------------------------------
@@ -38,6 +34,10 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_airCount[2];
     ivec2 u_screenSize;
     vec2 u_screenAspectFactor;
+    float u_sliceSize;
+    float u_windSpeed;
+    float u_dt;
+    int _0; // padding
     ivec4 u_momentum;
     ivec4 u_force;
     ivec4 u_dragForce;
@@ -132,12 +132,12 @@ void main() {
 
         // Update velocity
         airVelocity.xy += backForce; //* force;
-        airVelocity.z = -k_windSpeed;
-        airVelocity = normalize(airVelocity) * k_windSpeed;
+        airVelocity.z = -u_windSpeed;
+        airVelocity = normalize(airVelocity) * u_windSpeed;
 
         // Update location
-        airWorldPos.xy += airVelocity.xy * k_dt;
-        airWorldPos.z -= k_sliceSize;
+        airWorldPos.xy += airVelocity.xy * u_dt;
+        airWorldPos.z -= u_sliceSize;
 
         u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
         u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);

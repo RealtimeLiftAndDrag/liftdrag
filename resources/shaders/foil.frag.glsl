@@ -43,6 +43,10 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_airCount[2];
     ivec2 u_screenSize;
     vec2 u_screenAspectFactor;
+    float u_sliceSize;
+    float u_windSpeed;
+    float u_dt;
+    int _0; // padding
     ivec4 u_momentum;
     ivec4 u_force;
     ivec4 u_dragForce;
