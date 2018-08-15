@@ -29,9 +29,14 @@ extern "C" {
 
 
 static const std::string k_defResourceDir("C:\\liftdrag\\resources\\");
-static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the angle of attack by when using arrow keys
+static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the angle of attack, rudder, elevator, and ailerons by when using arrow keys
+
 static constexpr float k_autoAngleIncrement(7.0f); // how many degrees to change the angle of attack by when auto progressing
+
 static constexpr float k_maxAngleOfAttack(90.0f);
+static constexpr float k_maxRudderAngle(90.0f);
+static constexpr float k_maxAileronAngle(90.0f);
+static constexpr float k_maxElevatorAngle(90.0f);
 
 
 
@@ -41,8 +46,21 @@ static bool s_shouldStep(false);
 static bool s_shouldSweep(true);
 static bool s_shouldAutoProgress(false);
 static bool s_shouldRender(true);
-static float s_nextAngleOfAttack(0.0f); // in degrees
+
+
 static bool s_angleOfAttackChanged;
+static bool s_aileronAngleChanged;
+static bool s_rudderAngleChanged;
+static bool s_elevatorAngleChanged;
+
+//all in degrees
+static float s_nextAngleOfAttack(0.0f);
+static float s_nextAileronAngle(0.0f);
+static float s_nextRudderAngle(0.0f);
+static float s_nextElevatorAngle(0.0f);
+
+
+
 
 
 
@@ -108,6 +126,66 @@ static void keyCallback(GLFWwindow * window, int key, int scancode, int action, 
             }
         }
     }
+	// If O key is pressed, increase rudder angle
+	else if (key == GLFW_KEY_O && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		if (!s_shouldAutoProgress) {
+			float nextAngle(s_nextRudderAngle + k_manualAngleIncrement);
+			if (abs(nextAngle) < k_maxRudderAngle) {
+				s_nextRudderAngle = nextAngle;
+				s_rudderAngleChanged = true;
+			}
+		}
+	}
+	// If I key is pressed, decrease rudder angle
+	else if (key == GLFW_KEY_I && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		if (!s_shouldAutoProgress) {
+			float nextAngle(s_nextRudderAngle - k_manualAngleIncrement);
+			if (abs(nextAngle) < k_maxRudderAngle) {
+				s_nextRudderAngle = nextAngle;
+				s_rudderAngleChanged = true;
+			}
+		}
+	}
+	// If K key is pressed, increase elevator angle
+	else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		if (!s_shouldAutoProgress) {
+			float nextAngle(s_nextElevatorAngle + k_manualAngleIncrement);
+			if (abs(nextAngle) < k_maxElevatorAngle) {
+				s_nextElevatorAngle = nextAngle;
+				s_elevatorAngleChanged = true;
+			}
+		}
+	}
+	// If J key is pressed, decrease elevator angle
+	else if (key == GLFW_KEY_J && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		if (!s_shouldAutoProgress) {
+			float nextAngle(s_nextElevatorAngle - k_manualAngleIncrement);
+			if (abs(nextAngle) < k_maxElevatorAngle) {
+				s_nextElevatorAngle = nextAngle;
+				s_elevatorAngleChanged = true;
+			}
+		}
+	}
+	// If M key is pressed, increase aileron angle
+	else if (key == GLFW_KEY_M && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		if (!s_shouldAutoProgress) {
+			float nextAngle(s_nextAileronAngle + k_manualAngleIncrement);
+			if (abs(nextAngle) < k_maxRudderAngle) {
+				s_nextAileronAngle = nextAngle;
+				s_aileronAngleChanged = true;
+			}
+		}
+	}
+	// If N key is pressed, decrease aileron angle
+	else if (key == GLFW_KEY_N && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		if (!s_shouldAutoProgress) {
+			float nextAngle(s_nextAileronAngle - k_manualAngleIncrement);
+			if (abs(nextAngle) < k_maxRudderAngle) {
+				s_nextAileronAngle = nextAngle;
+				s_aileronAngleChanged = true;
+			}
+		}
+	}
 }
 
 static bool setup() {
@@ -206,23 +284,44 @@ int main(int argc, char ** argv) {
             if (s_angleOfAttackChanged) {
                 Simulation::setAngleOfAttack(s_nextAngleOfAttack);
                 s_angleOfAttackChanged = false;
-                std::cout << "angle set to " << s_nextAngleOfAttack << " degrees" << std::endl;
+                std::cout << "angle of attack set to " << s_nextAngleOfAttack << " degrees" << std::endl;
             }
+			if (s_rudderAngleChanged) {
+				Simulation::setRudderAngle(s_nextRudderAngle);
+				s_rudderAngleChanged = false;
+				std::cout << "rudder angle set to " << s_nextRudderAngle << " degrees" << std::endl;
+			}
+			if (s_elevatorAngleChanged) {
+				Simulation::setElevatorAngle(s_nextElevatorAngle);
+				s_elevatorAngleChanged = false;
+				std::cout << "elevator/stabiliser angle set to " << s_nextElevatorAngle << " degrees" << std::endl;
+			}
+			if (s_aileronAngleChanged) {
+				Simulation::setAileronAngle(s_nextAileronAngle);
+				s_aileronAngleChanged = false;
+				std::cout << "aileron angle set to " << s_nextAileronAngle << " degrees" << std::endl;
+			}
         }
         if (s_shouldStep || s_shouldSweep) {
             if (Simulation::step()) {
                 // That was the last slice
                 s_shouldSweep = false;
-                float angle(Simulation::getAngleOfAttack());
+                float angleOfAttack(Simulation::getAngleOfAttack());
                 vec3 lift(Simulation::getLift());
-                std::cout << "angle: " << angle << ", lift: " << lift.x << std::endl;
+                std::cout << "angle: " << angleOfAttack << ", lift: " << lift.x << std::endl;
+				printf("Animation Angles:\n\tRudder: %f\n\tElevator: %f\n\tAileron: %f\n",
+					Simulation::getRudderAngle(),
+					Simulation::getElevatorAngle(),
+					Simulation::getAileronAngle()
+				);
+
                 Results::submit(Simulation::getAngleOfAttack(), lift.x, 0.0f);
 
                 if (s_shouldAutoProgress) {
-                    angle += k_autoAngleIncrement;
-                    angle = (std::fmod((angle + 90.0f), 180.f)) - 90.0f;
-                    if (angle > k_maxAngleOfAttack) angle = -k_maxAngleOfAttack;
-                    Simulation::setAngleOfAttack(angle);
+                    angleOfAttack += k_autoAngleIncrement;
+                    angleOfAttack = (std::fmod((angleOfAttack + 90.0f), 180.f)) - 90.0f;
+                    if (angleOfAttack > k_maxAngleOfAttack) angleOfAttack = -k_maxAngleOfAttack;
+                    Simulation::setAngleOfAttack(angleOfAttack);
                     s_shouldSweep = true;
                 }
             }
