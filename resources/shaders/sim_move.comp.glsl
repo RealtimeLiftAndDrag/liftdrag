@@ -21,128 +21,126 @@ struct AirPixel {
 
 const int k_invocCount = 1024;
 
-const float k_windSpeed = 1.0f;
+const float k_windSpeed = 10.0f;
 const float k_sliceSize = 0.025f;
+const float k_dt = k_sliceSize / k_windSpeed;
+
+const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
 // Uniforms --------------------------------------------------------------------
 
-uniform int u_swap;
+layout (binding = 0, rgba8) uniform image2D u_fboImg;
+layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
 layout (binding = 0, std430) restrict buffer SSBO {
-    int geoCount;
-    int airCount[2];
-    int _0; // padding
-    ivec2 screenSize;
-    vec2 screenAspectFactor;
-    ivec4 momentum;
-    ivec4 force;
-    ivec4 dragForce;
-    ivec4 dragMomentum;
-} ssbo;
+    int u_swap;
+    int u_geoCount;
+    int u_airCount[2];
+    ivec2 u_screenSize;
+    vec2 u_screenAspectFactor;
+    ivec4 u_momentum;
+    ivec4 u_force;
+    ivec4 u_dragForce;
+    ivec4 u_dragMomentum;
+};
 
 // Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason
 layout (binding = 1, std430) buffer GeoPixels { // TODO: should be restrict?
-    GeoPixel geoPixels[];
+    GeoPixel u_geoPixels[];
 };
 layout (binding = 2, std430) buffer AirPixels { // TODO: should be restrict?
-    AirPixel airPixels[];
+    AirPixel u_airPixels[];
 };
 layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
-    int airGeoMap[];
+    int u_airGeoMap[];
 };
 
 // Functions -------------------------------------------------------------------
 
 vec2 worldToScreen(vec3 world) {
     vec2 screenPos = world.xy;
-    screenPos *= ssbo.screenAspectFactor; // compensate for aspect ratio
+    screenPos *= u_screenAspectFactor; // compensate for aspect ratio
     screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= vec2(ssbo.screenSize); // scale to texture space
+    screenPos *= vec2(u_screenSize); // scale to texture space
     return screenPos;
 }
 
 vec2 screenToWorldDir(vec2 screenDir) {
-    return screenDir / (float(min(ssbo.screenSize.x, ssbo.screenSize.y)) * 0.5f);
+    return screenDir / (float(min(u_screenSize.x, u_screenSize.y)) * 0.5f);
 }
 
 void main() {
     int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (ssbo.airCount[u_swap] + k_invocCount - 1) / k_invocCount;
+    int invocWorkload = (u_airCount[u_swap] + k_invocCount - 1) / k_invocCount;
     for (int ii = 0; ii < invocWorkload; ++ii) {
     
         int airI = invocI + (k_invocCount * ii);
-        if (airI >= ssbo.airCount[u_swap]) {
+        if (airI >= u_airCount[u_swap]) {
             return;
         }
 
-        vec3 airWorldPos = airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos.xyz;
-        vec3 airVelocity = airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity.xyz;
+        vec3 airWorldPos = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos.xyz;
+        vec3 airVelocity = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity.xyz;
 
-        int geoI = airGeoMap[airI];
-        vec3 geoWorldPos = geoPixels[geoI].worldPos.xyz;
-        vec3 geoNormal = geoPixels[geoI].normal.xyz;
-        vec2 backForce = normalize(-geoNormal.xy) * distance(airWorldPos.xy, geoWorldPos.xy) * 2.0f;
+        // Calculate backforce
+        vec2 backForce;
 
-        //float force = length(backforceDir);
-        //backforceDir=normalize(backforceDir);
-        //force=pow(force-0.08,0.7);
-        //if(force<0)force=0;
+        int geoI = u_airGeoMap[airI];
+        if (geoI != 0) { // There is associated geometry
+            --geoI;
+
+            vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
+            vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
+            float dist = distance(airWorldPos.xy, geoWorldPos.xy);
+            float adjustedDist = dist * 10.0f;
+            backForce = normalize(-geoNormal.xy) * adjustedDist * adjustedDist;
+
+            //float force = length(backforceDir);
+            //backforceDir=normalize(backforceDir);
+            //force=pow(force-0.08,0.7);
+            //if(force<0)force=0;
                 
-        // Calculate lift     
-        float liftForce = backForce.y * 1e6; // TODO: currently linear			  
-        atomicAdd(ssbo.force.x, int(round(liftForce)));
+            // Calculate lift     
+            float liftForce = backForce.y * 1e6; // TODO: currently linear			  
+            atomicAdd(u_force.x, int(round(liftForce)));
+
+            // Calculate drag
+            float massDensity = 1.0f;
+            float flowVelocity = 1.0f;
+            float area = screenToWorldDir(vec2(1.0f, 0.0f)).x;
+            area = area * area;
+            float dragC = 1.0f;
+            float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
+            atomicAdd(u_dragForce.x, int(round(dragForce * 1e6)));
+
+            if (k_distinguishActivePixels) {
+                // Color active air pixels more brightly
+                ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
+                vec4 color = imageLoad(u_fboImg, texCoord);
+                color.g = 1.0f;
+                imageStore(u_fboImg, texCoord, color);
+
+                // Color active air pixels more brightly in side view
+                ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z, airWorldPos.y, 0)));
+                color = imageLoad(u_sideImg, sideTexCoord);
+                color.g = 1.0f;
+                imageStore(u_sideImg, sideTexCoord, color);
+            }
+        }
+        else { // No associated geometry
+            backForce = vec2(0.0f);
+        }
 
         // Update velocity
-        // TODO: this is absurd
         airVelocity.xy += backForce; //* force;
-        //airVelocity.x = 0.0f;
-        vec3 dir = normalize(airVelocity);
-        dir.z = -1.0f;
-        dir = normalize(dir);
-        airVelocity = dir * 10.0f; // TODO: magic constant
+        airVelocity.z = -k_windSpeed;
+        airVelocity = normalize(airVelocity) * k_windSpeed;
 
         // Update location
-        airWorldPos.xy += screenToWorldDir(airVelocity.xy); // TODO: right now a velocity of 1 corresponds to moving 1 pixel. Is this right?
+        airWorldPos.xy += airVelocity.xy * k_dt;
         airWorldPos.z -= k_sliceSize;
 
-
-
-        // Drag
-        float worldDist = distance(airWorldPos.xy, geoWorldPos.xy);
-        float massDensity = 1.0f;
-        float flowVelocity = 1.0f;
-        float area = screenToWorldDir(vec2(1.0f, 0.0f)).x;
-        area = area * area;
-        float dragC = 1.0f;
-        float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
-        atomicAdd(ssbo.dragForce.x, int(round(dragForce * 1e6)));
-
-
-        //vec2 screenPos = floor(worldToScreen(airWorldPos)) + 0.5f;
-
-        //vec4 col = imageLoad(u_fboImg, ivec2(screenPos));
-        //if (col.r > 0.0f) {
-        //    ivec2 nextPixel = ivec2(floor(screenPos) + 0.5f + normalize(dir.xy));
-        //    vec4 nextcol = imageLoad(u_fboImg, nextPixel);			
-        //    if (nextcol.r > 0.0f) {
-        //        continue;
-        //    }
-        //
-        //    int geo_index = imageAtomicAdd(u_flagImg, ivec2(screenPos) + ivec2(0, ssbo.screenSpec.y), 0);
-        //    vec3 geo_worldpos = imageLoad(u_geoImg, getGeoTexCoord(geo_index, WORLD_POS_OFF)).xyz;
-        //    vec2 geo_normal = imageLoad(u_geoImg, getGeoTexCoord(geo_index, MOMENTUM_OFF)).xy;
-        //
-        //    vec3 dir_geo_out = airWorldPos - geo_worldpos;
-        //    if (dot(dir_geo_out.xy, geo_normal) < 0) {
-        //        continue;
-        //    }
-        //}
-        //
-        //if (col.g > 0.0f) {
-        //    continue; // merge!!!
-        //}
-
-        airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
-        airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);
+        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
+        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);
     }        
 }

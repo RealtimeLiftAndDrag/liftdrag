@@ -21,74 +21,92 @@ struct AirPixel {
 
 const int k_invocCount = 1024;
 
-// Uniforms --------------------------------------------------------------------
+const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
-uniform int u_swap;
+const float k_greenVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
+
+// Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
 layout (binding = 3, r32i) uniform iimage2D u_flagImg;
 layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
 layout (binding = 0, std430) restrict buffer SSBO {
-    int geoCount;
-    int airCount[2];
-    int _0; // padding
-    ivec2 screenSize;
-    vec2 screenAspectFactor;
-    ivec4 momentum;
-    ivec4 force;
-    ivec4 dragForce;
-    ivec4 dragMomentum;
-} ssbo;
+    int u_swap;
+    int u_geoCount;
+    int u_airCount[2];
+    ivec2 u_screenSize;
+    vec2 u_screenAspectFactor;
+    ivec4 u_momentum;
+    ivec4 u_force;
+    ivec4 u_dragForce;
+    ivec4 u_dragMomentum;
+};
 
 // Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason
 layout (binding = 1, std430) buffer GeoPixels { // TODO: should be restrict?
-    GeoPixel geoPixels[];
+    GeoPixel u_geoPixels[];
 };
 layout (binding = 2, std430) buffer AirPixels { // TODO: should be restrict?
-    AirPixel airPixels[];
+    AirPixel u_airPixels[];
 };
 layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
-    int airGeoMap[];
+    int u_airGeoMap[];
 };
 
 // Functions -------------------------------------------------------------------
 
 vec2 worldToScreen(vec3 world) {
     vec2 screenPos = world.xy;
-    screenPos *= ssbo.screenAspectFactor; // compensate for aspect ratio
+    screenPos *= u_screenAspectFactor; // compensate for aspect ratio
     screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= vec2(ssbo.screenSize); // scale to texture space
+    screenPos *= vec2(u_screenSize); // scale to texture space
     return screenPos;
 }
 
 void main() {
+    int counterSwap = 1 - u_swap;
+
     int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (ssbo.airCount[u_swap] + k_invocCount - 1) / k_invocCount;
+    int invocWorkload = (u_airCount[counterSwap] + k_invocCount - 1) / k_invocCount;
     for (int ii = 0; ii < invocWorkload; ++ii) {
 
-        int airI = invocI + (k_invocCount * ii);
-        if (airI >= ssbo.airCount[u_swap]) {
+        int prevAirI = invocI + (k_invocCount * ii);
+        if (prevAirI >= u_airCount[counterSwap]) {
             return;
         }
 
-        vec3 worldPos = airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos.xyz;
-        vec3 velocity = airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity.xyz;
+        vec3 worldPos = u_airPixels[prevAirI + counterSwap * MAX_AIR_PIXELS].worldPos.xyz;
+        vec3 velocity = u_airPixels[prevAirI + counterSwap * MAX_AIR_PIXELS].velocity.xyz;
         
         ivec2 texCoord = ivec2(worldToScreen(worldPos));
         ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z, worldPos.y, 0)));
+
+        // Check if in texture
+        if (texCoord.x < 0 || texCoord.y < 0 || texCoord.x >= u_screenSize.x || texCoord.y >= u_screenSize.y) {
+            continue;
+        }
+        
+        // Move to current air pixel buffer
+        int airI = atomicAdd(u_airCount[u_swap], 1);
+        if (airI >= MAX_AIR_PIXELS) {
+            return;
+        }
+        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(worldPos, 0.0f);
+        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(velocity, 0.0f);
+        u_airGeoMap[airI] = 0; // This air pixel is not yet associated with any geometry
+
+        // Store air index
+        imageAtomicExchange(u_flagImg, texCoord, airI + 1);
         
         // Draw to front view
         vec4 color = imageLoad(u_fboImg, texCoord);
-        color.g = 1.0f;
+        color.g = k_greenVal;
         imageStore(u_fboImg, texCoord, color);
 
         // Draw to side view
         color = imageLoad(u_sideImg, sideTexCoord);
-        color.g = 1.0f;
+        color.g = k_greenVal;
         imageStore(u_sideImg, sideTexCoord, color);
-
-        // Store air index
-        imageAtomicExchange(u_flagImg, texCoord, airI + 1);
     }        
 }

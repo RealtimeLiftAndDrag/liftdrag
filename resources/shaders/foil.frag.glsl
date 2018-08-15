@@ -29,51 +29,54 @@ layout (location = 2) out vec4 out_norm;
 
 // Constants -------------------------------------------------------------------
 
+const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
+
+const float k_redVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
+
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 3, r32i) uniform coherent volatile iimage2D u_flagImg;
 layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
 layout (binding = 0, std430) restrict buffer SSBO {
-    coherent volatile int geoCount;
-    coherent volatile int airCount[2];
-    int _0; // padding
-    ivec2 screenSize;
-    vec2 screenAspectFactor;
-    ivec4 momentum;
-    ivec4 force;
-    ivec4 dragForce;
-    ivec4 dragMomentum;
-} ssbo;
+    int u_swap;
+    int u_geoCount;
+    int u_airCount[2];
+    ivec2 u_screenSize;
+    vec2 u_screenAspectFactor;
+    ivec4 u_momentum;
+    ivec4 u_force;
+    ivec4 u_dragForce;
+    ivec4 u_dragMomentum;
+};
 
 // Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason
 layout (binding = 1, std430) buffer GeoPixels { // TODO: should be restrict?
-    GeoPixel geoPixels[];
+    GeoPixel u_geoPixels[];
 };
 layout (binding = 2, std430) buffer AirPixels { // TODO: should be restrict?
-    AirPixel airPixels[];
+    AirPixel u_airPixels[];
 };
 layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
-    int airGeoMap[];
+    int u_airGeoMap[];
 };
 
 // Functions -------------------------------------------------------------------
 
 vec2 worldToScreen(vec3 world) {
     vec2 screenPos = world.xy;
-    screenPos *= ssbo.screenAspectFactor; // compensate for aspect ratio
+    screenPos *= u_screenAspectFactor; // compensate for aspect ratio
     screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= vec2(ssbo.screenSize); // scale to texture space
+    screenPos *= vec2(u_screenSize); // scale to texture space
     return screenPos;
 }
 
 void main() {
-    out_color = vec4(0.33f, 0.0f, 0.0f, 0.0f);
+    out_color = vec4(k_redVal, 0.0f, 0.0f, 0.0f);
 
     out_pos = vec4(in_pos, 0.0f);
     out_norm = vec4(in_norm, 0.0f);
             
     // Side View
     vec2 sideTexPos = worldToScreen(vec3(-in_pos.z, in_pos.y, 0));
-    imageStore(u_sideImg, ivec2(sideTexPos), vec4(0.33f, 0.0f, 0.0f, 0.0f));
+    imageStore(u_sideImg, ivec2(sideTexPos), vec4(k_redVal, 0.0f, 0.0f, 0.0f));
 }

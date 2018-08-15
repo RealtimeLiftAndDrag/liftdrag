@@ -37,47 +37,25 @@ namespace Simulation {
     };
 
     struct SSBO {
-
+        s32 swap;
         s32 geoCount;
         s32 airCount[2];
-        s32 _0; // padding
         ivec2 screenSize;
         vec2 screenAspectFactor;
         ivec4 momentum;
         ivec4 force;
         ivec4 dragForce;
         ivec4 dragMomentum;
-
-        SSBO() :
-            geoCount(0),
-            airCount{},
-            screenSize(),
-            screenAspectFactor(),
-            momentum(),
-            force(),
-            dragForce(),
-            dragMomentum()
-        {}
-
-        void reset(int swap) {
-            geoCount = 0;
-            airCount[swap] = 0;
-            force = ivec4();
-            momentum = ivec4();
-            dragForce = ivec4();
-            dragMomentum = ivec4();
-        }
-
     };
 
 
 
     static std::shared_ptr<Shape> s_shape;
-    static s32 s_swap(0);
     static int s_currentSlice(0); // slice index [0, k_nSlices)
     static float s_angleOfAttack(0.0f); // IN DEGREES
     static vec3 s_sweepLift; // accumulating lift force for entire sweep
     static float s_sweepDrag; // accumulating drag force for entire sweep
+    static int s_swap;
 
     static std::shared_ptr<Program> s_foilProg, s_fbProg;
 
@@ -99,15 +77,9 @@ namespace Simulation {
     static uint s_sideTex;
 
     static uint prospectProg;
-
     static uint outlineProg;
-    static uint outlineSwapUniform;
-
     static uint moveProg;
-    static uint moveSwapUniform;
-
     static uint drawProg;
-    static uint drawSwapUniform;
 
 
 
@@ -195,21 +167,18 @@ namespace Simulation {
             std::cerr << "Failed to load outline shader" << std::endl;
             return false;
         }
-        outlineSwapUniform = glGetUniformLocation(outlineProg, "u_swap");
     
         // Move Compute Shader
         if (!(moveProg = loadShader(shadersDir + "/sim_move.comp.glsl"))) {
             std::cerr << "Failed to load move shader" << std::endl;
             return false;
         }
-        moveSwapUniform = glGetUniformLocation(moveProg, "u_swap");
     
         // Draw Compute Shader
         if (!(drawProg = loadShader(shadersDir + "/sim_draw.comp.glsl"))) {
             std::cerr << "Failed to load draw shader" << std::endl;
             return false;
         }
-        drawSwapUniform = glGetUniformLocation(drawProg, "u_swap");
 
         return true;
     }
@@ -263,7 +232,7 @@ namespace Simulation {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         // NULL means reserve texture memory, but texels are undefined
         // Tell OpenGL to reserve level 0
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         // You must reserve memory for other mipmaps levels as well either by making a series of calls to
         // glTexImage2D or use glGenerateMipmapEXT(GL_TEXTURE_2D).
         // Here, we'll use :
@@ -336,50 +305,25 @@ namespace Simulation {
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all     
     }
 
-    static void computeOutline(int swap) {
+    static void computeOutline() {
         glUseProgram(outlineProg);
-
-        glUniform1i(outlineSwapUniform, swap);
 
         glDispatchCompute(1024, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
-    static void computeMove(int swap) {
+    static void computeMove() {
         glUseProgram(moveProg);
-
-        glUniform1i(moveSwapUniform, swap);
 
         glDispatchCompute(1024, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all  
     }
 
-    static void computeDraw(int swap) {
+    static void computeDraw() {
         glUseProgram(drawProg);
-
-        glUniform1i(drawSwapUniform, swap);
     
         glDispatchCompute(1024, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
-    }
-
-    static void downloadSSBO() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
-        void * p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-        std::memcpy(&s_ssboLocal, p, sizeof(SSBO));
-        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    }
-
-    static void uploadSSBO() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssboLocal, GL_DYNAMIC_COPY);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    }
-
-    static void clearFlagTex() {
-        int clearVal(0);
-        glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearVal);
     }
 
     static void renderGeometry() {
@@ -436,6 +380,30 @@ namespace Simulation {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         //glBindTexture(GL_TEXTURE_2D, FBOtex);
         //glGenerateMipmap(GL_TEXTURE_2D);
+    }
+
+    static void downloadSSBO() {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
+        void * p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+        std::memcpy(&s_ssboLocal, p, sizeof(SSBO));
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    }
+
+    static void uploadSSBO() {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssboLocal, GL_DYNAMIC_COPY);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    }
+
+    static void clearFlagTex() {
+        int clearVal(0);
+        glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearVal);
+    }
+
+    static void clearSideTex() {
+        u08 clearVal[4]{};
+        glClearTexImage(s_sideTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearVal);
     }
 
 
@@ -551,30 +519,34 @@ namespace Simulation {
         glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,    GL_R32I);
         glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,   GL_RGBA8);
 
+        // Reset for new sweep
         if (s_currentSlice == 0) {
-            uint clearColor[4]{};
-            glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearColor);
-            glClearTexImage(s_sideTex, 0, GL_RGBA, GL_FLOAT, &clearColor);
-            s_ssboLocal.reset(0);
-            s_ssboLocal.reset(1);
-            s_sweepLift = vec3();
-            s_sweepDrag = 0.0f;
-            s_swap = 0;
+            clearSideTex();
+            s_ssboLocal.airCount[1] = 0;
+            s_ssboLocal.force = ivec4();
+            s_ssboLocal.momentum = ivec4();
+            s_ssboLocal.dragForce = ivec4();
+            s_ssboLocal.dragMomentum = ivec4();
+            s_swap = 1;
         }
         
-        s_ssboLocal.reset(s_swap);
+        s_swap = 1 - s_swap;
+
+        s_ssboLocal.swap = s_swap;
+        s_ssboLocal.geoCount = 0;
+        s_ssboLocal.airCount[s_swap] = 0;
         uploadSSBO();
-        renderGeometry();
-        computeProspect();
+
+        renderGeometry(); // Render geometry to fbo
+        computeProspect(); // Scan fbo and generate geo pixels
         clearFlagTex();
-        computeDraw(!s_swap);
-        computeOutline(s_swap);
-        computeMove(s_swap);
+        computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
+        computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
+        computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
+
         downloadSSBO();
         s_sweepLift += vec3(s_ssboLocal.force) * 1.0e-6f;
         s_sweepDrag += float(s_ssboLocal.dragForce.x) * 1.0e-6f;
-
-        s_swap = 1 - s_swap; // set next slice to current slice
 
         if (++s_currentSlice >= k_nSlices) {
             s_currentSlice = 0;

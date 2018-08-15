@@ -28,26 +28,26 @@ layout (binding = 1, rgba32f) uniform image2D u_fboPosImg;
 layout (binding = 2, rgba32f) uniform image2D u_fboNormImg;
 
 layout (binding = 0, std430) restrict buffer SSBO {
-    coherent int geoCount;
-    int airCount[2];
-    int _0; // padding
-    ivec2 screenSize;
-    vec2 screenAspectFactor;
-    ivec4 momentum;
-    ivec4 force;
-    ivec4 dragForce;
-    ivec4 dragMomentum;
-} ssbo;
+    int u_swap;
+    coherent int u_geoCount;
+    int u_airCount[2];
+    ivec2 u_screenSize;
+    vec2 u_screenAspectFactor;
+    ivec4 u_momentum;
+    ivec4 u_force;
+    ivec4 u_dragForce;
+    ivec4 u_dragMomentum;
+};
 
 // Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason
 layout (binding = 1, std430) buffer GeoPixels { // TODO: should be restrict?
-    GeoPixel geoPixels[];
+    GeoPixel u_geoPixels[];
 };
 layout (binding = 2, std430) buffer AirPixels { // TODO: should be restrict?
-    AirPixel airPixels[];
+    AirPixel u_airPixels[];
 };
 layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
-    int airGeoMap[];
+    int u_airGeoMap[];
 };
 
 ivec2 getPixelDelta(vec2 dir) {
@@ -65,7 +65,7 @@ ivec2 getPixelDelta(vec2 dir) {
 
 void main() {
     ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
-    if (texCoord.x >= ssbo.screenSize.x || texCoord.y >= ssbo.screenSize.y) {
+    if (texCoord.x >= u_screenSize.x || texCoord.y >= u_screenSize.y) {
         return;
     }
 
@@ -83,11 +83,11 @@ void main() {
         return;
     }
 
-    int geoI = atomicAdd(ssbo.geoCount, 1);
+    int geoI = atomicAdd(u_geoCount, 1);
     if (geoI >= MAX_GEO_PIXELS) {
         return;
     }
 
-    geoPixels[geoI].worldPos = geoWorldPos;
-    geoPixels[geoI].normal = geoNormal;
+    u_geoPixels[geoI].worldPos = geoWorldPos;
+    u_geoPixels[geoI].normal = geoNormal;
 }
