@@ -4,5 +4,4 @@
 
 /.vs
 /x64
-*.filters
-*.user
+*.vcxproj.user
