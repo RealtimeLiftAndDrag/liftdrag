@@ -3,6 +3,10 @@
 #define MAX_GEO_PIXELS 32768
 #define MAX_AIR_PIXELS 32768
 
+#define MAX_GEO_PER_AIR 3
+
+
+
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
@@ -15,6 +19,11 @@ struct GeoPixel {
 struct AirPixel {
     vec4 worldPos;
     vec4 velocity;
+};
+
+struct AirGeoMapElement {
+    int geoCount;
+    int geoIndices[MAX_GEO_PER_AIR];
 };
 
 // Constants -------------------------------------------------------------------
@@ -35,7 +44,7 @@ layout (binding = 4, rgba8) uniform image2D u_sideImg;
 layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;
     int u_geoCount;
-    coherent int u_airCount[2];
+    coherent int u_airCount[2]; // TODO: does this need to be coherent?
     ivec2 u_screenSize;
     vec2 u_screenAspectFactor;
     float u_sliceSize;
@@ -56,7 +65,7 @@ layout (binding = 2, std430) buffer AirPixels { // TODO: should be restrict?
     AirPixel u_airPixels[];
 };
 layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
-    int u_airGeoMap[];
+    coherent AirGeoMapElement u_airGeoMap[]; // TODO: does this need to be coherent?
 };
 
 // Functions -------------------------------------------------------------------
@@ -98,7 +107,12 @@ void main() {
                     continue;
                 }
                 --airI;
-                u_airGeoMap[airI] = geoI + 1;
+
+                int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
+                if (mapI >= MAX_GEO_PER_AIR) {
+                    continue;
+                }
+                u_airGeoMap[airI].geoIndices[mapI] = geoI;
 
                 shouldSpawn = false;   
                 break;
@@ -113,7 +127,9 @@ void main() {
             if (airI >= MAX_AIR_PIXELS) {
                 continue;
             }
-            u_airGeoMap[airI] = geoI + 1;
+
+            u_airGeoMap[airI].geoCount = 1;
+            u_airGeoMap[airI].geoIndices[0] = geoI;
 
             vec3 airWorldPos = geoWorldPos;
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);

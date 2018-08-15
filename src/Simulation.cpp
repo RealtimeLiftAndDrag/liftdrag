@@ -26,6 +26,8 @@ namespace Simulation {
     static constexpr int k_maxGeoPixels = 32768; // 1 MB worth, must also change in shaders
     static constexpr int k_maxAirPixels = 32768; // 1 MB worth, must also change in shaders
 
+    static constexpr int k_maxGeoPerAir = 3; // Maximum number of different geo pixels that an air pixel can be associated with
+
 
 
     struct GeoPixel {
@@ -36,6 +38,11 @@ namespace Simulation {
     struct AirPixel {
         vec4 worldPos;
         vec4 velocity;
+    };
+
+    struct AirGeoMapElement {
+        s32 geoCount;
+        s32 geoIndices[k_maxGeoPerAir];
     };
 
     struct SSBO {
@@ -477,7 +484,7 @@ namespace Simulation {
         glGenBuffers(1, &s_airGeoMapSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airGeoMapSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airGeoMapSSBO);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * sizeof(s32), nullptr, GL_DYNAMIC_COPY);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * sizeof(AirGeoMapElement), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;

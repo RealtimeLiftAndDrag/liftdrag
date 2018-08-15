@@ -3,6 +3,10 @@
 #define MAX_GEO_PIXELS 32768
 #define MAX_AIR_PIXELS 32768
 
+#define MAX_GEO_PER_AIR 3
+
+
+
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
@@ -15,6 +19,11 @@ struct GeoPixel {
 struct AirPixel {
     vec4 worldPos;
     vec4 velocity;
+};
+
+struct AirGeoMapElement {
+    int geoCount;
+    int geoIndices[MAX_GEO_PER_AIR];
 };
 
 // Constants -------------------------------------------------------------------
@@ -55,7 +64,7 @@ layout (binding = 2, std430) buffer AirPixels { // TODO: should be restrict?
     AirPixel u_airPixels[];
 };
 layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
-    int u_airGeoMap[];
+    AirGeoMapElement u_airGeoMap[];
 };
 
 // Functions -------------------------------------------------------------------
@@ -103,7 +112,7 @@ void main() {
         }
         u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(worldPos, 0.0f);
         u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(velocity, 0.0f);
-        u_airGeoMap[airI] = 0; // This air pixel is not yet associated with any geometry
+        u_airGeoMap[airI].geoCount = 0; // This air pixel is not yet associated with any geometry
 
         // Store air index
         imageAtomicExchange(u_flagImg, texCoord, airI + 1);

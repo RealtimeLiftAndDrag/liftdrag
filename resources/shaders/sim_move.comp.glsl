@@ -3,6 +3,10 @@
 #define MAX_GEO_PIXELS 32768
 #define MAX_AIR_PIXELS 32768
 
+#define MAX_GEO_PER_AIR 3
+
+
+
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
@@ -15,6 +19,11 @@ struct GeoPixel {
 struct AirPixel {
     vec4 worldPos;
     vec4 velocity;
+};
+
+struct AirGeoMapElement {
+    int geoCount;
+    int geoIndices[MAX_GEO_PER_AIR];
 };
 
 // Constants -------------------------------------------------------------------
@@ -52,7 +61,7 @@ layout (binding = 2, std430) buffer AirPixels { // TODO: should be restrict?
     AirPixel u_airPixels[];
 };
 layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
-    int u_airGeoMap[];
+    AirGeoMapElement u_airGeoMap[];
 };
 
 // Functions -------------------------------------------------------------------
@@ -83,11 +92,15 @@ void main() {
         vec3 airVelocity = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity.xyz;
 
         // Calculate backforce
-        vec2 backForce;
+        vec2 backForce = vec2(0.0f);
+        float lift = 0.0f;
+        float drag = 0.0f;
 
-        int geoI = u_airGeoMap[airI];
-        if (geoI != 0) { // There is associated geometry
-            --geoI;
+        int geoCount = u_airGeoMap[airI].geoCount;
+        // For each associated geo pixel, update backforce, lift, and drag
+        // TODO: actually take multiple geo pixels into account
+        for (int mapI = 0; mapI < geoCount; ++mapI) {
+            int geoI = u_airGeoMap[airI].geoIndices[mapI];
 
             vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
@@ -125,9 +138,6 @@ void main() {
                 color.g = 1.0f;
                 imageStore(u_sideImg, sideTexCoord, color);
             }
-        }
-        else { // No associated geometry
-            backForce = vec2(0.0f);
         }
 
         // Update velocity

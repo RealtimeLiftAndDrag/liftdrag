@@ -4,7 +4,8 @@
 // Multiple geometry per air
 
 // TODO: must keep track of outline pixels
-// TODO: 
+// TODO: do we care about exact world position? could save a texture that way
+// TODO: can save normals as four 16 bit normalized ints
 
 
 // Allows program to be run on dedicated graphics processor for laptops with
