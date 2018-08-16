@@ -109,12 +109,14 @@ void GrlModel::loadSubModels(std::string filename)
                     float pos_y = stof(tokens.at(1));
                     float pos_z = stof(tokens.at(2));
 
-                    float nor_x = stof(tokens.at(3));
-                    float nor_y = stof(tokens.at(4));
-                    float nor_z = stof(tokens.at(5));
+					float tex_u = stof(tokens.at(3));
+					float tex_v = stof(tokens.at(4));
 
-                    float tex_u = stof(tokens.at(6));
-                    float tex_v = stof(tokens.at(7));
+                    float nor_x = stof(tokens.at(5));
+                    float nor_y = stof(tokens.at(6));
+                    float nor_z = stof(tokens.at(7));
+
+                    
 
                     curSubModel->posData.push_back(glm::vec3(pos_x, pos_y, pos_z));
                     curSubModel->norData.push_back(glm::vec3(nor_x, nor_y, nor_z));
