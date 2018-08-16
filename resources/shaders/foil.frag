@@ -54,7 +54,7 @@ void main() {
     out_color = vec4(k_redVal, 0.0f, 0.0f, 0.0f);
 
     out_pos = vec4(in_pos, 0.0f);
-    out_norm = vec4(in_norm, 0.0f);
+    out_norm = vec4(normalize(in_norm), 0.0f);
             
     // Side View
     vec2 sideTexPos = worldToScreen(vec3(-in_pos.z, in_pos.y, 0));

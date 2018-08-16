@@ -16,7 +16,7 @@
 
 namespace Simulation {
 
-    static constexpr bool k_doF18(false); // Enables or disables using the F18
+    static constexpr bool k_doF18(true); // Enables or disables using the F18
 
     static constexpr int k_width(720), k_height(480);
     static constexpr int k_nSlices(k_doF18 ? 120 : 50);
