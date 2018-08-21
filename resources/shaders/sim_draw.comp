@@ -19,6 +19,7 @@ struct GeoPixel {
 struct AirPixel {
     vec4 worldPos;
     vec4 velocity;
+    vec4 backForce;
 };
 
 struct AirGeoMapElement {
@@ -90,7 +91,6 @@ void main() {
         }
 
         vec3 worldPos = u_airPixels[prevAirI + counterSwap * MAX_AIR_PIXELS].worldPos.xyz;
-        vec3 velocity = u_airPixels[prevAirI + counterSwap * MAX_AIR_PIXELS].velocity.xyz;
         
         ivec2 texCoord = ivec2(worldToScreen(worldPos));
         ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z, worldPos.y, 0)));
@@ -110,8 +110,7 @@ void main() {
         if (airI >= MAX_AIR_PIXELS) {
             return;
         }
-        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(worldPos, 0.0f);
-        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(velocity, 0.0f);
+        u_airPixels[airI + u_swap * MAX_AIR_PIXELS] = u_airPixels[prevAirI + counterSwap * MAX_AIR_PIXELS];
         u_airGeoMap[airI].geoCount = 0; // This air pixel is not yet associated with any geometry
 
         // Store air index

@@ -19,6 +19,7 @@ struct GeoPixel {
 struct AirPixel {
     vec4 worldPos;
     vec4 velocity;
+    vec4 backForce;
 };
 
 struct AirGeoMapElement {
@@ -99,46 +100,52 @@ void main() {
         int geoCount = u_airGeoMap[airI].geoCount;
         // For each associated geo pixel, update backforce, lift, and drag
         // TODO: actually take multiple geo pixels into account
-        for (int mapI = 0; mapI < geoCount; ++mapI) {
-            int geoI = u_airGeoMap[airI].geoIndices[mapI];
+        if (geoCount > 0) {
+            for (int mapI = 0; mapI < geoCount; ++mapI) {
+                int geoI = u_airGeoMap[airI].geoIndices[mapI];
 
-            vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
-            vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-            float dist = distance(airWorldPos.xy, geoWorldPos.xy);
-            backForce = normalize(-geoNormal.xy) * dist;
-            backForce *= 4.0f;
+                vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
+                vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
+                float dist = distance(airWorldPos.xy, geoWorldPos.xy);
+                backForce = normalize(-geoNormal.xy) * dist;
+                backForce *= 4.0f;
 
-            //float force = length(backforceDir);
-            //backforceDir=normalize(backforceDir);
-            //force=pow(force-0.08,0.7);
-            //if(force<0)force=0;
+                //float force = length(backforceDir);
+                //backforceDir=normalize(backforceDir);
+                //force=pow(force-0.08,0.7);
+                //if(force<0)force=0;
                 
-            // Calculate lift     
-            float liftForce = backForce.y * 0.005f; // TODO: currently linear			  
-            atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
+                // Calculate lift     
+                float liftForce = backForce.y * 0.005f; // TODO: currently linear			  
+                atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
 
-            // Calculate drag
-            float massDensity = 1.0f;
-            float flowVelocity = 1.0f;
-            float area = screenToWorldDir(vec2(1.0f, 0.0f)).x;
-            area = area * area;
-            float dragC = 1.0f;
-            float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
-            dragForce *= 100.0f;
-            atomicAdd(u_dragForce.x, int(round(dragForce * 1.0e6f)));
+                // Calculate drag
+                float massDensity = 1.0f;
+                float flowVelocity = 1.0f;
+                float area = screenToWorldDir(vec2(1.0f, 0.0f)).x;
+                area = area * area;
+                float dragC = 1.0f;
+                float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
+                dragForce *= 100.0f;
+                atomicAdd(u_dragForce.x, int(round(dragForce * 1.0e6f)));
 
-            // Color active air pixels more brightly
-            if (k_distinguishActivePixels) {
-                ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
-                vec4 color = imageLoad(u_fboImg, texCoord);
-                color.g = 1.0f;
-                imageStore(u_fboImg, texCoord, color);
+                // Color active air pixels more brightly
+                if (k_distinguishActivePixels) {
+                    ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
+                    vec4 color = imageLoad(u_fboImg, texCoord);
+                    color.g = 1.0f;
+                    imageStore(u_fboImg, texCoord, color);
 
-                ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z, airWorldPos.y, 0)));
-                color = imageLoad(u_sideImg, sideTexCoord);
-                color.g = 1.0f;
-                imageStore(u_sideImg, sideTexCoord, color);
+                    ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z, airWorldPos.y, 0)));
+                    color = imageLoad(u_sideImg, sideTexCoord);
+                    color.g = 1.0f;
+                    imageStore(u_sideImg, sideTexCoord, color);
+                }
             }
+        }
+        else {
+            // TODO: diminish back force in some way
+            backForce = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce.xy;
         }
 
         // Update velocity
@@ -152,5 +159,6 @@ void main() {
 
         u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
         u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);
+        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce = vec4(backForce, 0.0f, 0.0f);
     }        
 }

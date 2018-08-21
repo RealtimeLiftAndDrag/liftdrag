@@ -15,7 +15,7 @@
 
 namespace Simulation {
 
-    static constexpr bool k_doF18(true); // Enables or disables using the F18
+    static constexpr bool k_doF18(false); // Enables or disables using the F18
 
     static constexpr int k_width(720), k_height(480);
     static constexpr int k_nSlices(k_doF18 ? 120 : 50);
@@ -38,6 +38,7 @@ namespace Simulation {
     struct AirPixel {
         vec4 worldPos;
         vec4 velocity;
+        vec4 backForce;
     };
 
     struct AirGeoMapElement {
@@ -231,7 +232,7 @@ namespace Simulation {
             s_model = Model::load(modelsDir + "/f18.grl");
         }
         else {
-            s_model = Model::load(modelsDir + "/0012.obj");
+            s_model = Model::load(modelsDir + "/sphere.obj");
         }
         if (!s_model) {
             std::cerr << "Failed to load model" << std::endl;
@@ -407,8 +408,9 @@ namespace Simulation {
             normalMat = glm::transpose(glm::inverse(modelMat));
         }
         else {
-            modelMat = glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
-            modelMat = glm::translate(modelMat, vec3(0.0f, 0.0f, 0.5f));
+            //modelMat = glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+            //modelMat = glm::translate(modelMat, vec3(0.0f, 0.0f, 0.5f));
+            modelMat = glm::scale(mat4(), vec3(0.5f));
             normalMat = glm::transpose(glm::inverse(glm::mat3(modelMat)));
 
         }

@@ -19,6 +19,7 @@ struct GeoPixel {
 struct AirPixel {
     vec4 worldPos;
     vec4 velocity;
+    vec4 backForce;
 };
 
 struct AirGeoMapElement {
@@ -30,9 +31,13 @@ struct AirGeoMapElement {
 
 const int k_invocCount = 1024;
 
-const int k_maxSteps = 50;
+const float k_maxSearchDist = 0.1f; // In world space
+
+const bool k_doLineSearch = false;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
+
+const float k_greenVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
 
 // Uniforms --------------------------------------------------------------------
@@ -78,6 +83,10 @@ vec2 worldToScreen(vec3 world) {
     return screenPos;
 }
 
+float screenToWorldDist(float screenDist) {
+    return screenDist / (float(min(u_screenSize.x, u_screenSize.y)) * 0.5f);
+}
+
 void main() {
     int invocI = int(gl_GlobalInvocationID.x);
     int invocWorkload = (u_geoCount + k_invocCount - 1) / k_invocCount;    
@@ -98,11 +107,13 @@ void main() {
 
         // Look for existing air pixel
         vec2 screenPos = vec2(geoTexCoord) + 0.5f;
+        ivec2 pixel = ivec2(screenPos);
         vec2 screenDir = normalize(geoNormal.xy);
-        for (int steps = 0; steps < k_maxSteps; ++steps) {
-            vec4 color = imageLoad(u_fboImg, ivec2(screenPos));
+        float totalDist = 0.0f;
+        while (totalDist < k_maxSearchDist) {
+            vec4 color = imageLoad(u_fboImg, pixel);
             if (color.g != 0.0f) { // we found an air pixel
-                int airI = imageLoad(u_flagImg, ivec2(screenPos)).x;               
+                int airI = imageLoad(u_flagImg, pixel).x;               
                 if (airI == 0) { // TODO: this should not be necessary, just here for sanity
                     continue;
                 }
@@ -117,8 +128,28 @@ void main() {
                 shouldSpawn = false;   
                 break;
             }
+            imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
             
-            screenPos += screenDir;
+            if (k_doLineSearch) {
+                // TODO: optimize
+                vec2 corner = step(vec2(0.0f), screenDir); // TODO: can be moved out
+                vec2 delta = corner - (screenPos - vec2(pixel));
+                vec2 dist = delta / screenDir;
+                if (dist.x < dist.y) {
+                    screenPos += screenDir * dist.x;
+                    pixel.x += int(sign(screenDir.x));
+                    totalDist += screenToWorldDist(dist.x);
+                }
+                else {
+                    screenPos += screenDir * dist.y;
+                    pixel.y += int(sign(screenDir.y));
+                    totalDist += screenToWorldDist(dist.y);
+                }
+            }
+            else {
+                screenPos += screenDir;
+                totalDist += screenToWorldDist(1.0f);
+            }
         }
     
         // Make a new air pixel
@@ -137,10 +168,11 @@ void main() {
 
             u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
             u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);
+            u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce = vec4(0.0f);
 
             // Draw to fbo to avoid another draw later
             vec4 color = imageLoad(u_fboImg, geoTexCoord);
-            color.g = 0.33f;
+            color.g = k_greenVal;
             imageStore(u_fboImg, geoTexCoord, color);
         }
 
