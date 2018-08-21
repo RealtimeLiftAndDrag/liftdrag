@@ -140,23 +140,25 @@
     <ClCompile Include="src\glad.c" />
     <ClCompile Include="src\GLSL.cpp" />
     <ClCompile Include="src\Graph.cpp" />
-    <ClCompile Include="src\GrlModel.cpp" />
+    <ClCompile Include="src\GRLLoader.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Model.cpp" />
     <ClCompile Include="src\Program.cpp" />
     <ClCompile Include="src\Results.cpp" />
-    <ClCompile Include="src\Shape.cpp" />
     <ClCompile Include="src\SideView.cpp" />
     <ClCompile Include="src\Simulation.cpp" />
     <ClCompile Include="src\stb_image.cpp" />
     <ClCompile Include="src\Text.cpp" />
+    <ClCompile Include="src\tiny_obj_loader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Global.hpp" />
     <ClInclude Include="src\GLSL.h" />
     <ClInclude Include="src\Graph.hpp" />
-    <ClInclude Include="src\GrlModel.hpp" />
+    <ClInclude Include="src\GRLLoader.hpp" />
+    <ClInclude Include="src\Model.hpp" />
     <ClInclude Include="src\Program.h" />
     <ClInclude Include="src\Results.hpp" />
-    <ClInclude Include="src\Shape.h" />
     <ClInclude Include="src\SideView.hpp" />
     <ClInclude Include="src\Simulation.hpp" />
     <ClInclude Include="src\Text.hpp" />

@@ -5,18 +5,17 @@
 
 #include "glad/glad.h"
 #include "Program.h"
-#include "Shape.h"
-#include "GrlModel.hpp"
 #include "GLSL.h"
 #include "glm/gtc/matrix_transform.hpp"
 
 #include "Util.hpp"
+#include "Model.hpp"
 
 
 
 namespace Simulation {
 
-    static constexpr bool k_doF18(true); // Enables or disables using the F18
+    static constexpr bool k_doF18(false); // Enables or disables using the F18
 
     static constexpr int k_width(720), k_height(480);
     static constexpr int k_nSlices(k_doF18 ? 120 : 50);
@@ -89,8 +88,7 @@ namespace Simulation {
 
 
 
-    static std::shared_ptr<Shape> s_shape;
-    static std::shared_ptr<GrlModel> s_f18Model;
+    static std::unique_ptr<Model> s_model;
     static int s_currentSlice(0); // slice index [0, k_nSlices)
     static float s_angleOfAttack(0.0f); // IN DEGREES
     static float s_rudderAngle(0.0f); // IN DEGREES
@@ -183,7 +181,7 @@ namespace Simulation {
         s_foilProg->addUniform("u_projMat");
         s_foilProg->addUniform("u_viewMat");
         s_foilProg->addUniform("u_modelMat");
-        s_foilProg->addUniform("u_normMat");
+        s_foilProg->addUniform("u_normalMat");
 
         // FB Shader
         s_fbProg = std::make_shared<Program>();
@@ -228,19 +226,18 @@ namespace Simulation {
 
 
     static bool setupGeom(const std::string & resourcesDir) {
+        std::string modelsDir(resourcesDir + "/models");
         if (k_doF18) {
-            std::string grlsDir = resourcesDir + "/grls";
-            s_f18Model = std::make_shared<GrlModel>();
-            s_f18Model->loadSubModels(grlsDir + "/f18.grl");
-            s_f18Model->init();
+            s_model = Model::load(modelsDir + "/f18.grl");
+        }
+        else {
+            s_model = Model::load(modelsDir + "/0012.obj");
+        }
+        if (!s_model) {
+            std::cerr << "Failed to load model" << std::endl;
+            return false;
         }
 
-        std::string objsDir = resourcesDir + "/objs";
-        // Initialize mesh.
-        s_shape = std::make_shared<Shape>();
-        s_shape->loadMesh(objsDir + "/0012.obj");
-        //shape->resize();
-        s_shape->init();
 
         glGenBuffers(1, &s_sideVBO);
 
@@ -376,34 +373,23 @@ namespace Simulation {
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
+    static void setF18Transforms() {
+        mat4 modelMat(glm::rotate(mat4(1), s_rudderAngle, vec3(0, 1, 0)));
+        mat3 normalMat(modelMat);
+        s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
+        s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
 
+        modelMat = glm::rotate(mat4(1), s_elevatorAngle, vec3(1, 0, 0));
+        normalMat = modelMat;
+        s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
+        s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
 
-    void drawf18Model(mat4 M = mat4(1)) {
-
-        mat4 rudderRotate = glm::rotate(mat4(1), s_rudderAngle, vec3(0, 1, 0));
-        mat4 elevatorRotate = glm::rotate(mat4(1), s_elevatorAngle, vec3(1, 0, 0));
-
-        s_f18Model->drawSubModel(s_foilProg, "RudderL01", M, rudderRotate);
-        s_f18Model->drawSubModel(s_foilProg, "RudderR01", M, rudderRotate);
-        s_f18Model->drawSubModel(s_foilProg, "ElevatorL01", M, elevatorRotate);
-        s_f18Model->drawSubModel(s_foilProg, "ElevatorR01", M, elevatorRotate);
-        s_f18Model->drawSubModel(s_foilProg, "AileronL01", M, glm::rotate(mat4(1), s_aileronAngle, vec3(1, 0, 0)));
-        s_f18Model->drawSubModel(s_foilProg, "AileronR01", M, glm::rotate(mat4(1), -s_aileronAngle, vec3(1, 0, 0)));
-
-        s_f18Model->drawSubModel(s_foilProg, "VoletR01", M);
-        s_f18Model->drawSubModel(s_foilProg, "Glass_Canopy", M);
-        s_f18Model->drawSubModel(s_foilProg, "Pilot", M);
-        s_f18Model->drawSubModel(s_foilProg, "Glass", M);
-        s_f18Model->drawSubModel(s_foilProg, "VoletL01", M);
-        s_f18Model->drawSubModel(s_foilProg, "LOD0", M);
-        s_f18Model->drawSubModel(s_foilProg, "Hook", M);
-        s_f18Model->drawSubModel(s_foilProg, "EngineR01", M);
-        s_f18Model->drawSubModel(s_foilProg, "FlapL01", M);
-        s_f18Model->drawSubModel(s_foilProg, "Eject_Seat", M);
-        s_f18Model->drawSubModel(s_foilProg, "FlapR01", M);
-        s_f18Model->drawSubModel(s_foilProg, "Glass_HUD", M);
-        s_f18Model->drawSubModel(s_foilProg, "EngineL01", M);
-        s_f18Model->drawSubModel(s_foilProg, "Canopy01", M);
+        modelMat = glm::rotate(mat4(1), s_aileronAngle, vec3(1, 0, 0));
+        normalMat = modelMat;
+        s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
+        modelMat = glm::rotate(mat4(1), -s_aileronAngle, vec3(1, 0, 0));
+        normalMat = modelMat;
+        s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);    
     }
 
     static void renderGeometry() {
@@ -429,29 +415,30 @@ namespace Simulation {
         glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&projMat));
 
         if (k_doF18) {
+            setF18Transforms();
+
             mat4 R_angleOfAttack = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
             mat4 T_back = glm::translate(mat4(), vec3(0.0f, 0.0f, -0.2f));
             mat4 S_uniform = glm::scale(mat4(), vec3(0.15f));
             mat4 R_frontFacing = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f));
 
-            mat4 modelMat = T_back * R_angleOfAttack * R_frontFacing * S_uniform;
+            mat4 modelMat(T_back * R_angleOfAttack * R_frontFacing * S_uniform);
+            mat3 normalMat(glm::transpose(glm::inverse(modelMat)));
+            
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            drawf18Model(modelMat);
+            s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            drawf18Model(modelMat);
+            s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
         }
         else {
             mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f)));
             modelMat = glm::translate(modelMat, vec3(0.0f, 0.0f, 0.5f));
-            glUniformMatrix4fv(s_foilProg->getUniform("u_modelMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&modelMat));
-
-            mat3 normMat(glm::transpose(glm::inverse(glm::mat3(modelMat))));
-            glUniformMatrix3fv(s_foilProg->getUniform("u_normMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&normMat));
+            mat3 normalMat(glm::transpose(glm::inverse(glm::mat3(modelMat))));
 
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            s_shape->draw(s_foilProg, false);
+            s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            s_shape->draw(s_foilProg, false);
+            s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
         }
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
