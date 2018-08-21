@@ -15,7 +15,7 @@
 
 namespace Simulation {
 
-    static constexpr bool k_doF18(false); // Enables or disables using the F18
+    static constexpr bool k_doF18(true); // Enables or disables using the F18
 
     static constexpr int k_width(720), k_height(480);
     static constexpr int k_nSlices(k_doF18 ? 120 : 50);
@@ -23,10 +23,10 @@ namespace Simulation {
     static constexpr float k_windSpeed(10.0f); // Speed of air in -z direction
     static constexpr float k_dt(k_sliceSize / k_windSpeed); // Delta time for each slice
 
-    static constexpr int k_maxGeoPixels = 32768; // 1 MB worth, must also change in shaders
-    static constexpr int k_maxAirPixels = 32768; // 1 MB worth, must also change in shaders
+    static constexpr int k_maxGeoPixels(32768); // 1 MB worth, must also change in shaders
+    static constexpr int k_maxAirPixels(32768); // 1 MB worth, must also change in shaders
 
-    static constexpr int k_maxGeoPerAir = 3; // Maximum number of different geo pixels that an air pixel can be associated with
+    static constexpr int k_maxGeoPerAir(3); // Maximum number of different geo pixels that an air pixel can be associated with
 
 
 
@@ -373,25 +373,6 @@ namespace Simulation {
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
-    static void setF18Transforms() {
-        mat4 modelMat(glm::rotate(mat4(1), s_rudderAngle, vec3(0, 1, 0)));
-        mat3 normalMat(modelMat);
-        s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
-        s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
-
-        modelMat = glm::rotate(mat4(1), s_elevatorAngle, vec3(1, 0, 0));
-        normalMat = modelMat;
-        s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
-        s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
-
-        modelMat = glm::rotate(mat4(1), s_aileronAngle, vec3(1, 0, 0));
-        normalMat = modelMat;
-        s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
-        modelMat = glm::rotate(mat4(1), -s_aileronAngle, vec3(1, 0, 0));
-        normalMat = modelMat;
-        s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);    
-    }
-
     static void renderGeometry() {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
 
@@ -414,32 +395,27 @@ namespace Simulation {
         ));        
         glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&projMat));
 
+        mat4 modelMat;
+        mat3 normalMat;
         if (k_doF18) {
-            setF18Transforms();
-
             mat4 R_angleOfAttack = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
             mat4 T_back = glm::translate(mat4(), vec3(0.0f, 0.0f, -0.2f));
             mat4 S_uniform = glm::scale(mat4(), vec3(0.15f));
             mat4 R_frontFacing = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f));
 
-            mat4 modelMat(T_back * R_angleOfAttack * R_frontFacing * S_uniform);
-            mat3 normalMat(glm::transpose(glm::inverse(modelMat)));
-            
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
+            modelMat = T_back * R_angleOfAttack * R_frontFacing * S_uniform;
+            normalMat = glm::transpose(glm::inverse(modelMat));
         }
         else {
-            mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f)));
+            modelMat = glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
             modelMat = glm::translate(modelMat, vec3(0.0f, 0.0f, 0.5f));
-            mat3 normalMat(glm::transpose(glm::inverse(glm::mat3(modelMat))));
+            normalMat = glm::transpose(glm::inverse(glm::mat3(modelMat)));
 
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
         }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
 
@@ -652,14 +628,32 @@ namespace Simulation {
 
     void setRudderAngle(float angle) {
         s_rudderAngle = angle;
+
+        mat4 modelMat(glm::rotate(mat4(1), s_rudderAngle, vec3(0, 1, 0)));
+        mat3 normalMat(modelMat);
+        s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
+        s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
     }
 
     void setElevatorAngle(float angle) {
         s_elevatorAngle = angle;
+        
+        mat4 modelMat(glm::rotate(mat4(1), s_elevatorAngle, vec3(1, 0, 0)));
+        mat3 normalMat(modelMat);
+        s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
+        s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
     }
 
     void setAileronAngle(float angle) {
         s_aileronAngle = angle;
+        
+        mat4 modelMat(glm::rotate(mat4(1), s_aileronAngle, vec3(1, 0, 0)));
+        mat3 normalMat(modelMat);
+        s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
+
+        modelMat = glm::rotate(mat4(1), -s_aileronAngle, vec3(1, 0, 0));
+        normalMat = modelMat;
+        s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);   
     }
 
     vec3 getLift() {
