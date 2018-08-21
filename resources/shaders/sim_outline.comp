@@ -31,7 +31,7 @@ struct AirGeoMapElement {
 
 const int k_invocCount = 1024;
 
-const float k_maxSearchDist = 0.1f; // In world space
+const float k_maxSearchDist = 0.2f; // In world space
 
 const bool k_doLineSearch = false;
 
@@ -148,6 +148,7 @@ void main() {
             }
             else {
                 screenPos += screenDir;
+                pixel = ivec2(screenPos);
                 totalDist += screenToWorldDist(1.0f);
             }
         }
