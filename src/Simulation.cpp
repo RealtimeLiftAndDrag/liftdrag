@@ -232,7 +232,7 @@ namespace Simulation {
             s_model = Model::load(modelsDir + "/f18.grl");
         }
         else {
-            s_model = Model::load(modelsDir + "/sphere.obj");
+            s_model = Model::load(modelsDir + "/0012.obj");
         }
         if (!s_model) {
             std::cerr << "Failed to load model" << std::endl;
@@ -363,7 +363,7 @@ namespace Simulation {
     static void computeMove() {
         glUseProgram(moveProg);
 
-        glDispatchCompute(1024, 1, 1);
+        glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all  
     }
 
@@ -408,9 +408,9 @@ namespace Simulation {
             normalMat = glm::transpose(glm::inverse(modelMat));
         }
         else {
-            //modelMat = glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
-            //modelMat = glm::translate(modelMat, vec3(0.0f, 0.0f, 0.5f));
-            modelMat = glm::scale(mat4(), vec3(0.5f));
+            modelMat = glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+            modelMat = glm::translate(modelMat, vec3(0.0f, 0.0f, 0.5f));
+            //modelMat = glm::scale(mat4(), vec3(0.5f));
             normalMat = glm::transpose(glm::inverse(glm::mat3(modelMat)));
 
         }

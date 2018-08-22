@@ -1,12 +1,6 @@
 ﻿// Realtime Lift and Drag SURP 2018
 // Christian Eckhart, William Newey, Austin Quick, Sebastian Seibert
 
-// TODO: Multiple geometry per air
-// TODO: air mergers
-// TODO: do we care about exact world position? could save a texture that way
-// TODO: can save normals as four 16 bit normalized ints
-// TODO: improve lift and drag accumulation
-
 
 // Allows program to be run on dedicated graphics processor for laptops with
 // both integrated and dedicated graphics using Nvidia Optimus
@@ -34,7 +28,7 @@ extern "C" {
 static const std::string k_defResourceDir("C:\\liftdrag\\resources\\");
 static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the angle of attack, rudder, elevator, and ailerons by when using arrow keys
 
-static constexpr float k_autoAngleIncrement(7.0f); // how many degrees to change the angle of attack by when auto progressing
+static constexpr float k_autoAngleIncrement(1.0f); // how many degrees to change the angle of attack by when auto progressing
 
 static constexpr float k_maxAngleOfAttack(90.0f);
 static constexpr float k_maxRudderAngle(90.0f);
@@ -310,7 +304,7 @@ int main(int argc, char ** argv) {
                 // That was the last slice
                 s_shouldSweep = false;
                 float angleOfAttack(Simulation::getAngleOfAttack());
-                vec3 lift(Simulation::getLift());
+                vec3 lift(Simulation::getLift() * 0.1f);
                 vec3 drag(Simulation::getDrag());
                 std::cout << "angle: " << angleOfAttack << ", lift: " << lift.x << ", drag: " << drag.x << std::endl;
                 printf("Animation Angles:\n\tRudder: %f\n\tElevator: %f\n\tAileron: %f\n",

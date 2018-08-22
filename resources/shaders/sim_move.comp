@@ -7,7 +7,7 @@
 
 
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 
@@ -28,14 +28,19 @@ struct AirGeoMapElement {
 };
 
 // Constants -------------------------------------------------------------------
-
-const int k_invocCount = 1024;
+const float AIRFACT = 1.0f;
+const float BACKFORCEFACT = 158.0f;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
+
+const float k_maxSearchDist = 0.2f; // In world space
+
+const bool k_doLineSearch = true;
 
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
+layout (binding = 3, r32i) uniform iimage2D u_flagImg;
 layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
 layout (binding = 0, std430) restrict buffer SSBO {
@@ -65,6 +70,10 @@ layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
     AirGeoMapElement u_airGeoMap[];
 };
 
+// Shared ----------------------------------------------------------------------
+
+//shared vec3 accumulationArray[1024];
+
 // Functions -------------------------------------------------------------------
 
 vec2 worldToScreen(vec3 world) {
@@ -79,15 +88,15 @@ vec2 screenToWorldDir(vec2 screenDir) {
     return screenDir / (float(min(u_screenSize.x, u_screenSize.y)) * 0.5f);
 }
 
+float screenToWorldDist(float screenDist) {
+    return screenDist / (float(min(u_screenSize.x, u_screenSize.y)) * 0.5f);
+}
+
 void main() {
-    int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (u_airCount[u_swap] + k_invocCount - 1) / k_invocCount;
-    for (int ii = 0; ii < invocWorkload; ++ii) {
-    
-        int airI = invocI + (k_invocCount * ii);
-        if (airI >= u_airCount[u_swap]) {
-            return;
-        }
+    int workI = int(gl_LocalInvocationIndex);
+    //accumulationArray[workI] = vec3(0.0f);
+
+    for (int airI = workI; airI < u_airCount[u_swap]; airI += 1024) {
 
         vec3 airWorldPos = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos.xyz;
         vec3 airVelocity = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity.xyz;
@@ -107,8 +116,8 @@ void main() {
                 vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
                 vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
                 float dist = distance(airWorldPos.xy, geoWorldPos.xy);
-                backForce = normalize(-geoNormal.xy) * dist;
-                backForce *= 4.0f;
+                backForce = normalize(-geoNormal.xy) * dist*dist;
+                backForce *= 4.0f*BACKFORCEFACT;
 
                 //float force = length(backforceDir);
                 //backforceDir=normalize(backforceDir);
@@ -116,7 +125,7 @@ void main() {
                 //if(force<0)force=0;
                 
                 // Calculate lift     
-                float liftForce = backForce.y * 0.005f; // TODO: currently linear			  
+                float liftForce = -backForce.y * 0.005f; // TODO: currently linear			  
                 atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
 
                 // Calculate drag
@@ -136,16 +145,69 @@ void main() {
                     color.g = 1.0f;
                     imageStore(u_fboImg, texCoord, color);
 
-                    ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z, airWorldPos.y, 0)));
-                    color = imageLoad(u_sideImg, sideTexCoord);
-                    color.g = 1.0f;
-                    imageStore(u_sideImg, sideTexCoord, color);
+                    if (abs(airWorldPos.x) < 0.9f) {
+                        ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z, airWorldPos.y, 0)));
+                        color = imageLoad(u_sideImg, sideTexCoord);
+                        color.g = 1.0f;
+                        imageStore(u_sideImg, sideTexCoord, color);
+                    }
                 }
             }
         }
         else {
             // TODO: diminish back force in some way
-            backForce = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce.xy;
+            //backForce = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce.xy;
+            // Search for geometry
+            vec2 screenPos = worldToScreen(airWorldPos);
+            ivec2 pixel = ivec2(screenPos);
+            vec2 searchDir = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce.xy;
+            if (searchDir != vec2(0.0f)) {                
+                vec2 screenDir = normalize(searchDir);
+                float totalDist = 0.0f;
+                int i = 0;
+                while (totalDist < k_maxSearchDist) {
+                    vec4 color = imageLoad(u_fboImg, pixel);
+                    if (color.r != 0.0f) { // we found an geo pixel
+                        int geoI = imageLoad(u_flagImg, pixel).x;
+                        if (geoI == 0) { // TODO: this should not be necessary, just here for sanity
+                            break;
+                        }
+                        --geoI;
+
+                        vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
+                        vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
+                        float dist = distance(airWorldPos.xy, geoWorldPos.xy);
+                        backForce = normalize(-geoNormal.xy) * dist;
+                        backForce *= 4.0f;                    
+ 
+                        break;
+                    }
+
+                    //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+            
+                    if (k_doLineSearch) {
+                        // TODO: optimize
+                        vec2 corner = step(vec2(0.0f), screenDir); // TODO: can be moved out
+                        vec2 delta = corner - (screenPos - vec2(pixel));
+                        vec2 dist = delta / screenDir;
+                        if (dist.x < dist.y) {
+                            screenPos += screenDir * dist.x;
+                            pixel.x += int(sign(screenDir.x));
+                            totalDist += screenToWorldDist(dist.x);
+                        }
+                        else {
+                            screenPos += screenDir * dist.y;
+                            pixel.y += int(sign(screenDir.y));
+                            totalDist += screenToWorldDist(dist.y);
+                        }
+                    }
+                    else {
+                        screenPos += screenDir;
+                        pixel = ivec2(screenPos);
+                        totalDist += screenToWorldDist(1.0f);
+                    }
+                }
+            }
         }
 
         // Update velocity
@@ -154,11 +216,19 @@ void main() {
         airVelocity = normalize(airVelocity) * u_windSpeed;
 
         // Update location
-        airWorldPos.xy += airVelocity.xy * u_dt;
+        airWorldPos.xy += airVelocity.xy * u_dt*AIRFACT;
         airWorldPos.z -= u_sliceSize;
 
         u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
         u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);
         u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce = vec4(backForce, 0.0f, 0.0f);
-    }        
+
+        //accumulationArray[gl_LocalInvocationIndex] += backForce;
+    }
+
+    //barrier();
+
+    // Add contents of accumulation array
+    //for (int n = 512;
+    //accumulationArray[workI] += accumulationArray[workI + n];
 }

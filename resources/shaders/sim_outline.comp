@@ -115,26 +115,26 @@ void main() {
             if (color.g != 0.0f) { // we found an air pixel
                 int airI = imageLoad(u_flagImg, pixel).x;               
                 if (airI == 0) { // TODO: this should not be necessary, just here for sanity
-                    continue;
+                    break;
                 }
                 --airI;
 
                 int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
                 if (mapI >= MAX_GEO_PER_AIR) {
-                    continue;
+                    break;
                 }
                 u_airGeoMap[airI].geoIndices[mapI] = geoI;
 
                 shouldSpawn = false;   
                 break;
             }
-            imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+            //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
             
             if (k_doLineSearch) {
                 // TODO: optimize
                 vec2 corner = step(vec2(0.0f), screenDir); // TODO: can be moved out
                 vec2 delta = corner - (screenPos - vec2(pixel));
-                vec2 dist = delta / screenDir;
+                vec2 dist = max(delta / screenDir, vec2(0.0f));
                 if (dist.x < dist.y) {
                     screenPos += screenDir * dist.x;
                     pixel.x += int(sign(screenDir.x));
@@ -152,6 +152,9 @@ void main() {
                 totalDist += screenToWorldDist(1.0f);
             }
         }
+
+        // Overwrite flag image with geometry index
+        imageStore(u_flagImg, ivec2(geoTexCoord), ivec4(geoI + 1, 0, 0, 0));
     
         // Make a new air pixel
         if (shouldSpawn) {
