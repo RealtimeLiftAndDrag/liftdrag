@@ -136,7 +136,7 @@ void main() {
                     color.g = 1.0f;
                     imageStore(u_fboImg, texCoord, color);
 
-                    ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z, airWorldPos.y, 0)));
+                    ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z - 1.0f, airWorldPos.y, 0)));
                     color = imageLoad(u_sideImg, sideTexCoord);
                     color.g = 1.0f;
                     imageStore(u_sideImg, sideTexCoord, color);

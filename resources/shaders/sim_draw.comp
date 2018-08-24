@@ -93,7 +93,7 @@ void main() {
         vec3 worldPos = u_airPixels[prevAirI + counterSwap * MAX_AIR_PIXELS].worldPos.xyz;
         
         ivec2 texCoord = ivec2(worldToScreen(worldPos));
-        ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z, worldPos.y, 0)));
+        ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z - 1.0f, worldPos.y, 0)));
 
         // Check if in texture
         if (texCoord.x < 0 || texCoord.y < 0 || texCoord.x >= u_screenSize.x || texCoord.y >= u_screenSize.y) {

@@ -57,6 +57,6 @@ void main() {
     out_norm = vec4(normalize(in_norm), 0.0f);
             
     // Side View
-    vec2 sideTexPos = worldToScreen(vec3(-in_pos.z, in_pos.y, 0));
+    vec2 sideTexPos = worldToScreen(vec3(-in_pos.z - 1.0f, in_pos.y, 0));
     imageStore(u_sideImg, ivec2(sideTexPos), vec4(k_redVal, 0.0f, 0.0f, 0.0f));
 }

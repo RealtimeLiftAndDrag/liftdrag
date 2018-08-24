@@ -5,6 +5,7 @@
 #include <string>
 
 #include "Global.hpp"
+#include "Model.hpp"
 
 
 
@@ -18,6 +19,8 @@ namespace Simulation {
 
     void cleanup();
 
+    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float depth, const glm::vec3 & centerOfMass);
+
     // Does one slice and returns if it was the last one
     bool step();
 
@@ -28,20 +31,7 @@ namespace Simulation {
     int getSlice();
 
     // Returns the total number of slices
-    int getNSlices();
-
-    // Angle is in degrees
-    float getAngleOfAttack();
-	float getRudderAngle();
-	float getElevatorAngle();
-	float getAileronAngle();
-
-    // Angle is in degrees
-    void setAngleOfAttack(float angle);
-	void setRudderAngle(float angle);
-	void setElevatorAngle(float angle);
-	void setAileronAngle(float angle);
-
+    int getSliceCount();
 
     // Returns the lift of the previous sweep
     vec3 getLift();

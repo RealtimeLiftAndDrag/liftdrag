@@ -9,19 +9,14 @@
 #include "glm/gtc/matrix_transform.hpp"
 
 #include "Util.hpp"
-#include "Model.hpp"
 
 
 
 namespace Simulation {
 
-    static constexpr bool k_doF18(false); // Enables or disables using the F18
-
-    static constexpr int k_width(720), k_height(480);
-    static constexpr int k_nSlices(k_doF18 ? 120 : 50);
-    static constexpr float k_sliceSize(k_doF18 ? 0.025f : 0.03f); // z distance between slices
+    static constexpr int k_width(720), k_height(720);
+    static constexpr int k_sliceCount(100);
     static constexpr float k_windSpeed(10.0f); // Speed of air in -z direction
-    static constexpr float k_dt(k_sliceSize / k_windSpeed); // Delta time for each slice
 
     static constexpr int k_maxGeoPixels(32768); // 1 MB worth, must also change in shaders
     static constexpr int k_maxAirPixels(32768); // 1 MB worth, must also change in shaders
@@ -60,36 +55,18 @@ namespace Simulation {
         ivec4 force;
         ivec4 dragForce;
         ivec4 dragMomentum;
-
-        void reset() {
-            swap = 0;
-            geoCount = 0;
-            airCount[0] = 0;
-            airCount[1] = 0;
-            screenSize.x = k_width;
-            screenSize.y = k_height;
-            if (k_width >= k_height) {
-                screenAspectFactor.x = float(k_height) / float(k_width);
-                screenAspectFactor.y = 1.0f;
-            }
-            else {
-                screenAspectFactor.x = 1.0f;
-                screenAspectFactor.y = float(k_width) / float(k_height);
-            }
-            sliceSize = k_sliceSize;
-            windSpeed = k_windSpeed;
-            dt = k_dt;
-            momentum = ivec4();
-            force = ivec4();
-            dragForce = ivec4();
-            dragMomentum = ivec4();
-        }
-
     };
 
 
 
-    static std::unique_ptr<Model> s_model;
+    static const Model * s_model;
+    static mat4 s_modelMat;
+    static mat3 s_normalMat;
+    static float s_depth;
+    static vec3 s_centerOfMass;
+    static float s_sliceSize;
+    static float s_dt;
+
     static int s_currentSlice(0); // slice index [0, k_nSlices)
     static float s_angleOfAttack(0.0f); // IN DEGREES
     static float s_rudderAngle(0.0f); // IN DEGREES
@@ -227,19 +204,6 @@ namespace Simulation {
 
 
     static bool setupGeom(const std::string & resourcesDir) {
-        std::string modelsDir(resourcesDir + "/models");
-        if (k_doF18) {
-            s_model = Model::load(modelsDir + "/f18.grl");
-        }
-        else {
-            s_model = Model::load(modelsDir + "/sphere.obj");
-        }
-        if (!s_model) {
-            std::cerr << "Failed to load model" << std::endl;
-            return false;
-        }
-
-
         glGenBuffers(1, &s_sideVBO);
 
         glGenBuffers(1, &s_screenVBO);
@@ -385,39 +349,21 @@ namespace Simulation {
 
         s_foilProg->bind();
 
-        float zNear(k_sliceSize * s_currentSlice - (k_sliceSize * k_nSlices * 0.5f));
+        float zNear(s_sliceSize * s_currentSlice);
         mat4 projMat(glm::ortho(
             -1.0f / s_ssboLocal.screenAspectFactor.x, // left
              1.0f / s_ssboLocal.screenAspectFactor.x, // right
             -1.0f / s_ssboLocal.screenAspectFactor.y, // bottom
              1.0f / s_ssboLocal.screenAspectFactor.y, // top
             zNear, // near
-            zNear + k_sliceSize // far
+            zNear + s_sliceSize // far
         ));        
         glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&projMat));
 
-        mat4 modelMat;
-        mat3 normalMat;
-        if (k_doF18) {
-            mat4 R_angleOfAttack = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
-            mat4 T_back = glm::translate(mat4(), vec3(0.0f, 0.0f, -0.2f));
-            mat4 S_uniform = glm::scale(mat4(), vec3(0.15f));
-            mat4 R_frontFacing = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f));
-
-            modelMat = T_back * R_angleOfAttack * R_frontFacing * S_uniform;
-            normalMat = glm::transpose(glm::inverse(modelMat));
-        }
-        else {
-            //modelMat = glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
-            //modelMat = glm::translate(modelMat, vec3(0.0f, 0.0f, 0.5f));
-            modelMat = glm::scale(mat4(), vec3(0.5f));
-            normalMat = glm::transpose(glm::inverse(glm::mat3(modelMat)));
-
-        }
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
+        s_model->draw(s_modelMat, s_normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        s_model->draw(modelMat, normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
+        s_model->draw(s_modelMat, s_normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
 
@@ -438,6 +384,30 @@ namespace Simulation {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssboLocal, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    } 
+
+    static void resetSSBO() {
+        s_ssboLocal.swap = 0;
+        s_ssboLocal.geoCount = 0;
+        s_ssboLocal.airCount[0] = 0;
+        s_ssboLocal.airCount[1] = 0;
+        s_ssboLocal.screenSize.x = k_width;
+        s_ssboLocal.screenSize.y = k_height;
+        if (k_width >= k_height) {
+            s_ssboLocal.screenAspectFactor.x = float(k_height) / float(k_width);
+            s_ssboLocal.screenAspectFactor.y = 1.0f;
+        }
+        else {
+            s_ssboLocal.screenAspectFactor.x = 1.0f;
+            s_ssboLocal.screenAspectFactor.y = float(k_width) / float(k_height);
+        }
+        s_ssboLocal.sliceSize = s_sliceSize;
+        s_ssboLocal.windSpeed = k_windSpeed;
+        s_ssboLocal.dt = s_dt;
+        s_ssboLocal.momentum = ivec4();
+        s_ssboLocal.force = ivec4();
+        s_ssboLocal.dragForce = ivec4();
+        s_ssboLocal.dragMomentum = ivec4();
     }
 
     static void clearFlagTex() {
@@ -448,7 +418,7 @@ namespace Simulation {
     static void clearSideTex() {
         u08 clearVal[4]{};
         glClearTexImage(s_sideTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearVal);
-    }
+    }   
 
 
 
@@ -470,11 +440,10 @@ namespace Simulation {
         }
 
         // Setup SSBO
-        s_ssboLocal.reset();
         glGenBuffers(1, &s_ssbo);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), &s_ssboLocal, GL_DYNAMIC_COPY);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SSBO), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;
@@ -542,6 +511,16 @@ namespace Simulation {
         // TODO
     }
 
+    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float depth, const vec3 & centerOfMass) {
+        s_model = &model;
+        s_modelMat = modelMat;
+        s_normalMat = normalMat;
+        s_depth = depth;
+        s_centerOfMass = centerOfMass;
+        s_sliceSize = s_depth / k_sliceCount;
+        s_dt = s_sliceSize / k_windSpeed;
+    }
+
     bool step() {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
@@ -556,7 +535,7 @@ namespace Simulation {
 
         // Reset for new sweep
         if (s_currentSlice == 0) {
-            s_ssboLocal.reset();
+            resetSSBO();
             clearSideTex();
             s_sweepLift = vec3();
             s_sweepDrag = 0.0f;
@@ -581,7 +560,7 @@ namespace Simulation {
         s_sweepLift += vec3(s_ssboLocal.force) * 1.0e-6f;
         s_sweepDrag += float(s_ssboLocal.dragForce.x) * 1.0e-6f;
 
-        if (++s_currentSlice >= k_nSlices) {
+        if (++s_currentSlice >= k_sliceCount) {
             s_currentSlice = 0;
             return true;
         }
@@ -604,58 +583,8 @@ namespace Simulation {
         return s_currentSlice;
     }
 
-    int getNSlices() {
-        return k_nSlices;
-    }
-
-    float getAngleOfAttack() {
-        return s_angleOfAttack;
-    }
-
-    float getRudderAngle() {
-        return s_rudderAngle;
-    }
-
-    float getElevatorAngle() {
-        return s_elevatorAngle;
-    }
-
-    float getAileronAngle() {
-        return s_aileronAngle;
-    }
-
-    void setAngleOfAttack(float angle) {
-        s_angleOfAttack = angle;
-    }
-
-    void setRudderAngle(float angle) {
-        s_rudderAngle = angle;
-
-        mat4 modelMat(glm::rotate(mat4(1), s_rudderAngle, vec3(0, 1, 0)));
-        mat3 normalMat(modelMat);
-        s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
-        s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
-    }
-
-    void setElevatorAngle(float angle) {
-        s_elevatorAngle = angle;
-        
-        mat4 modelMat(glm::rotate(mat4(1), s_elevatorAngle, vec3(1, 0, 0)));
-        mat3 normalMat(modelMat);
-        s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
-        s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
-    }
-
-    void setAileronAngle(float angle) {
-        s_aileronAngle = angle;
-        
-        mat4 modelMat(glm::rotate(mat4(1), s_aileronAngle, vec3(1, 0, 0)));
-        mat3 normalMat(modelMat);
-        s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
-
-        modelMat = glm::rotate(mat4(1), -s_aileronAngle, vec3(1, 0, 0));
-        normalMat = modelMat;
-        s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);   
+    int getSliceCount() {
+        return k_sliceCount;
     }
 
     vec3 getLift() {

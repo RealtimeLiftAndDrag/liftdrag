@@ -12,7 +12,7 @@
 
 namespace SideView {
 
-    static constexpr int k_width(720), k_height(480);
+    static constexpr int k_width(720), k_height(720);
 
     static GLFWwindow * s_window;
     static uint s_sideTex;

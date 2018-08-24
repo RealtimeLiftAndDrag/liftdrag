@@ -115,13 +115,13 @@ void main() {
             if (color.g != 0.0f) { // we found an air pixel
                 int airI = imageLoad(u_flagImg, pixel).x;               
                 if (airI == 0) { // TODO: this should not be necessary, just here for sanity
-                    continue;
+                    break;
                 }
                 --airI;
 
                 int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
                 if (mapI >= MAX_GEO_PER_AIR) {
-                    continue;
+                    break;
                 }
                 u_airGeoMap[airI].geoIndices[mapI] = geoI;
 
@@ -182,7 +182,7 @@ void main() {
             color.r = 1.0f;
             imageStore(u_fboImg, geoTexCoord, color);
 
-            ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-geoWorldPos.z, geoWorldPos.y, 0)));
+            ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-geoWorldPos.z - 1.0f, geoWorldPos.y, 0)));
             color = imageLoad(u_sideImg, sideTexCoord);
             color.r = 1.0f;
             imageStore(u_sideImg, sideTexCoord, color);

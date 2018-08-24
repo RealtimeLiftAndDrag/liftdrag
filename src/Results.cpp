@@ -29,7 +29,7 @@ namespace Results {
     static const ivec2 k_initGraphSize(300, 200);
     static const ivec2 k_initWindowSize(k_leftMargin + k_rightMargin + k_initGraphSize.x, k_bottomMargin + k_topMargin + k_initGraphSize.y);
     static constexpr int k_valTextPrecision(3);
-    static const std::string k_graphTitleString("Lift and Drag Force (N) by Angle of Attack (°)");
+    static const std::string k_graphTitleString("Lift and Drag Force (N) by Angle of Attack (\u00B0)");
     static const std::string k_graphLegendString("Green: Lift\n  Red: Drag");
 
 
