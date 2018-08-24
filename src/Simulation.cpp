@@ -15,7 +15,7 @@
 namespace Simulation {
 
     static constexpr int k_width(720), k_height(720);
-    static constexpr int k_texWidth(1440), k_texHeight(1440); //textures 4 times as big
+    static constexpr int k_texWidth(1290), k_texHeight(1290); //textures 4 times as big
     static constexpr int k_sliceCount(100);
     static constexpr float k_windSpeed(10.0f); // Speed of air in -z direction
 
@@ -437,7 +437,7 @@ namespace Simulation {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_width, k_height, 0, GL_RED_INTEGER, GL_INT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_texWidth, k_texHeight, 0, GL_RED_INTEGER, GL_INT, nullptr);
         uint clearcolor = 0;
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearcolor);
         if (glGetError() != GL_NO_ERROR) {
