@@ -111,27 +111,7 @@ void main() {
         vec2 screenDir = normalize(geoNormal.xy);
         vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
         float totalDist = 0.0f;
-        while (totalDist < k_maxSearchDist) {
-            vec4 color = imageLoad(u_fboImg, pixel);
-            if (color.g != 0.0f) { // we found an air pixel
-                int airI = imageLoad(u_flagImg, pixel).x;               
-                if (airI != 0) { // TODO: this should not be necessary, just here for sanity
-                    --airI;
-
-                    int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
-                    if (mapI >= MAX_GEO_PER_AIR) {
-                        break;
-                    }
-                    u_airGeoMap[airI].geoIndices[mapI] = geoI;
-
-                    shouldSpawn = false;   
-                    break;
-                }
-            }
-            
-            // Visualize the search
-            //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
-            
+        while (true) {            
             if (k_doLineSearch) {
                 // TODO: optimize
                 vec2 delta = corner - (screenPos - vec2(pixel));
@@ -151,6 +131,35 @@ void main() {
                 screenPos += screenDir;
                 pixel = ivec2(screenPos);
                 totalDist += screenToWorldDist(1.0f);
+            }
+
+            if (totalDist > k_maxSearchDist) {
+                break;
+            }
+
+            vec4 color = imageLoad(u_fboImg, pixel);            
+            // Visualize the search
+            //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+
+            if (color.r != 0.0f) { // we found a geo pixel
+                // TODO: explain why this causes issues
+                // Same issue may also be responsible for weird strays
+                //break;
+            }
+            if (color.g != 0.0f) { // we found an air pixel
+                int airI = imageLoad(u_flagImg, pixel).x;               
+                if (airI != 0) { // TODO: this should not be necessary, just here for sanity
+                    --airI;
+
+                    int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
+                    if (mapI >= MAX_GEO_PER_AIR) {
+                        break;
+                    }
+                    u_airGeoMap[airI].geoIndices[mapI] = geoI;
+
+                    shouldSpawn = false;   
+                    break;
+                }
             }
         }
 

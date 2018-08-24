@@ -54,6 +54,7 @@ void main() {
     out_color = vec4(k_redVal, 0.0f, 0.0f, 0.0f);
 
     out_pos = vec4(in_pos, 0.0f);
+    //out_pos = vec4(gl_FragCoord.xy / u_screenSize * 2.0f - 1.0f, in_pos.z, 0.0f);
     out_norm = vec4(normalize(in_norm), 0.0f);
             
     // Side View

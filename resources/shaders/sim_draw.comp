@@ -121,10 +121,8 @@ void main() {
         imageStore(u_fboImg, texCoord, color);
 
         // Draw to side view
-        if (abs(worldPos.x) < 0.9f) {
-            color = imageLoad(u_sideImg, sideTexCoord);
-            color.g = k_greenVal;
-            imageStore(u_sideImg, sideTexCoord, color);
-        }
+        color = imageLoad(u_sideImg, sideTexCoord);
+        color.g = k_greenVal;
+        imageStore(u_sideImg, sideTexCoord, color);
     }        
 }

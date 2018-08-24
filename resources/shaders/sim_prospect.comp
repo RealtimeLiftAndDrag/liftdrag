@@ -54,6 +54,27 @@ ivec2 getPixelDelta(vec2 dir) {
     }
 }
 
+/*ivec2 getNextPixel(vec2 innerPos, vec2 dir) {
+    // TODO: optimize
+    vec2 corner = step(vec2(0.0f), dir);
+    vec2 delta = corner - innerPos;
+    vec2 dist = abs(delta / dir);
+    if (dist.x < dist.y) {
+        return ivec2(int(sign(dir.x)), 0);
+    }
+    else {
+        return ivec2(0, int(sign(dir.y)));
+    }
+}
+
+vec2 worldToScreen(vec3 world) {
+    vec2 screenPos = world.xy;
+    screenPos *= u_screenAspectFactor; // compensate for aspect ratio
+    screenPos = screenPos * 0.5f + 0.5f; // center
+    screenPos *= vec2(u_screenSize); // scale to texture space
+    return screenPos;
+}*/
+
 // Functions -------------------------------------------------------------------
 
 void main() {
@@ -71,6 +92,7 @@ void main() {
     vec4 geoNormal = imageLoad(u_fboNormImg, texCoord);
 
     ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
+    //ivec2 nextTexCoord = texCoord + getNextPixel(fract(worldToScreen(geoWorldPos.xyz)), geoNormal.xy);
     vec4 nextColor = imageLoad(u_fboImg, nextTexCoord);
     if (nextColor.r != 0.0f) {
         return;
