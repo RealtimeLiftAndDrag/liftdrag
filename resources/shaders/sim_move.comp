@@ -211,7 +211,7 @@ void main() {
         u_airPixels[airI + u_swap * k_maxAirPixels].backForce = vec4(backForce, 0.0f, 0.0f);
                         
         // Calculate lift     
-        vec2 liftForce = backForce * -0.005f;			  
+        vec2 liftForce = -backForce * u_sliceSize * 0.05f;			  
         //atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
         accumulationArray[workI].xy += liftForce;
     }

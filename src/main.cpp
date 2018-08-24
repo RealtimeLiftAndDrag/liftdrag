@@ -13,6 +13,8 @@ extern "C" {
 // TODO: do we care about z world space?
 // TODO: can we assume square?
 // TODO: idea of and air frame or air space
+// TODO: lift proportional to slice size?
+// TODO: space in front of airfoil
 
 
 
