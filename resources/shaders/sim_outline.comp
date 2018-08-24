@@ -31,7 +31,7 @@ struct AirGeoMapElement {
 
 const int k_invocCount = 1024;
 
-const float k_maxSearchDist = 0.1f; // In world space
+const float k_maxSearchDist = 0.2f; // In world space
 
 const bool k_doLineSearch = false;
 
@@ -128,13 +128,13 @@ void main() {
                 shouldSpawn = false;   
                 break;
             }
-            imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+            //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
             
             if (k_doLineSearch) {
                 // TODO: optimize
                 vec2 corner = step(vec2(0.0f), screenDir); // TODO: can be moved out
                 vec2 delta = corner - (screenPos - vec2(pixel));
-                vec2 dist = delta / screenDir;
+                vec2 dist = max(delta / screenDir, vec2(0.0f));
                 if (dist.x < dist.y) {
                     screenPos += screenDir * dist.x;
                     pixel.x += int(sign(screenDir.x));
@@ -148,9 +148,13 @@ void main() {
             }
             else {
                 screenPos += screenDir;
+                pixel = ivec2(screenPos);
                 totalDist += screenToWorldDist(1.0f);
             }
         }
+
+        // Overwrite flag image with geometry index
+        imageStore(u_flagImg, ivec2(geoTexCoord), ivec4(geoI + 1, 0, 0, 0));
     
         // Make a new air pixel
         if (shouldSpawn) {
