@@ -28,8 +28,6 @@ struct AirGeoMapElement {
 };
 
 // Constants -------------------------------------------------------------------
-const float AIRFACT = 1.0f;
-const float BACKFORCEFACT = 158.0f;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
@@ -105,85 +103,35 @@ void main() {
         vec2 backForce = vec2(0.0f);
         float lift = 0.0f;
         float drag = 0.0f;
-
-        int geoCount = u_airGeoMap[airI].geoCount;
-        // For each associated geo pixel, update backforce, lift, and drag
-        // TODO: actually take multiple geo pixels into account
-        if (geoCount > 0) {
-            for (int mapI = 0; mapI < geoCount; ++mapI) {
-                int geoI = u_airGeoMap[airI].geoIndices[mapI];
-
-                vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
-                vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-                float dist = distance(airWorldPos.xy, geoWorldPos.xy);
-                backForce = normalize(-geoNormal.xy) * dist*dist;
-                backForce *= 4.0f*BACKFORCEFACT;
-
-                //float force = length(backforceDir);
-                //backforceDir=normalize(backforceDir);
-                //force=pow(force-0.08,0.7);
-                //if(force<0)force=0;
-                
-                // Calculate lift     
-                float liftForce = -backForce.y * 0.005f; // TODO: currently linear			  
-                atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
-
-                // Calculate drag
-                float massDensity = 1.0f;
-                float flowVelocity = 1.0f;
-                float area = screenToWorldDir(vec2(1.0f, 0.0f)).x;
-                area = area * area;
-                float dragC = 1.0f;
-                float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
-                dragForce *= 100.0f;
-                atomicAdd(u_dragForce.x, int(round(dragForce * 1.0e6f)));
-
-                // Color active air pixels more brightly
-                if (k_distinguishActivePixels) {
-                    ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
-                    vec4 color = imageLoad(u_fboImg, texCoord);
-                    color.g = 1.0f;
-                    imageStore(u_fboImg, texCoord, color);
-
-                    ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z - 1.0f, airWorldPos.y, 0)));
-                    color = imageLoad(u_sideImg, sideTexCoord);
-                    color.g = 1.0f;
-                    imageStore(u_sideImg, sideTexCoord, color);
-                }
-            }
-        }
-        else {
-            // Search for geometry
+        
+        // If no geo found for this air, search for geo
+        if (u_airGeoMap[airI].geoCount == 0) {
             vec2 screenPos = worldToScreen(airWorldPos);
             ivec2 pixel = ivec2(screenPos);
             vec2 searchDir = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce.xy;
             if (searchDir != vec2(0.0f)) {                
                 vec2 screenDir = normalize(searchDir);
+                vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
                 float totalDist = 0.0f;
-                int i = 0;
                 while (totalDist < k_maxSearchDist) {
                     vec4 color = imageLoad(u_fboImg, pixel);
                     if (color.r != 0.0f) { // we found an geo pixel
                         int geoI = imageLoad(u_flagImg, pixel).x;
-                        if (geoI == 0) { // TODO: this should not be necessary, just here for sanity
+                        if (geoI != 0) { // TODO: this should not be necessary, just here for sanity
+                            --geoI;
+
+                            ++u_airGeoMap[airI].geoCount;
+                            u_airGeoMap[airI].geoIndices[0] = geoI;                   
+ 
                             break;
                         }
-                        --geoI;
-
-                        vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
-                        vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-                        float dist = distance(airWorldPos.xy, geoWorldPos.xy);
-                        backForce = normalize(-geoNormal.xy) * dist;
-                        backForce *= 4.0f;                    
- 
-                        break;
                     }
 
+                    // Visualize the search
                     //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
             
                     if (k_doLineSearch) {
                         // TODO: optimize
-                        vec2 corner = step(vec2(0.0f), screenDir); // TODO: can be moved out
                         vec2 delta = corner - (screenPos - vec2(pixel));
                         vec2 dist = abs(delta / screenDir);
                         if (dist.x < dist.y) {
@@ -206,13 +154,52 @@ void main() {
             }
         }
 
+        // For each associated geo pixel, update backforce, lift, and drag
+        // TODO: actually take multiple geo pixels into account
+        for (int mapI = 0; mapI < u_airGeoMap[airI].geoCount; ++mapI) {
+            int geoI = u_airGeoMap[airI].geoIndices[mapI];
+
+            vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
+            vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
+            float dist = distance(airWorldPos.xy, geoWorldPos.xy);
+            backForce = normalize(-geoNormal.xy) * dist*dist;
+            backForce *= 600.0f;
+                
+            // Calculate lift     
+            float liftForce = -backForce.y * 0.005f;			  
+            atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
+
+            // Calculate drag
+            float massDensity = 1.0f;
+            float flowVelocity = 1.0f;
+            float area = screenToWorldDir(vec2(1.0f, 0.0f)).x;
+            area = area * area;
+            float dragC = 1.0f;
+            float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
+            dragForce *= 100.0f;
+            atomicAdd(u_dragForce.x, int(round(dragForce * 1.0e6f)));
+
+            // Color active air pixels more brightly
+            if (k_distinguishActivePixels) {
+                ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
+                vec4 color = imageLoad(u_fboImg, texCoord);
+                color.g = 1.0f;
+                imageStore(u_fboImg, texCoord, color);
+
+                ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z - 1.0f, airWorldPos.y, 0)));
+                color = imageLoad(u_sideImg, sideTexCoord);
+                color.g = 1.0f;
+                imageStore(u_sideImg, sideTexCoord, color);
+            }
+        }
+
         // Update velocity
-        airVelocity.xy += backForce; //* force;
+        airVelocity.xy += backForce;
         airVelocity.z = -u_windSpeed;
         airVelocity = normalize(airVelocity) * u_windSpeed;
 
         // Update location
-        airWorldPos.xy += airVelocity.xy * u_dt*AIRFACT;
+        airWorldPos.xy += airVelocity.xy * u_dt;
         airWorldPos.z -= u_sliceSize;
 
         u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);

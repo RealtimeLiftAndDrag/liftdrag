@@ -109,31 +109,31 @@ void main() {
         vec2 screenPos = vec2(geoTexCoord) + 0.5f;
         ivec2 pixel = ivec2(screenPos);
         vec2 screenDir = normalize(geoNormal.xy);
+        vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
         float totalDist = 0.0f;
         while (totalDist < k_maxSearchDist) {
             vec4 color = imageLoad(u_fboImg, pixel);
             if (color.g != 0.0f) { // we found an air pixel
                 int airI = imageLoad(u_flagImg, pixel).x;               
-                if (airI == 0) { // TODO: this should not be necessary, just here for sanity
+                if (airI != 0) { // TODO: this should not be necessary, just here for sanity
+                    --airI;
+
+                    int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
+                    if (mapI >= MAX_GEO_PER_AIR) {
+                        break;
+                    }
+                    u_airGeoMap[airI].geoIndices[mapI] = geoI;
+
+                    shouldSpawn = false;   
                     break;
                 }
-                --airI;
-
-                int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
-                if (mapI >= MAX_GEO_PER_AIR) {
-                    break;
-                }
-                u_airGeoMap[airI].geoIndices[mapI] = geoI;
-
-                shouldSpawn = false;   
-                break;
             }
             
+            // Visualize the search
             //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
             
             if (k_doLineSearch) {
                 // TODO: optimize
-                vec2 corner = step(vec2(0.0f), screenDir); // TODO: can be moved out
                 vec2 delta = corner - (screenPos - vec2(pixel));
                 vec2 dist = abs(delta / screenDir);
                 if (dist.x < dist.y) {
