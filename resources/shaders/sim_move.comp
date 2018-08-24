@@ -1,8 +1,5 @@
 ﻿#version 450 core
 
-#define MAX_GEO_PIXELS 32768
-#define MAX_AIR_PIXELS 32768
-
 #define MAX_GEO_PER_AIR 3
 
 
@@ -30,6 +27,9 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
+const int k_maxGeoPixels = 32768;
+const int k_maxAirPixels = 32768;
+
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
 const float k_maxSearchDist = 0.2f; // In world space
@@ -51,7 +51,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
-    int _0; // padding
+    uint u_debug;
     ivec4 u_momentum;
     ivec4 u_force;
     ivec4 u_dragForce;
@@ -97,8 +97,8 @@ void main() {
 
     for (int airI = workI; airI < u_airCount[u_swap]; airI += 1024) {
 
-        vec3 airWorldPos = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos.xyz;
-        vec3 airVelocity = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity.xyz;
+        vec3 airWorldPos = u_airPixels[airI + u_swap * k_maxAirPixels].worldPos.xyz;
+        vec3 airVelocity = u_airPixels[airI + u_swap * k_maxAirPixels].velocity.xyz;
 
         // Calculate backforce
         vec2 backForce = vec2(0.0f);
@@ -109,7 +109,7 @@ void main() {
         if (u_airGeoMap[airI].geoCount == 0) {
             vec2 screenPos = worldToScreen(airWorldPos);
             ivec2 pixel = ivec2(screenPos);
-            vec2 searchDir = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce.xy;
+            vec2 searchDir = u_airPixels[airI + u_swap * k_maxAirPixels].backForce.xy;
             if (searchDir != vec2(0.0f)) {                
                 vec2 screenDir = normalize(searchDir);
                 vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
@@ -141,8 +141,11 @@ void main() {
                     }
 
                     vec4 color = imageLoad(u_fboImg, pixel);
+
                     // Visualize the search
-                    //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+                    if (bool(u_debug)) {
+                        //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+                    }
 
                     if (color.r != 0.0f) { // we found an geo pixel
                         int geoI = imageLoad(u_flagImg, pixel).x;
@@ -185,7 +188,7 @@ void main() {
             atomicAdd(u_dragForce.x, int(round(dragForce * 1.0e6f)));
 
             // Color active air pixels more brightly
-            if (k_distinguishActivePixels) {
+            if (bool(u_debug) && k_distinguishActivePixels) {
                 ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
                 vec4 color = imageLoad(u_fboImg, texCoord);
                 color.g = 1.0f;
@@ -207,9 +210,9 @@ void main() {
         airWorldPos.xy += airVelocity.xy * u_dt;
         airWorldPos.z -= u_sliceSize;
 
-        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
-        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);
-        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce = vec4(backForce, 0.0f, 0.0f);
+        u_airPixels[airI + u_swap * k_maxAirPixels].worldPos = vec4(airWorldPos, 0.0f);
+        u_airPixels[airI + u_swap * k_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
+        u_airPixels[airI + u_swap * k_maxAirPixels].backForce = vec4(backForce, 0.0f, 0.0f);
 
         //accumulationArray[gl_LocalInvocationIndex] += backForce;
     }

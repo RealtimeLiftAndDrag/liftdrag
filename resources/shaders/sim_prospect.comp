@@ -1,7 +1,5 @@
 #version 450 core
 
-#define MAX_GEO_PIXELS 32768
-
 
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
@@ -15,6 +13,9 @@ struct GeoPixel {
 };
 
 // Constants -------------------------------------------------------------------
+
+const int k_maxGeoPixels = 32768;
+const int k_maxAirPixels = 32768;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -31,7 +32,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
-    int _0; // padding
+    uint u_debug;
     ivec4 u_momentum;
     ivec4 u_force;
     ivec4 u_dragForce;
@@ -76,7 +77,7 @@ void main() {
     }
 
     int geoI = atomicAdd(u_geoCount, 1);
-    if (geoI >= MAX_GEO_PIXELS) {
+    if (geoI >= k_maxGeoPixels) {
         return;
     }
 

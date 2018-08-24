@@ -51,7 +51,7 @@ namespace Simulation {
         float sliceSize;
         float windSpeed;
         float dt;
-        s32 _0; // padding
+        u32 debug;
         ivec4 momentum;
         ivec4 force;
         ivec4 dragForce;
@@ -63,10 +63,11 @@ namespace Simulation {
     static const Model * s_model;
     static mat4 s_modelMat;
     static mat3 s_normalMat;
-    static float s_depth;
-    static vec3 s_centerOfMass;
-    static float s_sliceSize;
-    static float s_dt;
+    static float s_depth; // Depth of the simulation frame / total depth of all slices
+    static vec3 s_centerOfMass; // Center of mass of the model in world space
+    static float s_sliceSize; // Distance between slices in world space
+    static float s_dt; // The time it would take to travel `s_sliceSize` at `s_windSpeed`
+    static bool s_debug; // Whether to enable non essentials like side view or active pixel highlighting
 
     static int s_currentSlice(0); // slice index [0, k_nSlices)
     static float s_angleOfAttack(0.0f); // IN DEGREES
@@ -74,7 +75,9 @@ namespace Simulation {
     static float s_elevatorAngle(0.0f); // IN DEGREES
     static float s_aileronAngle(0.0f); // IN DEGREES
     static vec3 s_sweepLift; // accumulating lift force for entire sweep
-    static float s_sweepDrag; // accumulating drag force for entire sweep
+    static vec3 s_sweepDrag; // accumulating drag force for entire sweep
+    static std::vector<vec3> s_sliceLifts; // Lift for each slice
+    static std::vector<vec3> s_sliceDrags; // Drag for each slice
     static int s_swap;
 
     static std::shared_ptr<Program> s_foilProg;
@@ -356,6 +359,7 @@ namespace Simulation {
         s_ssboLocal.sliceSize = s_sliceSize;
         s_ssboLocal.windSpeed = k_windSpeed;
         s_ssboLocal.dt = s_dt;
+        s_ssboLocal.debug = s_debug;
         s_ssboLocal.momentum = ivec4();
         s_ssboLocal.force = ivec4();
         s_ssboLocal.dragForce = ivec4();
@@ -370,7 +374,20 @@ namespace Simulation {
     static void clearSideTex() {
         u08 clearVal[4]{};
         glClearTexImage(s_sideTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearVal);
-    }   
+    }
+
+    static void setBindings() {
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
+
+        glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,   GL_RGBA8);
+        glBindImageTexture(1,  s_fboPosTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,    GL_R32I);
+        glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,   GL_RGBA8);    
+    }
 
 
 
@@ -457,7 +474,7 @@ namespace Simulation {
         // TODO
     }
 
-    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float depth, const vec3 & centerOfMass) {
+    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float depth, const vec3 & centerOfMass, bool debug) {
         s_model = &model;
         s_modelMat = modelMat;
         s_normalMat = normalMat;
@@ -465,26 +482,22 @@ namespace Simulation {
         s_centerOfMass = centerOfMass;
         s_sliceSize = s_depth / k_sliceCount;
         s_dt = s_sliceSize / k_windSpeed;
+        s_debug = debug;
     }
 
-    bool step() {
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_ssbo);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
-
-        glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,   GL_RGBA8);
-        glBindImageTexture(1,  s_fboPosTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,    GL_R32I);
-        glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,   GL_RGBA8);
+    bool step(bool isExternalCall) {
+        if (isExternalCall) {
+            setBindings();
+        }
 
         // Reset for new sweep
         if (s_currentSlice == 0) {
             resetSSBO();
             clearSideTex();
             s_sweepLift = vec3();
-            s_sweepDrag = 0.0f;
+            s_sweepDrag = vec3();
+            s_sliceLifts.clear();
+            s_sliceDrags.clear();
             s_swap = 1;
         }
         
@@ -503,8 +516,12 @@ namespace Simulation {
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
 
         downloadSSBO();
-        s_sweepLift += vec3(s_ssboLocal.force) * 1.0e-6f;
-        s_sweepDrag += float(s_ssboLocal.dragForce.x) * 1.0e-6f;
+        vec3 lift(vec3(s_ssboLocal.force) * 1.0e-6f);
+        vec3 drag(vec3(s_ssboLocal.dragForce) * 1.0e-6f);
+        s_sweepLift += lift;
+        s_sweepDrag += drag;
+        s_sliceLifts.push_back(lift);
+        s_sliceDrags.push_back(drag);
 
         if (++s_currentSlice >= k_sliceCount) {
             s_currentSlice = 0;
@@ -512,6 +529,12 @@ namespace Simulation {
         }
 
         return false;
+    }
+
+    void sweep() {
+        s_currentSlice = 0;
+        setBindings();
+        while (!step(false));
     }
 
     int slice() {
@@ -522,12 +545,20 @@ namespace Simulation {
         return k_sliceCount;
     }
 
-    vec3 lift() {
+    const vec3 & lift() {
         return s_sweepLift;
     }
 
-    vec3 drag() {
-        return vec3(s_sweepDrag);
+    const vec3 & lift(int slice) {
+        return s_sliceLifts[slice];
+    }
+
+    const vec3 & drag() {
+        return s_sweepDrag;
+    }
+
+    const vec3 & drag(int slice) {
+        return s_sliceDrags[slice];
     }
 
     uint frontTex() {

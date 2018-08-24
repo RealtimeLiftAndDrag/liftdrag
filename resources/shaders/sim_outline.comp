@@ -1,8 +1,5 @@
 ﻿#version 450 core
 
-#define MAX_GEO_PIXELS 32768
-#define MAX_AIR_PIXELS 32768
-
 #define MAX_GEO_PER_AIR 3
 
 
@@ -30,6 +27,9 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
+const int k_maxGeoPixels = 32768;
+const int k_maxAirPixels = 32768;
+
 const int k_invocCount = 1024;
 
 const float k_maxSearchDist = 0.2f; // In world space
@@ -37,8 +37,7 @@ const float k_maxSearchDist = 0.2f; // In world space
 const bool k_doLineSearch = true;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
-
-const float k_greenVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
+const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
 
 // Uniforms --------------------------------------------------------------------
@@ -56,7 +55,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
-    int _0; // padding
+    uint u_debug;
     ivec4 u_momentum;
     ivec4 u_force;
     ivec4 u_dragForce;
@@ -137,9 +136,12 @@ void main() {
                 break;
             }
 
-            vec4 color = imageLoad(u_fboImg, pixel);            
+            vec4 color = imageLoad(u_fboImg, pixel);
+
             // Visualize the search
-            //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+            if (bool(u_debug)) {
+                //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+            }
 
             if (color.r != 0.0f) { // we found a geo pixel
                 break;
@@ -167,7 +169,7 @@ void main() {
         // Make a new air pixel
         if (shouldSpawn) {
             int airI = atomicAdd(u_airCount[u_swap], 1);
-            if (airI >= MAX_AIR_PIXELS) {
+            if (airI >= k_maxAirPixels) {
                 continue;
             }
 
@@ -178,18 +180,20 @@ void main() {
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
             vec3 airVelocity = refl * u_windSpeed;
 
-            u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
-            u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);
-            u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce = vec4(0.0f);
+            u_airPixels[airI + u_swap * k_maxAirPixels].worldPos = vec4(airWorldPos, 0.0f);
+            u_airPixels[airI + u_swap * k_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
+            u_airPixels[airI + u_swap * k_maxAirPixels].backForce = vec4(0.0f);
 
-            // Draw to fbo to avoid another draw later
-            vec4 color = imageLoad(u_fboImg, geoTexCoord);
-            color.g = k_greenVal;
-            imageStore(u_fboImg, geoTexCoord, color);
+            // Draw to fbo to avoid another draw later, only necessary for seeing the results immediately
+            if (bool(u_debug)) {
+                vec4 color = imageLoad(u_fboImg, geoTexCoord);
+                color.g = k_inactiveVal;
+                imageStore(u_fboImg, geoTexCoord, color);
+            }
         }
 
         // Color active geo pixels more brightly
-        if (k_distinguishActivePixels) {
+        if (bool(u_debug) && k_distinguishActivePixels) {
             vec4 color = imageLoad(u_fboImg, geoTexCoord);
             color.r = 1.0f;
             imageStore(u_fboImg, geoTexCoord, color);

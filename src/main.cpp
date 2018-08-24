@@ -11,6 +11,8 @@ extern "C" {
 #endif
 
 // TODO: do we care about z world space?
+// TODO: can we assume square?
+// TODO: idea of and air frame or air space
 
 
 
@@ -34,18 +36,18 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::sphere);
+static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static const std::string k_defResourceDir("resources");
-
-static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the angle of attack, rudder, elevator, and ailerons by when using arrow keys
-
-static constexpr float k_autoAngleIncrement(7.0f); // how many degrees to change the angle of attack by when auto progressing
 
 static constexpr float k_minAngleOfAttack(-90.0f), k_maxAngleOfAttack(90.0f);
 static constexpr float k_minRudderAngle(-90.0f), k_maxRudderAngle(90.0f);
 static constexpr float k_minAileronAngle(-90.0f), k_maxAileronAngle(90.0f);
 static constexpr float k_minElevatorAngle(-90.0f), k_maxElevatorAngle(90.0f);
+
+static constexpr float k_angleOfAttackIncrement(1.0f); // the granularity of angle of attack
+static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
+static constexpr float k_autoAngleIncrement(7.0f); // how many degrees to change the angle of attack by when auto progressing
 
 
 
@@ -62,7 +64,6 @@ static GLFWwindow * s_mainWindow;
 static bool s_shouldStep(false);
 static bool s_shouldSweep(true);
 static bool s_shouldAutoProgress(false);
-static bool s_shouldRender(true);
 
 static std::shared_ptr<Program> s_texProg;
 static uint s_screenVAO;
@@ -90,7 +91,7 @@ static bool processArgs(int argc, char ** argv) {
 static void changeAngleOfAttack(float deltaAngle) {
     s_angleOfAttack = glm::clamp(s_angleOfAttack + deltaAngle, -k_maxAngleOfAttack, k_maxAngleOfAttack);
 
-    std::cout << "Angle of attack set to " << s_angleOfAttack << "\u00B0" << std::endl;
+    std::cout << "Angle of attack set to " << s_angleOfAttack << std::endl;
 }
 
 static void changeRudderAngle(float deltaAngle) {
@@ -101,7 +102,7 @@ static void changeRudderAngle(float deltaAngle) {
     s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
     s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
 
-    std::cout << "Rudder angle set to " << s_rudderAngle << "\u00B0" << std::endl;
+    std::cout << "Rudder angle set to " << s_rudderAngle << std::endl;
 }
 
 static void changeAileronAngle(float deltaAngle) {
@@ -115,7 +116,7 @@ static void changeAileronAngle(float deltaAngle) {
     normalMat = modelMat;
     s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
 
-    std::cout << "Aileron angle set to " << s_aileronAngle << "\u00B0" << std::endl;
+    std::cout << "Aileron angle set to " << s_aileronAngle << std::endl;
 }
 
 static void changeElevatorAngle(float deltaAngle) {
@@ -126,8 +127,65 @@ static void changeElevatorAngle(float deltaAngle) {
     s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
     s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
 
-    std::cout << "Elevator angle set to " << s_elevatorAngle << "\u00B0" << std::endl;
+    std::cout << "Elevator angle set to " << s_elevatorAngle << std::endl;
+}
 
+static void setSimulation(float angleOfAttack, bool debug) {
+    mat4 modelMat;
+    mat3 normalMat;
+    float depth;
+    vec3 centerOfGravity;
+
+    switch (k_simModel) {
+        case SimModel::airfoil:
+            modelMat = glm::rotate(mat4(), glm::radians(-angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+            modelMat = glm::scale(mat4(), vec3(0.875f, 1.0f, 1.0f)) * modelMat;
+            normalMat = glm::transpose(glm::inverse(modelMat));
+            depth = 1.0f;
+            centerOfGravity = vec3(0.0f, 0.0f, depth * 0.5f);
+            break;
+
+        case SimModel::f18:
+            modelMat = glm::scale(mat4(), vec3(0.10f));
+            modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * modelMat;
+            modelMat = glm::rotate(mat4(1.0f), glm::radians(-angleOfAttack), vec3(1.0f, 0.0f, 0.0f)) * modelMat;
+            modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -1.1f)) * modelMat;
+            normalMat = glm::transpose(glm::inverse(modelMat));
+            depth = 2.0f;
+            centerOfGravity = vec3(0.0f, 0.0f, depth * 0.5f);
+            break;
+
+        case SimModel::sphere:
+            modelMat = glm::rotate(mat4(), glm::radians(-angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+            modelMat = glm::scale(mat4(), vec3(0.5f)) * modelMat;
+            modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -0.5f)) * modelMat;
+            normalMat = glm::transpose(glm::inverse(modelMat));
+            depth = 1.0f;
+            centerOfGravity = vec3(0.0f, 0.0f, depth * 0.5f);
+            break;
+    }
+
+    Simulation::set(*s_model, modelMat, normalMat, depth, centerOfGravity, debug);
+}
+
+static void doFastSweep(float angleOfAttack) {
+    setSimulation(angleOfAttack, false);
+
+    double then(glfwGetTime());
+    Simulation::sweep();
+    double dt(glfwGetTime() - then);
+
+    vec3 lift(Simulation::lift());
+    vec3 drag(Simulation::drag());
+    Results::submit(angleOfAttack, lift.x, drag.x);
+
+    std::cout << "Angle: " << angleOfAttack << ", Lift: " << lift.x << ", Drag: " << drag.x << ", SPS: " << (1.0 / dt) << std::endl;
+}
+
+static void doAllAngles() {
+    for (float angle(k_minAngleOfAttack); angle <= k_maxAngleOfAttack; angle += k_angleOfAttackIncrement) {
+        doFastSweep(angle);
+    }
 }
 
 static void errorCallback(int error, const char * description) {
@@ -149,20 +207,28 @@ static void keyCallback(GLFWwindow * window, int key, int scancode, int action, 
     else if (key == GLFW_KEY_SPACE && action == GLFW_PRESS && (mods & GLFW_MOD_CONTROL)) {
         s_shouldAutoProgress = !s_shouldAutoProgress;
     }
-    // If tab is pressed, toggle rendering of simulation to screen
-    else if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
-        s_shouldRender = !s_shouldRender;
+    // If F is pressed, do fast sweep
+    else if (key == GLFW_KEY_F && (action == GLFW_PRESS) && !mods) {
+        if (Simulation::step() == 0 && !s_shouldAutoProgress) {
+            doFastSweep(s_angleOfAttack);
+        }
+    }
+    // If Shift-F is pressed, do fast sweep of all angles
+    else if (key == GLFW_KEY_F && action == GLFW_PRESS && mods == GLFW_MOD_SHIFT) {
+        if (Simulation::step() == 0 && !s_shouldAutoProgress) {
+            doAllAngles();
+        }
     }
     // If up arrow is pressed, increase angle of attack
     else if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         if (Simulation::step() == 0 && !s_shouldAutoProgress) {
-            changeAngleOfAttack(k_manualAngleIncrement);
+            changeAngleOfAttack(k_angleOfAttackIncrement);
         }
     }
     // If down arrow is pressed, decrease angle of attack
     else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         if (Simulation::step() == 0 && !s_shouldAutoProgress) {
-            changeAngleOfAttack(-k_manualAngleIncrement);
+            changeAngleOfAttack(-k_angleOfAttackIncrement);
         }
     }
     // If O key is pressed, increase rudder angle
@@ -331,48 +397,10 @@ static void cleanup() {
     glfwTerminate();
 }
 
-static void setSimulation() {
-    mat4 modelMat;
-    mat3 normalMat;
-    float depth;
-    vec3 centerOfGravity;
-
-    switch (k_simModel) {
-        case SimModel::airfoil:
-            modelMat = glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
-            modelMat = glm::scale(mat4(), vec3(0.875f, 1.0f, 1.0f)) * modelMat;
-            normalMat = glm::transpose(glm::inverse(modelMat));
-            depth = 1.0f;
-            centerOfGravity = vec3(0.0f, 0.0f, depth * 0.5f);
-            break;
-
-        case SimModel::f18:
-            modelMat = glm::scale(mat4(), vec3(0.10f));
-            modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * modelMat;
-            modelMat = glm::rotate(mat4(1.0f), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f)) * modelMat;
-            modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -1.1f)) * modelMat;
-            normalMat = glm::transpose(glm::inverse(modelMat));
-            depth = 2.0f;
-            centerOfGravity = vec3(0.0f, 0.0f, depth * 0.5f);
-            break;
-
-        case SimModel::sphere:
-            modelMat = glm::rotate(mat4(), glm::radians(-s_angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
-            modelMat = glm::scale(mat4(), vec3(0.5f)) * modelMat;
-            modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -0.5f)) * modelMat;
-            normalMat = glm::transpose(glm::inverse(modelMat));
-            depth = 1.0f;
-            centerOfGravity = vec3(0.0f, 0.0f, depth * 0.5f);
-            break;
-    }
-
-    Simulation::set(*s_model, modelMat, normalMat, depth, centerOfGravity);
-}
-
 static void update() {
     if (s_shouldStep || s_shouldSweep) {
         if (Simulation::slice() == 0) { // About to do first slice
-            setSimulation();
+            setSimulation(s_angleOfAttack, true);
         }
 
         if (Simulation::step()) { // That was the last slice
@@ -416,15 +444,11 @@ static void renderDisplay() {
 }
 
 static void render() {
-    if (s_shouldRender) {
-        renderDisplay();
-        glfwSwapBuffers(s_mainWindow);
+    renderDisplay();
+    glfwSwapBuffers(s_mainWindow);
 
-        //SideView::render();
-        //glfwMakeContextCurrent(s_mainWindow);
-    }
-
-    // Results -------------------------------------------------------------
+    //SideView::render();
+    //glfwMakeContextCurrent(s_mainWindow);
 
     Results::render();
     glfwMakeContextCurrent(s_mainWindow);

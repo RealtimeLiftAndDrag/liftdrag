@@ -17,8 +17,7 @@ layout (location = 2) out vec4 out_norm;
 // Constants -------------------------------------------------------------------
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
-
-const float k_redVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
+const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -33,7 +32,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
-    int _0; // padding
+    uint u_debug;
     ivec4 u_momentum;
     ivec4 u_force;
     ivec4 u_dragForce;
@@ -51,13 +50,14 @@ vec2 worldToScreen(vec3 world) {
 }
 
 void main() {
-    out_color = vec4(k_redVal, 0.0f, 0.0f, 0.0f);
+    out_color = vec4(k_inactiveVal, 0.0f, 0.0f, 0.0f);
 
     out_pos = vec4(in_pos, 0.0f);
-    //out_pos = vec4(gl_FragCoord.xy / u_screenSize * 2.0f - 1.0f, in_pos.z, 0.0f);
     out_norm = vec4(normalize(in_norm), 0.0f);
             
     // Side View
-    vec2 sideTexPos = worldToScreen(vec3(-in_pos.z - 1.0f, in_pos.y, 0));
-    imageStore(u_sideImg, ivec2(sideTexPos), vec4(k_redVal, 0.0f, 0.0f, 0.0f));
+    if (bool(u_debug)) {
+        vec2 sideTexPos = worldToScreen(vec3(-in_pos.z - 1.0f, in_pos.y, 0));
+        imageStore(u_sideImg, ivec2(sideTexPos), vec4(k_inactiveVal, 0.0f, 0.0f, 0.0f));
+    }
 }

@@ -1,8 +1,5 @@
 ﻿#version 450 core
 
-#define MAX_GEO_PIXELS 32768
-#define MAX_AIR_PIXELS 32768
-
 #define MAX_GEO_PER_AIR 3
 
 
@@ -30,11 +27,13 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
+const int k_maxGeoPixels = 32768;
+const int k_maxAirPixels = 32768;
+
 const int k_invocCount = 1024;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
-
-const float k_greenVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
+const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -51,7 +50,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
-    int _0; // padding
+    uint u_debug;
     ivec4 u_momentum;
     ivec4 u_force;
     ivec4 u_dragForce;
@@ -91,10 +90,10 @@ void main() {
             return;
         }
 
-        vec3 worldPos = u_airPixels[prevAirI + counterSwap * MAX_AIR_PIXELS].worldPos.xyz;
+        vec3 worldPos = u_airPixels[prevAirI + counterSwap * k_maxAirPixels].worldPos.xyz;
         
         ivec2 texCoord = ivec2(worldToScreen(worldPos));
-        ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z - 1.0f, worldPos.y, 0)));
+        ivec2 sideTexCoord; if (bool(u_debug)) sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z - 1.0f, worldPos.y, 0)));
 
         // Check if in texture
         if (texCoord.x < 0 || texCoord.y < 0 || texCoord.x >= u_screenSize.x || texCoord.y >= u_screenSize.y) {
@@ -108,22 +107,24 @@ void main() {
         
         // Move to current air pixel buffer
         int airI = atomicAdd(u_airCount[u_swap], 1);
-        if (airI >= MAX_AIR_PIXELS) {
+        if (airI >= k_maxAirPixels) {
             return;
         }
-        u_airPixels[airI + u_swap * MAX_AIR_PIXELS] = u_airPixels[prevAirI + counterSwap * MAX_AIR_PIXELS];
+        u_airPixels[airI + u_swap * k_maxAirPixels] = u_airPixels[prevAirI + counterSwap * k_maxAirPixels];
         u_airGeoMap[airI].geoCount = 0; // This air pixel is not yet associated with any geometry
 
         // Store air index
         imageAtomicExchange(u_flagImg, texCoord, airI + 1);
         
         // Draw to front view
-        color.g = k_greenVal;
+        color.g = k_inactiveVal;
         imageStore(u_fboImg, texCoord, color);
 
         // Draw to side view
-        color = imageLoad(u_sideImg, sideTexCoord);
-        color.g = k_greenVal;
-        imageStore(u_sideImg, sideTexCoord, color);
+        if (bool(u_debug)) {
+            color = imageLoad(u_sideImg, sideTexCoord);
+            color.g = k_inactiveVal;
+            imageStore(u_sideImg, sideTexCoord, color);
+        }
     }        
 }
