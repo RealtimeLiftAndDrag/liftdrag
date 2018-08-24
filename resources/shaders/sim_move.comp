@@ -53,7 +53,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_dt;
     uint u_debug;
     ivec4 u_momentum;
-    ivec4 u_force;
+    vec4 u_force;
     ivec4 u_dragForce;
     ivec4 u_dragMomentum;
 };
@@ -71,7 +71,7 @@ layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
 
 // Shared ----------------------------------------------------------------------
 
-//shared vec3 accumulationArray[1024];
+shared vec3 accumulationArray[gl_WorkGroupSize.x];
 
 // Functions -------------------------------------------------------------------
 
@@ -92,8 +92,8 @@ float screenToWorldDist(float screenDist) {
 }
 
 void main() {
-    int workI = int(gl_LocalInvocationIndex);
-    //accumulationArray[workI] = vec3(0.0f);
+    int workI = int(gl_LocalInvocationID.x);
+    accumulationArray[workI] = vec3(0.0f);
 
     for (int airI = workI; airI < u_airCount[u_swap]; airI += 1024) {
 
@@ -172,10 +172,6 @@ void main() {
             float dist = distance(airWorldPos.xy, geoWorldPos.xy);
             backForce = normalize(-geoNormal.xy) * dist*dist;
             backForce *= 600.0f;
-                
-            // Calculate lift     
-            float liftForce = -backForce.y * 0.005f;			  
-            atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
 
             // Calculate drag
             float massDensity = 1.0f;
@@ -213,13 +209,19 @@ void main() {
         u_airPixels[airI + u_swap * k_maxAirPixels].worldPos = vec4(airWorldPos, 0.0f);
         u_airPixels[airI + u_swap * k_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
         u_airPixels[airI + u_swap * k_maxAirPixels].backForce = vec4(backForce, 0.0f, 0.0f);
-
-        //accumulationArray[gl_LocalInvocationIndex] += backForce;
+                        
+        // Calculate lift     
+        vec2 liftForce = backForce * -0.005f;			  
+        //atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
+        accumulationArray[workI].xy += liftForce;
     }
 
-    //barrier();
-
     // Add contents of accumulation array
-    //for (int n = 512;
-    //accumulationArray[workI] += accumulationArray[workI + n];
+    for (int n = int(gl_WorkGroupSize.x) / 2; n > 0; n /= 2) {
+        barrier();
+        accumulationArray[workI] += accumulationArray[workI + n];
+    }
+    if (workI == 0) {
+        u_force.xyz = accumulationArray[0];
+    }
 }

@@ -52,7 +52,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_dt;
     uint u_debug;
     ivec4 u_momentum;
-    ivec4 u_force;
+    vec4 u_force;
     ivec4 u_dragForce;
     ivec4 u_dragMomentum;
 };

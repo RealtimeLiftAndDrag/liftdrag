@@ -53,7 +53,7 @@ namespace Simulation {
         float dt;
         u32 debug;
         ivec4 momentum;
-        ivec4 force;
+        vec4 force;
         ivec4 dragForce;
         ivec4 dragMomentum;
     };
@@ -361,7 +361,7 @@ namespace Simulation {
         s_ssboLocal.dt = s_dt;
         s_ssboLocal.debug = s_debug;
         s_ssboLocal.momentum = ivec4();
-        s_ssboLocal.force = ivec4();
+        s_ssboLocal.force = vec4();
         s_ssboLocal.dragForce = ivec4();
         s_ssboLocal.dragMomentum = ivec4();
     }
@@ -516,7 +516,7 @@ namespace Simulation {
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
 
         downloadSSBO();
-        vec3 lift(vec3(s_ssboLocal.force) * 1.0e-6f);
+        vec3 lift(s_ssboLocal.force);
         vec3 drag(vec3(s_ssboLocal.dragForce) * 1.0e-6f);
         s_sweepLift += lift;
         s_sweepDrag += drag;

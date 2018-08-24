@@ -177,9 +177,9 @@ static void doFastSweep(float angleOfAttack) {
 
     vec3 lift(Simulation::lift());
     vec3 drag(Simulation::drag());
-    Results::submit(angleOfAttack, lift.x, drag.x);
+    Results::submit(angleOfAttack, lift.y, drag.y);
 
-    std::cout << "Angle: " << angleOfAttack << ", Lift: " << lift.x << ", Drag: " << drag.x << ", SPS: " << (1.0 / dt) << std::endl;
+    std::cout << "Angle: " << angleOfAttack << ", Lift: " << lift.y << ", Drag: " << drag.y << ", SPS: " << (1.0 / dt) << std::endl;
 }
 
 static void doAllAngles() {
@@ -407,9 +407,9 @@ static void update() {
             s_shouldSweep = false;
             vec3 lift(Simulation::lift());
             vec3 drag(Simulation::drag());
-            std::cout << "angle: " << s_angleOfAttack << ", lift: " << lift.x << ", drag: " << drag.x << std::endl;
+            std::cout << "angle: " << s_angleOfAttack << ", lift: " << lift.y << ", drag: " << drag.y << std::endl;
 
-            Results::submit(s_angleOfAttack, lift.x, drag.x);
+            Results::submit(s_angleOfAttack, lift.y, drag.y);
 
             if (s_shouldAutoProgress) {
                 s_angleOfAttack += k_autoAngleIncrement;
