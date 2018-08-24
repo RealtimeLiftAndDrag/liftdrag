@@ -35,6 +35,8 @@ const int k_invocCount = 1024;
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
+const bool k_ignoreEdges = false;
+
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
@@ -91,6 +93,7 @@ void main() {
         }
 
         vec3 worldPos = u_airPixels[prevAirI + counterSwap * k_maxAirPixels].worldPos.xyz;
+        float turbulence = u_airPixels[prevAirI + counterSwap * k_maxAirPixels].worldPos.w;
         
         ivec2 texCoord = ivec2(worldToScreen(worldPos));
         ivec2 sideTexCoord; if (bool(u_debug)) sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z - 1.0f, worldPos.y, 0)));
@@ -118,12 +121,14 @@ void main() {
         
         // Draw to front view
         color.g = k_inactiveVal;
+        color.b = turbulence;
         imageStore(u_fboImg, texCoord, color);
 
         // Draw to side view
-        if (bool(u_debug)) {
+        if (bool(u_debug) && (!k_ignoreEdges || abs(worldPos.x) <= 0.5f)) {
             color = imageLoad(u_sideImg, sideTexCoord);
             color.g = k_inactiveVal;
+            color.b = turbulence;
             imageStore(u_sideImg, sideTexCoord, color);
         }
     }        

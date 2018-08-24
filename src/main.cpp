@@ -14,7 +14,6 @@ extern "C" {
 // TODO: can we assume square?
 // TODO: idea of and air frame or air space
 // TODO: lift proportional to slice size?
-// TODO: space in front of airfoil
 
 
 
@@ -140,7 +139,9 @@ static void setSimulation(float angleOfAttack, bool debug) {
 
     switch (k_simModel) {
         case SimModel::airfoil:
-            modelMat = glm::rotate(mat4(), glm::radians(-angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
+            modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 0.5f)) * modelMat;
+            modelMat = glm::rotate(mat4(), glm::radians(-angleOfAttack), vec3(1.0f, 0.0f, 0.0f)) * modelMat;
+            modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -0.5f)) * modelMat;
             modelMat = glm::scale(mat4(), vec3(0.875f, 1.0f, 1.0f)) * modelMat;
             normalMat = glm::transpose(glm::inverse(modelMat));
             depth = 1.0f;
@@ -187,6 +188,8 @@ static void doFastSweep(float angleOfAttack) {
 static void doAllAngles() {
     for (float angle(k_minAngleOfAttack); angle <= k_maxAngleOfAttack; angle += k_angleOfAttackIncrement) {
         doFastSweep(angle);
+        Results::render();
+        glfwMakeContextCurrent(s_mainWindow);
     }
 }
 
@@ -211,61 +214,61 @@ static void keyCallback(GLFWwindow * window, int key, int scancode, int action, 
     }
     // If F is pressed, do fast sweep
     else if (key == GLFW_KEY_F && (action == GLFW_PRESS) && !mods) {
-        if (Simulation::step() == 0 && !s_shouldAutoProgress) {
+        if (Simulation::slice() == 0 && !s_shouldAutoProgress) {
             doFastSweep(s_angleOfAttack);
         }
     }
     // If Shift-F is pressed, do fast sweep of all angles
     else if (key == GLFW_KEY_F && action == GLFW_PRESS && mods == GLFW_MOD_SHIFT) {
-        if (Simulation::step() == 0 && !s_shouldAutoProgress) {
+        if (Simulation::slice() == 0 && !s_shouldAutoProgress) {
             doAllAngles();
         }
     }
     // If up arrow is pressed, increase angle of attack
     else if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::step() == 0 && !s_shouldAutoProgress) {
+        if (Simulation::slice() == 0 && !s_shouldAutoProgress) {
             changeAngleOfAttack(k_angleOfAttackIncrement);
         }
     }
     // If down arrow is pressed, decrease angle of attack
     else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::step() == 0 && !s_shouldAutoProgress) {
+        if (Simulation::slice() == 0 && !s_shouldAutoProgress) {
             changeAngleOfAttack(-k_angleOfAttackIncrement);
         }
     }
     // If O key is pressed, increase rudder angle
     else if (key == GLFW_KEY_O && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::step() == 0) {
+        if (Simulation::slice() == 0) {
             changeRudderAngle(k_manualAngleIncrement);
         }
     }
     // If I key is pressed, decrease rudder angle
     else if (key == GLFW_KEY_I && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::step() == 0) {
+        if (Simulation::slice() == 0) {
             changeRudderAngle(-k_manualAngleIncrement);
         }
     }
     // If K key is pressed, increase elevator angle
     else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::step() == 0) {
+        if (Simulation::slice() == 0) {
             changeElevatorAngle(k_manualAngleIncrement);
         }
     }
     // If J key is pressed, decrease elevator angle
     else if (key == GLFW_KEY_J && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::step() == 0) {
+        if (Simulation::slice() == 0) {
             changeElevatorAngle(-k_manualAngleIncrement);
         }
     }
     // If M key is pressed, increase aileron angle
     else if (key == GLFW_KEY_M && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::step() == 0) {
+        if (Simulation::slice() == 0) {
             changeAileronAngle(k_manualAngleIncrement);
         }
     }
     // If N key is pressed, decrease aileron angle
     else if (key == GLFW_KEY_N && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::step() == 0) {
+        if (Simulation::slice() == 0) {
             changeAileronAngle(-k_manualAngleIncrement);
         }
     }

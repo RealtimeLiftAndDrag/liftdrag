@@ -33,11 +33,14 @@ const int k_maxAirPixels = 32768;
 const int k_invocCount = 1024;
 
 const float k_maxSearchDist = 0.2f; // In world space
+const float k_turbulenceDist = 0.1f;
 
 const bool k_doLineSearch = true;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
+
+const bool k_ignoreEdges = false;
 
 
 // Uniforms --------------------------------------------------------------------
@@ -198,11 +201,13 @@ void main() {
             color.r = 1.0f;
             imageStore(u_fboImg, geoTexCoord, color);
 
-            ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-geoWorldPos.z - 1.0f, geoWorldPos.y, 0)));
-            sideTexCoord.y = geoTexCoord.y;
-            color = imageLoad(u_sideImg, sideTexCoord);
-            color.r = 1.0f;
-            imageStore(u_sideImg, sideTexCoord, color);
+            if (!k_ignoreEdges || abs(geoWorldPos.x) <= 0.5f) {
+                ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-geoWorldPos.z - 1.0f, geoWorldPos.y, 0)));
+                sideTexCoord.y = geoTexCoord.y;
+                color = imageLoad(u_sideImg, sideTexCoord);
+                color.r = 1.0f;
+                imageStore(u_sideImg, sideTexCoord, color);
+            }
         }
     }
 }

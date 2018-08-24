@@ -33,8 +33,11 @@ const int k_maxAirPixels = 32768;
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
 const float k_maxSearchDist = 0.2f; // In world space
+const float k_turbulenceDist = 0.0225f;
 
 const bool k_doLineSearch = true;
+
+const bool k_ignoreEdges = false;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -95,10 +98,11 @@ void main() {
     int workI = int(gl_LocalInvocationID.x);
     accumulationArray[workI] = vec3(0.0f);
 
-    for (int airI = workI; airI < u_airCount[u_swap]; airI += 1024) {
+    for (int airI = workI; airI < u_airCount[u_swap]; airI += int(gl_WorkGroupSize.x)) {
 
         vec3 airWorldPos = u_airPixels[airI + u_swap * k_maxAirPixels].worldPos.xyz;
         vec3 airVelocity = u_airPixels[airI + u_swap * k_maxAirPixels].velocity.xyz;
+        float turbulence = u_airPixels[airI + u_swap * k_maxAirPixels].worldPos.w;
 
         // Calculate backforce
         vec2 backForce = vec2(0.0f);
@@ -173,6 +177,10 @@ void main() {
             backForce = normalize(-geoNormal.xy) * dist*dist;
             backForce *= 600.0f;
 
+            if (distance(geoWorldPos, airWorldPos) >= k_turbulenceDist) {
+                turbulence = 1.0f;
+            }
+
             // Calculate drag
             float massDensity = 1.0f;
             float flowVelocity = 1.0f;
@@ -182,19 +190,6 @@ void main() {
             float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
             dragForce *= 100.0f;
             atomicAdd(u_dragForce.x, int(round(dragForce * 1.0e6f)));
-
-            // Color active air pixels more brightly
-            if (bool(u_debug) && k_distinguishActivePixels) {
-                ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
-                vec4 color = imageLoad(u_fboImg, texCoord);
-                color.g = 1.0f;
-                imageStore(u_fboImg, texCoord, color);
-
-                ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z - 1.0f, airWorldPos.y, 0)));
-                color = imageLoad(u_sideImg, sideTexCoord);
-                color.g = 1.0f;
-                imageStore(u_sideImg, sideTexCoord, color);
-            }
         }
 
         // Update velocity
@@ -206,14 +201,31 @@ void main() {
         airWorldPos.xy += airVelocity.xy * u_dt;
         airWorldPos.z -= u_sliceSize;
 
-        u_airPixels[airI + u_swap * k_maxAirPixels].worldPos = vec4(airWorldPos, 0.0f);
+        u_airPixels[airI + u_swap * k_maxAirPixels].worldPos = vec4(airWorldPos, turbulence);
         u_airPixels[airI + u_swap * k_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
         u_airPixels[airI + u_swap * k_maxAirPixels].backForce = vec4(backForce, 0.0f, 0.0f);
                         
         // Calculate lift     
-        vec2 liftForce = -backForce * u_sliceSize * 0.05f;			  
+        vec2 liftForce = -backForce * u_sliceSize * 0.1f;			  
         //atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
         accumulationArray[workI].xy += liftForce;
+
+        // Color active air pixels more brightly
+        if (bool(u_debug) && k_distinguishActivePixels && u_airGeoMap[airI].geoCount > 0) {
+            ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
+            vec4 color = imageLoad(u_fboImg, texCoord);
+            color.g = 1.0f;
+            color.b = turbulence;
+            imageStore(u_fboImg, texCoord, color);
+
+            if (!k_ignoreEdges || abs(airWorldPos.x) <= 0.5f) {
+                ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z - 1.0f, airWorldPos.y, 0)));
+                color = imageLoad(u_sideImg, sideTexCoord);
+                color.g = 1.0f;
+                color.b = turbulence;
+                imageStore(u_sideImg, sideTexCoord, color);
+            }
+        }
     }
 
     // Add contents of accumulation array
