@@ -1,10 +1,10 @@
 #version 450 core
 
-#define MAX_GEO_PIXELS 32768
+#define MAX_GEO_PIXELS 131048
 
 
 
-layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 

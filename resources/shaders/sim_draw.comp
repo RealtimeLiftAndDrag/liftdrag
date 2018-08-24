@@ -1,7 +1,7 @@
 ﻿#version 450 core
 
-#define MAX_GEO_PIXELS 32768
-#define MAX_AIR_PIXELS 32768
+#define MAX_GEO_PIXELS 131048
+#define MAX_AIR_PIXELS 131048
 
 #define MAX_GEO_PER_AIR 3
 
