@@ -38,7 +38,7 @@ static const std::string k_defResourceDir("resources");
 
 static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the angle of attack, rudder, elevator, and ailerons by when using arrow keys
 
-static constexpr float k_autoAngleIncrement(1.0f); // how many degrees to change the angle of attack by when auto progressing
+static constexpr float k_autoAngleIncrement(7.0f); // how many degrees to change the angle of attack by when auto progressing
 
 static constexpr float k_minAngleOfAttack(-90.0f), k_maxAngleOfAttack(90.0f);
 static constexpr float k_minRudderAngle(-90.0f), k_maxRudderAngle(90.0f);
@@ -257,7 +257,7 @@ static bool setup() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    if (!(s_mainWindow = glfwCreateWindow(Simulation::size().x, Simulation::size().y, "Simulation", nullptr, nullptr))) {
+    if (!(s_mainWindow = glfwCreateWindow(Simulation::size().x * 2, Simulation::size().y, "Simulation", nullptr, nullptr))) {
         std::cerr << "Failed to create window" << std::endl;
         return false;
     }
@@ -304,17 +304,17 @@ static bool setup() {
     GLFWwindow * resultsWindow(Results::getWindow());
 
     //Side view Window
-    if (!SideView::setup(s_resourceDir, Simulation::sideTex(), s_mainWindow)) {
-        std::cerr << "Failed to setup results" << std::endl;
-        return false;
-    }
-    GLFWwindow * sideViewWindow(SideView::getWindow());
+    //if (!SideView::setup(s_resourceDir, Simulation::sideTex(), s_mainWindow)) {
+    //    std::cerr << "Failed to setup results" << std::endl;
+    //    return false;
+    //}
+    //GLFWwindow * sideViewWindow(SideView::getWindow());
 
     // Arrange windows
     glfwSetWindowPos(s_mainWindow, 100, 100);
     int windowWidth, windowHeight;
     glfwGetWindowSize(s_mainWindow, &windowWidth, &windowHeight);
-    glfwSetWindowPos(sideViewWindow, 100 + windowWidth + 10, 100);
+    //glfwSetWindowPos(sideViewWindow, 100 + windowWidth + 10, 100);
     glfwSetWindowPos(resultsWindow, 100, 100 + windowHeight + 40);
 
     glfwMakeContextCurrent(s_mainWindow);
@@ -392,24 +392,34 @@ static void update() {
     }
 }
 
-static void renderFront() {
+static void renderDisplay() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     s_texProg->bind();
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, Simulation::frontTex());
     glBindVertexArray(s_screenVAO);
+    glActiveTexture(GL_TEXTURE0);
+
+    // Front
+    glViewport(0, 0, Simulation::size().x, Simulation::size().y);
+    glBindTexture(GL_TEXTURE_2D, Simulation::frontTex());
     glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    // Side
+    glViewport(Simulation::size().x, 0, Simulation::size().x, Simulation::size().y);
+    glBindTexture(GL_TEXTURE_2D, Simulation::sideTex());
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glBindVertexArray(0);
     s_texProg->unbind();
 }
 
 static void render() {
     if (s_shouldRender) {
-        renderFront();
+        renderDisplay();
         glfwSwapBuffers(s_mainWindow);
 
-        SideView::render();
-        glfwMakeContextCurrent(s_mainWindow);
+        //SideView::render();
+        //glfwMakeContextCurrent(s_mainWindow);
     }
 
     // Results -------------------------------------------------------------

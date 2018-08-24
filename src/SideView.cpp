@@ -27,7 +27,7 @@ namespace SideView {
         s_texProg->setVerbose(true);
         s_texProg->setShaderNames(shadersDir + "/tex.vert", shadersDir + "/tex.frag");
         if (!s_texProg->init()) {
-            std::cerr << "Failed to initialize fb shader" << std::endl;
+            std::cerr << "Failed to initialize tex shader" << std::endl;
             return false;
         }
         s_texProg->addUniform("tex");

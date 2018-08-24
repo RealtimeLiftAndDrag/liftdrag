@@ -290,6 +290,7 @@ namespace Simulation {
 
     static void renderGeometry() {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+        glViewport(0, 0, k_width, k_height);
 
         uint drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
         glDrawBuffers(3, drawBuffers); // TODO: can this be moved to fbo setup?
