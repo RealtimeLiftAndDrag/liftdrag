@@ -14,6 +14,7 @@ layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 struct GeoPixel {
     vec4 worldPos;
     vec4 normal;
+    ivec4 texCoord;
 };
 
 struct AirPixel {

@@ -26,8 +26,9 @@ namespace Simulation {
 
 
     struct GeoPixel {
-        vec4 worldPos;
-        vec4 normal;
+        vec3 worldPos;
+        vec3 normal;
+        ivec2 texCoord;
     };
 
     struct AirPixel {

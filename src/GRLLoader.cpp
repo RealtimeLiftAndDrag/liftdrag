@@ -62,8 +62,6 @@ namespace grl {
                     objects.resize(objects.size() + 1); // increment number of objects
                     objects.back().name = tokens.back();
                     state = 0;
-
-                    std::cout << "\tWith submodel: " << tokens.back() << std::endl;
                 }
                 else if (metaType == "origin") {
                     matrixLine = 0;

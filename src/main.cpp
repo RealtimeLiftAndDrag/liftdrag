@@ -10,6 +10,8 @@ extern "C" {
 }
 #endif
 
+// TODO: do we care about z world space?
+
 
 
 #include <iostream>
@@ -32,7 +34,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::sphere);
 
 static const std::string k_defResourceDir("resources");
 

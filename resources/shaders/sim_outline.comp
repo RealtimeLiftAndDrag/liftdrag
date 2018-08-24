@@ -14,6 +14,7 @@ layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 struct GeoPixel {
     vec4 worldPos;
     vec4 normal;
+    ivec4 texCoord;
 };
 
 struct AirPixel {
@@ -99,8 +100,7 @@ void main() {
 
         vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
         vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-
-        ivec2 geoTexCoord = ivec2(worldToScreen(geoWorldPos));
+        ivec2 geoTexCoord = u_geoPixels[geoI].texCoord.xy; // Need exact texture coord because rasterization math and our world-to-screen math don't always align
 
         // TODO: magic numbers
         bool shouldSpawn = geoNormal.z >= 0.01f && geoNormal.z <= 0.99f;
@@ -142,9 +142,7 @@ void main() {
             //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
 
             if (color.r != 0.0f) { // we found a geo pixel
-                // TODO: explain why this causes issues
-                // Same issue may also be responsible for weird strays
-                //break;
+                break;
             }
             if (color.g != 0.0f) { // we found an air pixel
                 int airI = imageLoad(u_flagImg, pixel).x;               
@@ -164,7 +162,7 @@ void main() {
         }
 
         // Overwrite flag image with geometry index
-        imageStore(u_flagImg, ivec2(geoTexCoord), ivec4(geoI + 1, 0, 0, 0));
+        imageStore(u_flagImg, geoTexCoord, ivec4(geoI + 1, 0, 0, 0));
     
         // Make a new air pixel
         if (shouldSpawn) {
@@ -197,6 +195,7 @@ void main() {
             imageStore(u_fboImg, geoTexCoord, color);
 
             ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-geoWorldPos.z - 1.0f, geoWorldPos.y, 0)));
+            sideTexCoord.y = geoTexCoord.y;
             color = imageLoad(u_sideImg, sideTexCoord);
             color.r = 1.0f;
             imageStore(u_sideImg, sideTexCoord, color);

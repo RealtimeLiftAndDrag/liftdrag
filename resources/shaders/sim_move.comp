@@ -14,6 +14,7 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 struct GeoPixel {
     vec4 worldPos;
     vec4 normal;
+    ivec4 texCoord;
 };
 
 struct AirPixel {
@@ -113,23 +114,7 @@ void main() {
                 vec2 screenDir = normalize(searchDir);
                 vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
                 float totalDist = 0.0f;
-                while (totalDist < k_maxSearchDist) {
-                    vec4 color = imageLoad(u_fboImg, pixel);
-                    if (color.r != 0.0f) { // we found an geo pixel
-                        int geoI = imageLoad(u_flagImg, pixel).x;
-                        if (geoI != 0) { // TODO: this should not be necessary, just here for sanity
-                            --geoI;
-
-                            ++u_airGeoMap[airI].geoCount;
-                            u_airGeoMap[airI].geoIndices[0] = geoI;                   
- 
-                            break;
-                        }
-                    }
-
-                    // Visualize the search
-                    //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
-            
+                while (true) {            
                     if (k_doLineSearch) {
                         // TODO: optimize
                         vec2 delta = corner - (screenPos - vec2(pixel));
@@ -149,6 +134,26 @@ void main() {
                         screenPos += screenDir;
                         pixel = ivec2(screenPos);
                         totalDist += screenToWorldDist(1.0f);
+                    }
+
+                    if (totalDist > k_maxSearchDist) {
+                        break;
+                    }
+
+                    vec4 color = imageLoad(u_fboImg, pixel);
+                    // Visualize the search
+                    //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+
+                    if (color.r != 0.0f) { // we found an geo pixel
+                        int geoI = imageLoad(u_flagImg, pixel).x;
+                        if (geoI != 0) { // TODO: this should not be necessary, just here for sanity
+                            --geoI;
+
+                            ++u_airGeoMap[airI].geoCount;
+                            u_airGeoMap[airI].geoIndices[0] = geoI;                   
+ 
+                            break;
+                        }
                     }
                 }
             }
