@@ -31,7 +31,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::f18);
+static constexpr SimModel k_simModel(SimModel::sphere);
 
 static const std::string k_defResourceDir("resources");
 

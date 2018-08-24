@@ -187,7 +187,7 @@ void main() {
                         // TODO: optimize
                         vec2 corner = step(vec2(0.0f), screenDir); // TODO: can be moved out
                         vec2 delta = corner - (screenPos - vec2(pixel));
-                        vec2 dist = delta / screenDir;
+                        vec2 dist = abs(delta / screenDir);
                         if (dist.x < dist.y) {
                             screenPos += screenDir * dist.x;
                             pixel.x += int(sign(screenDir.x));

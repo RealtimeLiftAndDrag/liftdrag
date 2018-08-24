@@ -33,7 +33,7 @@ const int k_invocCount = 1024;
 
 const float k_maxSearchDist = 0.2f; // In world space
 
-const bool k_doLineSearch = false;
+const bool k_doLineSearch = true;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
@@ -128,13 +128,14 @@ void main() {
                 shouldSpawn = false;   
                 break;
             }
+            
             //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
             
             if (k_doLineSearch) {
                 // TODO: optimize
                 vec2 corner = step(vec2(0.0f), screenDir); // TODO: can be moved out
                 vec2 delta = corner - (screenPos - vec2(pixel));
-                vec2 dist = max(delta / screenDir, vec2(0.0f));
+                vec2 dist = abs(delta / screenDir);
                 if (dist.x < dist.y) {
                     screenPos += screenDir * dist.x;
                     pixel.x += int(sign(screenDir.x));
