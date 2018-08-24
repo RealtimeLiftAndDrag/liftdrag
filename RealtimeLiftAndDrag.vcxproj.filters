@@ -90,12 +90,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="resources\shaders\fb.frag">
-      <Filter>Resource Files\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\fb.vert">
-      <Filter>Resource Files\shaders</Filter>
-    </None>
     <None Include="resources\shaders\foil.frag">
       <Filter>Resource Files\shaders</Filter>
     </None>
@@ -130,6 +124,12 @@
       <Filter>Resource Files\shaders</Filter>
     </None>
     <None Include="resources\shaders\text.vert">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\tex.frag">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\tex.vert">
       <Filter>Resource Files\shaders</Filter>
     </None>
   </ItemGroup>

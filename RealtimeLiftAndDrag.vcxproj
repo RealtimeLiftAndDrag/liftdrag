@@ -165,8 +165,8 @@
     <ClInclude Include="src\Util.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="resources\shaders\fb.frag" />
-    <None Include="resources\shaders\fb.vert" />
+    <None Include="resources\shaders\tex.frag" />
+    <None Include="resources\shaders\tex.vert" />
     <None Include="resources\shaders\foil.frag" />
     <None Include="resources\shaders\foil.vert" />
     <None Include="resources\shaders\graph_curve.frag" />

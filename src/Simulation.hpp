@@ -24,24 +24,22 @@ namespace Simulation {
     // Does one slice and returns if it was the last one
     bool step();
 
-    // Renders current situation to screen
-    void render();
-
     // Returns the index of the slice that would be next
-    int getSlice();
+    int slice();
 
     // Returns the total number of slices
-    int getSliceCount();
+    int sliceCount();
 
     // Returns the lift of the previous sweep
-    vec3 getLift();
+    vec3 lift();
 
     // Returns the drag of the previous sweep
-    vec3 getDrag();
+    vec3 drag();
 
-    uint getSideTextureID();
+    uint frontTex();
+    uint sideTex();
 
-    ivec2 getSize();
+    ivec2 size();
 
 
 }

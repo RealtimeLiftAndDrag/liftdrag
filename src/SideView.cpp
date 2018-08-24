@@ -25,7 +25,7 @@ namespace SideView {
         // FB Shader ---------------------------------------------------------------
         s_texProg = std::make_shared<Program>();
         s_texProg->setVerbose(true);
-        s_texProg->setShaderNames(shadersDir + "/fb.vert", shadersDir + "/fb.frag");
+        s_texProg->setShaderNames(shadersDir + "/tex.vert", shadersDir + "/tex.frag");
         if (!s_texProg->init()) {
             std::cerr << "Failed to initialize fb shader" << std::endl;
             return false;

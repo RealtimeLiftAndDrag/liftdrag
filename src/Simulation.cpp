@@ -76,11 +76,7 @@ namespace Simulation {
     static float s_sweepDrag; // accumulating drag force for entire sweep
     static int s_swap;
 
-    static std::shared_ptr<Program> s_foilProg, s_fbProg;
-
-    static uint s_screenVAO;
-    static uint s_screenVBO;
-    static uint s_sideVBO;
+    static std::shared_ptr<Program> s_foilProg;
 
     static SSBO s_ssboLocal;
     static uint s_ssbo;
@@ -161,20 +157,6 @@ namespace Simulation {
         s_foilProg->addUniform("u_modelMat");
         s_foilProg->addUniform("u_normalMat");
 
-        // FB Shader
-        s_fbProg = std::make_shared<Program>();
-        s_fbProg->setVerbose(true);
-        s_fbProg->setShaderNames(shadersDir + "/fb.vert", shadersDir + "/fb.frag");
-        if (!s_fbProg->init()) {
-            std::cerr << "Failed to initialize fb shader" << std::endl;
-            return false;
-        }
-        s_fbProg->addUniform("u_tex");
-        glUseProgram(s_fbProg->pid);
-        glUniform1i(s_fbProg->getUniform("u_tex"), 0);
-        glUseProgram(0);
-
-
         // Prospect Compute Shader
         if (!(prospectProg = loadShader(shadersDir + "/sim_prospect.comp"))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
@@ -196,38 +178,6 @@ namespace Simulation {
         // Draw Compute Shader
         if (!(drawProg = loadShader(shadersDir + "/sim_draw.comp"))) {
             std::cerr << "Failed to load draw shader" << std::endl;
-            return false;
-        }
-
-        return true;
-    }
-
-
-    static bool setupGeom(const std::string & resourcesDir) {
-        glGenBuffers(1, &s_sideVBO);
-
-        glGenBuffers(1, &s_screenVBO);
-        glBindBuffer(GL_ARRAY_BUFFER, s_screenVBO);
-
-        float vertData[]{
-            -1.0f, -1.0f,
-            1.0f, -1.0f,
-            1.0f,  1.0f,
-
-            1.0f,  1.0f,
-            -1.0f,  1.0f,
-            -1.0f, -1.0f
-        };
-        glBufferData(GL_ARRAY_BUFFER, 2 * 3 * 2 * sizeof(float), vertData, GL_STATIC_DRAW);
-
-        glGenVertexArrays(1, &s_screenVAO);
-        glBindVertexArray(s_screenVAO);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-        glBindVertexArray(0);
-
-        if (glGetError() != GL_NO_ERROR) {
-            std::cerr << "OpenGL error" << std::endl;
             return false;
         }
 
@@ -433,12 +383,6 @@ namespace Simulation {
             return false;
         }
 
-        // Setup geometry
-        if (!setupGeom(resourceDir)) {
-            std::cerr << "Failed to setup geometry" << std::endl;
-            return false;
-        }
-
         // Setup SSBO
         glGenBuffers(1, &s_ssbo);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ssbo);
@@ -568,38 +512,31 @@ namespace Simulation {
         return false;
     }
 
-    void render() {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        s_fbProg->bind();
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, s_fboTex);
-        glBindVertexArray(s_screenVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        s_fbProg->unbind();
-    }
-
-    int getSlice() {
+    int slice() {
         return s_currentSlice;
     }
 
-    int getSliceCount() {
+    int sliceCount() {
         return k_sliceCount;
     }
 
-    vec3 getLift() {
+    vec3 lift() {
         return s_sweepLift;
     }
 
-    vec3 getDrag() {
+    vec3 drag() {
         return vec3(s_sweepDrag);
     }
 
-    uint getSideTextureID() {
+    uint frontTex() {
+        return s_fboTex;
+    }
+
+    uint sideTex() {
         return s_sideTex;
     }
 
-    ivec2 getSize() {
+    ivec2 size() {
         return ivec2(k_width, k_height);
     }
 

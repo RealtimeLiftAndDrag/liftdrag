@@ -24,6 +24,7 @@ extern "C" {
 #include "Results.hpp"
 #include "SideView.hpp"
 #include "Model.hpp"
+#include "Program.h"
 
 
 
@@ -31,7 +32,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::sphere);
+static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static const std::string k_defResourceDir("resources");
 
@@ -60,6 +61,10 @@ static bool s_shouldStep(false);
 static bool s_shouldSweep(true);
 static bool s_shouldAutoProgress(false);
 static bool s_shouldRender(true);
+
+static std::shared_ptr<Program> s_texProg;
+static uint s_screenVAO;
+static uint s_screenVBO;
 
 
 
@@ -196,6 +201,50 @@ static void keyCallback(GLFWwindow * window, int key, int scancode, int action, 
     }
 }
 
+static bool setupSimDisplay() {
+    // Setup display shader
+    s_texProg = std::make_shared<Program>();
+    s_texProg->setVerbose(true);
+    s_texProg->setShaderNames(s_resourceDir + "/shaders/tex.vert", s_resourceDir + "/shaders/tex.frag");
+    if (!s_texProg->init()) {
+        std::cerr << "Failed to initialize texture shader" << std::endl;
+        return false;
+    }
+    s_texProg->addUniform("u_tex");
+    glUseProgram(s_texProg->pid);
+    glUniform1i(s_texProg->getUniform("u_tex"), 0);
+    glUseProgram(0);
+
+    // Setup display geometry
+
+    glGenBuffers(1, &s_screenVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, s_screenVBO);
+
+    vec2 vertData[]{
+        { -1.0f, -1.0f },
+        { 1.0f, -1.0f },
+        { 1.0f,  1.0f },
+
+        { 1.0f,  1.0f },
+        { -1.0f,  1.0f },
+        { -1.0f, -1.0f }
+    };
+    glBufferData(GL_ARRAY_BUFFER, 2 * 3 * sizeof(vec2), vertData, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &s_screenVAO);
+    glBindVertexArray(s_screenVAO);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glBindVertexArray(0);
+
+    if (glGetError() != GL_NO_ERROR) {
+        std::cerr << "OpenGL error" << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
 static bool setup() {
     // Setup GLFW
     glfwSetErrorCallback(errorCallback);
@@ -208,7 +257,7 @@ static bool setup() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    if (!(s_mainWindow = glfwCreateWindow(Simulation::getSize().x, Simulation::getSize().y, "Simulation", nullptr, nullptr))) {
+    if (!(s_mainWindow = glfwCreateWindow(Simulation::size().x, Simulation::size().y, "Simulation", nullptr, nullptr))) {
         std::cerr << "Failed to create window" << std::endl;
         return false;
     }
@@ -222,6 +271,11 @@ static bool setup() {
     // Setup GLAD
     if (!gladLoadGL()) {
         std::cerr << "Failed to initialize GLAD" << std::endl;
+        return false;
+    }
+
+    if (!setupSimDisplay()) {
+        std::cerr << "Failed to setup simulation display" << std::endl;
         return false;
     }
 
@@ -250,7 +304,7 @@ static bool setup() {
     GLFWwindow * resultsWindow(Results::getWindow());
 
     //Side view Window
-    if (!SideView::setup(s_resourceDir, Simulation::getSideTextureID(), s_mainWindow)) {
+    if (!SideView::setup(s_resourceDir, Simulation::sideTex(), s_mainWindow)) {
         std::cerr << "Failed to setup results" << std::endl;
         return false;
     }
@@ -315,14 +369,14 @@ static void setSimulation() {
 
 static void update() {
     if (s_shouldStep || s_shouldSweep) {
-        if (Simulation::getSlice() == 0) { // About to do first slice
+        if (Simulation::slice() == 0) { // About to do first slice
             setSimulation();
         }
 
         if (Simulation::step()) { // That was the last slice
             s_shouldSweep = false;
-            vec3 lift(Simulation::getLift());
-            vec3 drag(Simulation::getDrag());
+            vec3 lift(Simulation::lift());
+            vec3 drag(Simulation::drag());
             std::cout << "angle: " << s_angleOfAttack << ", lift: " << lift.x << ", drag: " << drag.x << std::endl;
 
             Results::submit(s_angleOfAttack, lift.x, drag.x);
@@ -338,9 +392,20 @@ static void update() {
     }
 }
 
+static void renderFront() {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    s_texProg->bind();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, Simulation::frontTex());
+    glBindVertexArray(s_screenVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    s_texProg->unbind();
+}
+
 static void render() {
     if (s_shouldRender) {
-        Simulation::render();
+        renderFront();
         glfwSwapBuffers(s_mainWindow);
 
         SideView::render();

@@ -153,8 +153,6 @@ void main() {
             }
         }
         else {
-            // TODO: diminish back force in some way
-            //backForce = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce.xy;
             // Search for geometry
             vec2 screenPos = worldToScreen(airWorldPos);
             ivec2 pixel = ivec2(screenPos);
