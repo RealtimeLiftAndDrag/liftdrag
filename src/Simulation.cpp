@@ -15,11 +15,12 @@
 namespace Simulation {
 
     static constexpr int k_width(720), k_height(720);
+    static constexpr int k_texWidth(1440), k_texHeight(1440); //textures 4 times as big
     static constexpr int k_sliceCount(100);
     static constexpr float k_windSpeed(10.0f); // Speed of air in -z direction
 
-    static constexpr int k_maxGeoPixels(32768); // 1 MB worth, must also change in shaders
-    static constexpr int k_maxAirPixels(32768); // 1 MB worth, must also change in shaders
+    static constexpr int k_maxGeoPixels(131048); // 1 MB worth, must also change in shaders (multiplied by 4 for texture increase)
+    static constexpr int k_maxAirPixels(131048); // 1 MB worth, must also change in shaders (multiplied by 4 for texture increase)
 
     static constexpr int k_maxGeoPerAir(3); // Maximum number of different geo pixels that an air pixel can be associated with
 
@@ -191,15 +192,10 @@ namespace Simulation {
         glBindTexture(GL_TEXTURE_2D, s_sideTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        // NULL means reserve texture memory, but texels are undefined
-        // Tell OpenGL to reserve level 0
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-        // You must reserve memory for other mipmaps levels as well either by making a series of calls to
-        // glTexImage2D or use glGenerateMipmapEXT(GL_TEXTURE_2D).
-        // Here, we'll use :
-        glGenerateMipmap(GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_texWidth, k_texHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
 
         // Color texture
@@ -209,7 +205,7 @@ namespace Simulation {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_texWidth, k_texHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Position texture
@@ -219,7 +215,7 @@ namespace Simulation {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_width, k_height, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_texWidth, k_texHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Normal texture
@@ -229,13 +225,13 @@ namespace Simulation {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_width, k_height, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_texWidth, k_texHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
 
         // Depth render buffer
         uint fboDepthRB(0);
         glGenRenderbuffers(1, &fboDepthRB);
         glBindRenderbuffer(GL_RENDERBUFFER, fboDepthRB);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, k_width, k_height);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, k_texWidth, k_texHeight);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Create FBO
@@ -264,7 +260,7 @@ namespace Simulation {
     static void computeProspect() {
         glUseProgram(prospectProg);
 
-        glDispatchCompute((k_width + 7) / 8, (k_height + 7) / 8, 1); // Must also tweak in shader
+        glDispatchCompute((k_texWidth + 7) / 8, (k_texHeight + 7) / 8, 1); // Must also tweak in shader
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all     
     }
 
@@ -291,7 +287,7 @@ namespace Simulation {
 
     static void renderGeometry() {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
-        glViewport(0, 0, k_width, k_height);
+        glViewport(0, 0, k_texWidth, k_texHeight);
 
         uint drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
         glDrawBuffers(3, drawBuffers); // TODO: can this be moved to fbo setup?
@@ -343,15 +339,15 @@ namespace Simulation {
         s_ssboLocal.geoCount = 0;
         s_ssboLocal.airCount[0] = 0;
         s_ssboLocal.airCount[1] = 0;
-        s_ssboLocal.screenSize.x = k_width;
-        s_ssboLocal.screenSize.y = k_height;
-        if (k_width >= k_height) {
-            s_ssboLocal.screenAspectFactor.x = float(k_height) / float(k_width);
+        s_ssboLocal.screenSize.x = k_texWidth;
+        s_ssboLocal.screenSize.y = k_texHeight;
+        if (k_texWidth >= k_texHeight) {
+            s_ssboLocal.screenAspectFactor.x = float(k_texHeight) / float(k_texWidth);
             s_ssboLocal.screenAspectFactor.y = 1.0f;
         }
         else {
             s_ssboLocal.screenAspectFactor.x = 1.0f;
-            s_ssboLocal.screenAspectFactor.y = float(k_width) / float(k_height);
+            s_ssboLocal.screenAspectFactor.y = float(k_texWidth) / float(k_texHeight);
         }
         s_ssboLocal.sliceSize = s_sliceSize;
         s_ssboLocal.windSpeed = k_windSpeed;
@@ -436,7 +432,7 @@ namespace Simulation {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_width, k_height, 0, GL_RED_INTEGER, GL_INT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_texWidth, k_texHeight, 0, GL_RED_INTEGER, GL_INT, nullptr);
         uint clearcolor = 0;
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearcolor);
         if (glGetError() != GL_NO_ERROR) {
