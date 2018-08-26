@@ -1,5 +1,8 @@
 ﻿#version 450 core
 
+#define MAX_GEO_PIXELS 131048
+#define MAX_AIR_PIXELS 131048
+
 #define MAX_GEO_PER_AIR 3
 
 
@@ -48,8 +51,6 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;
     int u_geoCount;
     coherent int u_airCount[2]; // TODO: does this need to be coherent?
-    int u_max_geo_pixels;
-    int u_max_air_pixels;
     ivec2 u_screenSize;
     vec2 u_screenAspectFactor;
     float u_sliceSize;
@@ -166,7 +167,7 @@ void main() {
         // Make a new air pixel
         if (shouldSpawn) {
             int airI = atomicAdd(u_airCount[u_swap], 1);
-            if (airI >= u_max_air_pixels) {
+            if (airI >= MAX_AIR_PIXELS) {
                 continue;
             }
 
@@ -177,9 +178,9 @@ void main() {
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
             vec3 airVelocity = refl * u_windSpeed;
 
-            u_airPixels[airI + u_swap * u_max_air_pixels].worldPos = vec4(airWorldPos, 0.0f);
-            u_airPixels[airI + u_swap * u_max_air_pixels].velocity = vec4(airVelocity, 0.0f);
-            u_airPixels[airI + u_swap * u_max_air_pixels].backForce = vec4(0.0f);
+            u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
+            u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);
+            u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce = vec4(0.0f);
 
             // Draw to fbo to avoid another draw later
             vec4 color = imageLoad(u_fboImg, geoTexCoord);

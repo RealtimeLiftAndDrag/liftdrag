@@ -1,5 +1,8 @@
 ﻿#version 450 core
 
+#define MAX_GEO_PIXELS 131048
+#define MAX_AIR_PIXELS 131048
+
 #define MAX_GEO_PER_AIR 3
 
 
@@ -43,8 +46,6 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;
     int u_geoCount;
     int u_airCount[2];
-    int u_max_geo_pixels;
-    int u_max_air_pixels;
     ivec2 u_screenSize;
     vec2 u_screenAspectFactor;
     float u_sliceSize;
@@ -90,7 +91,7 @@ void main() {
             return;
         }
 
-        vec3 worldPos = u_airPixels[prevAirI + counterSwap * u_max_air_pixels].worldPos.xyz;
+        vec3 worldPos = u_airPixels[prevAirI + counterSwap * MAX_AIR_PIXELS].worldPos.xyz;
         
         ivec2 texCoord = ivec2(worldToScreen(worldPos));
         ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z - 1.0f, worldPos.y, 0)));
@@ -107,10 +108,10 @@ void main() {
         
         // Move to current air pixel buffer
         int airI = atomicAdd(u_airCount[u_swap], 1);
-        if (airI >= u_max_air_pixels) {
+        if (airI >= MAX_AIR_PIXELS) {
             return;
         }
-        u_airPixels[airI + u_swap * u_max_air_pixels] = u_airPixels[prevAirI + counterSwap * u_max_air_pixels];
+        u_airPixels[airI + u_swap * MAX_AIR_PIXELS] = u_airPixels[prevAirI + counterSwap * MAX_AIR_PIXELS];
         u_airGeoMap[airI].geoCount = 0; // This air pixel is not yet associated with any geometry
 
         // Store air index

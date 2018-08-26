@@ -13,14 +13,14 @@
 
 
 namespace Simulation {
-    static constexpr float k_tex_mult(4.f); //change this to have a different texture resolution than window resolution
+
     static constexpr int k_width(720), k_height(720);
-    static constexpr int k_texWidth(k_width * k_tex_mult), k_texHeight(k_height * k_tex_mult); //textures 4 times as big
+    static constexpr int k_texWidth(1440), k_texHeight(1440); //textures 4 times as big
     static constexpr int k_sliceCount(100);
     static constexpr float k_windSpeed(10.0f); // Speed of air in -z direction
 
-    static constexpr int k_maxGeoPixels(32762 * k_tex_mult * k_tex_mult); // 1 MB worth for k_width/height multiplied by tex size diff
-    static constexpr int k_maxAirPixels(32762 * k_tex_mult * k_tex_mult); // 1 MB worth for k_width/height multiplied by tex size diff
+    static constexpr int k_maxGeoPixels(131048); // 1 MB worth, must also change in shaders (multiplied by 4 for texture increase)
+    static constexpr int k_maxAirPixels(131048); // 1 MB worth, must also change in shaders (multiplied by 4 for texture increase)
 
     static constexpr int k_maxGeoPerAir(3); // Maximum number of different geo pixels that an air pixel can be associated with
 
@@ -47,8 +47,6 @@ namespace Simulation {
         s32 swap;
         s32 geoCount;
         s32 airCount[2];
-        s32 max_geo_pixels;
-        s32 max_air_pixels;
         ivec2 screenSize;
         vec2 screenAspectFactor;
         float sliceSize;
@@ -341,8 +339,6 @@ namespace Simulation {
         s_ssboLocal.geoCount = 0;
         s_ssboLocal.airCount[0] = 0;
         s_ssboLocal.airCount[1] = 0;
-        s_ssboLocal.max_geo_pixels = k_maxGeoPixels;
-        s_ssboLocal.max_air_pixels = k_maxAirPixels;
         s_ssboLocal.screenSize.x = k_texWidth;
         s_ssboLocal.screenSize.y = k_texHeight;
         if (k_texWidth >= k_texHeight) {

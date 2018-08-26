@@ -28,8 +28,6 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;
     int u_geoCount;
     int u_airCount[2];
-    int u_max_geo_pixels;
-    int u_max_air_pixels;
     ivec2 u_screenSize;
     vec2 u_screenAspectFactor;
     float u_sliceSize;

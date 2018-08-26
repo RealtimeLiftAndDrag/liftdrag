@@ -1,5 +1,7 @@
 ﻿#version 450 core
 
+#define MAX_GEO_PIXELS 131048
+#define MAX_AIR_PIXELS 131048
 
 #define MAX_GEO_PER_AIR 3
 
@@ -44,8 +46,6 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;
     int u_geoCount;
     int u_airCount[2];
-    int u_max_geo_pixels;
-    int u_max_air_pixels;
     ivec2 u_screenSize;
     vec2 u_screenAspectFactor;
     float u_sliceSize;
@@ -97,8 +97,8 @@ void main() {
 
     for (int airI = workI; airI < u_airCount[u_swap]; airI += 1024) {
 
-        vec3 airWorldPos = u_airPixels[airI + u_swap * u_max_air_pixels].worldPos.xyz;
-        vec3 airVelocity = u_airPixels[airI + u_swap * u_max_air_pixels].velocity.xyz;
+        vec3 airWorldPos = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos.xyz;
+        vec3 airVelocity = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity.xyz;
 
         // Calculate backforce
         vec2 backForce = vec2(0.0f);
@@ -109,7 +109,7 @@ void main() {
         if (u_airGeoMap[airI].geoCount == 0) {
             vec2 screenPos = worldToScreen(airWorldPos);
             ivec2 pixel = ivec2(screenPos);
-            vec2 searchDir = u_airPixels[airI + u_swap * u_max_air_pixels].backForce.xy;
+            vec2 searchDir = u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce.xy;
             if (searchDir != vec2(0.0f)) {                
                 vec2 screenDir = normalize(searchDir);
                 vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
@@ -207,9 +207,9 @@ void main() {
         airWorldPos.xy += airVelocity.xy * u_dt;
         airWorldPos.z -= u_sliceSize;
 
-        u_airPixels[airI + u_swap * u_max_air_pixels].worldPos = vec4(airWorldPos, 0.0f);
-        u_airPixels[airI + u_swap * u_max_air_pixels].velocity = vec4(airVelocity, 0.0f);
-        u_airPixels[airI + u_swap * u_max_air_pixels].backForce = vec4(backForce, 0.0f, 0.0f);
+        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].worldPos = vec4(airWorldPos, 0.0f);
+        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].velocity = vec4(airVelocity, 0.0f);
+        u_airPixels[airI + u_swap * MAX_AIR_PIXELS].backForce = vec4(backForce, 0.0f, 0.0f);
 
         //accumulationArray[gl_LocalInvocationIndex] += backForce;
     }
