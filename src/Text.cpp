@@ -15,7 +15,7 @@ static const std::string k_vertFilename("text.vert"), k_fragFilename("text.frag"
 static uint s_squareVBO;
 static uint s_fontTex;
 static ivec2 s_fontSize;
-static std::unique_ptr<Program> s_prog;
+static unq<Program> s_prog;
 static vec2 s_charTexCoords[256];
 
 
@@ -104,36 +104,21 @@ bool Text::setup(const std::string & resourceDir) {
     return true;
 }
 
-Text::Text(const std::string & string, const ivec2 & position, const ivec2 & align, const vec3 & color) :
+const ivec2 & Text::fontSize() {
+    return s_fontSize;
+}
+
+Text::Text(const std::string & string, const ivec2 & align, const vec3 & color, int minLineSize, int maxLineSize, int maxLineCount) :
+    Single(ivec2(minLineSize, 1) * s_fontSize, ivec2(maxLineSize, maxLineCount) * s_fontSize),
     m_string(string),
-    m_position(position),
     m_align(align),
     m_color(color),
-    m_isStringChange(!m_string.empty()),
-    m_isPositionChange(true),
+    m_isChange(true),
     m_vao(0), m_charVBO(0),
     m_charData()
 {}
 
-void Text::string(const std::string & string) {
-    if (string != m_string) {
-        m_string = string;
-        m_isStringChange = true;
-    }
-}
-
-void Text::position(const ivec2 & position) {
-    if (position != m_position) {
-        m_position = position;
-        m_isPositionChange = true;
-    }
-}
-
-void Text::color(const vec3 & color) {
-    m_color = color;
-}
-
-void Text::render(const ivec2 & viewportSize) {
+void Text::render(const ivec2 & position) const {
     if (m_vao == 0) {
         if (!prepare()) {
             return;
@@ -144,12 +129,13 @@ void Text::render(const ivec2 & viewportSize) {
         return;
     }
 
-    if (m_isStringChange || m_isPositionChange) {
+    if (m_isChange) {
         detCharData();
         upload();
-        m_isStringChange = false;
-        m_isPositionChange = false;
+        m_isChange = false;
     }
+
+    glViewport(position.x, position.y, m_size.x, m_size.y);
 
     s_prog->bind();
 
@@ -157,13 +143,20 @@ void Text::render(const ivec2 & viewportSize) {
     glBindTexture(GL_TEXTURE_2D, s_fontTex);
 
     glUniform3f(s_prog->getUniform("u_color"), m_color.r, m_color.g, m_color.b);
-    glUniform2f(s_prog->getUniform("u_viewportSize"), float(viewportSize.x), float(viewportSize.y));
+    glUniform2f(s_prog->getUniform("u_viewportSize"), float(m_size.x), float(m_size.y));
 
     glBindVertexArray(m_vao);
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, int(m_string.length()));
     glBindVertexArray(0);
 
     s_prog->unbind();
+}
+
+void Text::pack(const ivec2 & size) {
+    if (size != m_size) {
+        m_size = size;
+        m_isChange = true;
+    }
 }
 
 void Text::cleanup() {
@@ -173,7 +166,18 @@ void Text::cleanup() {
     m_charVBO = 0;
 }
 
-bool Text::prepare() {    
+void Text::string(const std::string & string) {
+    if (string != m_string) {
+        m_string = string;
+        m_isChange = true;
+    }
+}
+
+void Text::color(const vec3 & color) {
+    m_color = color;
+}
+
+bool Text::prepare() const {    
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_charVBO);
 
@@ -202,7 +206,7 @@ bool Text::prepare() {
     return true;
 }
 
-void Text::detCharData() {
+void Text::detCharData() const {
     m_lineEndIndices.clear();
     for (int i(0); i < m_string.length(); ++i) {
         if (m_string[i] == '\n') {
@@ -216,17 +220,16 @@ void Text::detCharData() {
     m_charData.clear();
 
     ivec2 charPos;
-    charPos.y = m_position.y - s_fontSize.y;
-    if (m_align.y < 0) charPos.y += totalHeight;
-    else if (m_align.y == 0) charPos.y += totalHeight / 2;
+    if (m_align.y > 0) charPos.y = m_size.y - s_fontSize.y;
+    else if (m_align.y == 0) charPos.y = m_size.y / 2 + totalHeight / 2 - s_fontSize.y;
 
     for (int lineI(0), strI(0); lineI < nLines; ++lineI) {
         int lineLength(m_lineEndIndices[lineI] - strI);
         int lineWidth(lineLength * s_fontSize.x);
 
-        charPos.x = m_position.x;
-        if (m_align.x < 0) charPos.x -= lineWidth;
-        else if (m_align.x == 0) charPos.x -= lineWidth / 2;
+        charPos.x = 0;
+        if (m_align.x < 0) charPos.x = m_size.x - lineWidth;
+        else if (m_align.x == 0) charPos.x = m_size.x / 2 - lineWidth / 2;
 
         for (int i(0); i < lineLength; ++i) {        
             m_charData.emplace_back(charPos);
@@ -240,7 +243,7 @@ void Text::detCharData() {
     }
 }
 
-void Text::upload() {
+void Text::upload() const {
     glBindBuffer(GL_ARRAY_BUFFER, m_charVBO);
     glBufferData(GL_ARRAY_BUFFER, m_charData.size() * sizeof(vec2), m_charData.data(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);

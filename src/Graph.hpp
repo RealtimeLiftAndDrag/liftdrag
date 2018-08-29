@@ -6,10 +6,11 @@
 #include <memory>
 
 #include "Global.hpp"
+#include "UI.hpp"
 
 
 
-class Graph {
+class Graph : public UI::Single {
 
     private:
 
@@ -18,14 +19,15 @@ class Graph {
         std::vector<vec2> points;
         int maxNPoints;
         vec3 color;
-        unsigned int vao, vbo;
-        bool isSetup, isChange;
+
+        mutable unsigned int vao, vbo;
+        mutable bool isSetup, isChange;
 
         Curve(const vec3 & color, int maxNPoints);
 
-        bool setup();
+        bool setup() const;
 
-        void upload();
+        void upload() const;
 
         void cleanup();
 
@@ -45,11 +47,13 @@ class Graph {
 
     public:
 
-    Graph(const vec2 & viewMin, const vec2 & viewMax);
+    Graph(const vec2 & viewMin, const vec2 & viewMax, const ivec2 & minSize);
+
+    virtual void render(const ivec2 & position) const override;
+
+    virtual void pack(const ivec2 & size) override;
 
     void addCurve(const vec3 & color, int maxNPoints);
-
-    void render(const ivec2 & viewportSize);
 
     const std::vector<vec2> & accessPoints(int curveI) const;
 

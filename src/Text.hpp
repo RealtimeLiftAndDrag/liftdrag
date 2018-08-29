@@ -6,49 +6,53 @@
 #include <vector>
 
 #include "Global.hpp"
+#include "UI.hpp"
 
 
 
-class Text {
+class Text : public UI::Single {
 
     public:
 
     static bool setup(const std::string & resourceDir);
 
+    static const ivec2 & fontSize();
+
     private:
 
     std::string m_string;
-    ivec2 m_position;
     ivec2 m_align;
     vec3 m_color;
-    bool m_isStringChange, m_isPositionChange;
-    unsigned int m_vao, m_charVBO;
-    std::vector<vec2> m_charData;
-    std::vector<int> m_lineEndIndices;
+
+    mutable bool m_isChange;
+    mutable unsigned int m_vao, m_charVBO;
+    mutable std::vector<vec2> m_charData;
+    mutable std::vector<int> m_lineEndIndices;
 
     public:
 
-    Text(const std::string & string, const ivec2 & position, const ivec2 & align,const vec3 & color);
+    Text(const std::string & string, const ivec2 & align, const vec3 & color, int minLineSize, int maxLineSize, int maxLineCount);
+
+    virtual void render(const ivec2 & position) const override;
+
+    virtual void pack(const ivec2 & size) override;
+
+    void cleanup();
 
     void string(const std::string & string);
     const std::string & string() const { return m_string; }
 
-    void position(const ivec2 & position);
-    const ivec2 & position() const { return m_position; }
+    const ivec2 & align() const { return m_align; }
 
     void color(const vec3 & color);
     const vec3 & color() const { return m_color; }
 
-    void render(const ivec2 & viewportSize);
-
-    void cleanup();
-
     private:
 
-    bool prepare();
+    bool prepare() const;
 
-    void detCharData();
+    void detCharData() const;
 
-    void upload();
+    void upload() const;
 
 };

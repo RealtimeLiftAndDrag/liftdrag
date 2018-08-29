@@ -149,7 +149,9 @@
     <ClCompile Include="src\Simulation.cpp" />
     <ClCompile Include="src\stb_image.cpp" />
     <ClCompile Include="src\Text.cpp" />
+    <ClCompile Include="src\TexViewer.cpp" />
     <ClCompile Include="src\tiny_obj_loader.cpp" />
+    <ClCompile Include="src\UI.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Global.hpp" />
@@ -162,6 +164,8 @@
     <ClInclude Include="src\SideView.hpp" />
     <ClInclude Include="src\Simulation.hpp" />
     <ClInclude Include="src\Text.hpp" />
+    <ClInclude Include="src\TexViewer.hpp" />
+    <ClInclude Include="src\UI.hpp" />
     <ClInclude Include="src\Util.hpp" />
   </ItemGroup>
   <ItemGroup>

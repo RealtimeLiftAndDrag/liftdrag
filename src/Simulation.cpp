@@ -15,7 +15,7 @@
 namespace Simulation {
 
     static constexpr int k_width(720), k_height(720);
-    static constexpr int k_sliceCount(100);
+    static constexpr int k_sliceCount(100); // Should also change in `Results.cpp`
     static constexpr float k_windSpeed(10.0f); // Speed of air in -z direction
 
     static constexpr int k_maxGeoPixels(32768); // 1 MB worth, must also change in shaders
@@ -80,7 +80,7 @@ namespace Simulation {
     static std::vector<vec3> s_sliceDrags; // Drag for each slice
     static int s_swap;
 
-    static std::shared_ptr<Program> s_foilProg;
+    static shr<Program> s_foilProg;
 
     static SSBO s_ssboLocal;
     static uint s_ssbo;
@@ -189,25 +189,19 @@ namespace Simulation {
     }
 
     static bool setupFramebuffer() {
-        //sideview texture
-        glGenTextures(1, &s_sideTex);
-        glBindTexture(GL_TEXTURE_2D, s_sideTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        // NULL means reserve texture memory, but texels are undefined
-        // Tell OpenGL to reserve level 0
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-        // You must reserve memory for other mipmaps levels as well either by making a series of calls to
-        // glTexImage2D or use glGenerateMipmapEXT(GL_TEXTURE_2D).
-        // Here, we'll use :
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-
         // Color texture
         glGenTextures(1, &s_fboTex);
         glBindTexture(GL_TEXTURE_2D, s_fboTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        //sideview texture
+        glGenTextures(1, &s_sideTex);
+        glBindTexture(GL_TEXTURE_2D, s_sideTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -392,10 +386,6 @@ namespace Simulation {
 
 
     bool setup(const std::string & resourceDir) {
-        glViewport(0, 0, k_width, k_height);
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glEnable(GL_DEPTH_TEST);
-
         // Setup shaders
         if (!setupShaders(resourceDir)) {
             std::cerr << "Failed to setup shaders" << std::endl;

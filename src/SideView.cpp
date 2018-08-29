@@ -16,7 +16,7 @@ namespace SideView {
 
     static GLFWwindow * s_window;
     static uint s_sideTex;
-    static std::shared_ptr<Program> s_texProg;
+    static shr<Program> s_texProg;
     static uint s_boardVAO, s_boardVBO, s_boardTexVBO, s_boardIndVBO;
 
     static bool setupShaders(const std::string & resourcesDir) {

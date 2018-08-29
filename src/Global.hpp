@@ -2,6 +2,8 @@
 
 
 
+#include <memory>
+
 #include "glm/glm.hpp"
 
 
@@ -13,6 +15,10 @@ using glm::vec4;
 using glm::ivec2;
 using glm::ivec3;
 using glm::ivec4;
+
+using glm::bvec2;
+using glm::bvec3;
+using glm::bvec4;
 
 using glm::mat2;
 using glm::mat3;
@@ -34,3 +40,6 @@ using u08 = std::uint8_t;
 using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
+
+template <typename T> using unq = std::unique_ptr<T>;
+template <typename T> using shr = std::shared_ptr<T>;

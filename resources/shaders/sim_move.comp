@@ -102,7 +102,7 @@ void main() {
 
         vec3 airWorldPos = u_airPixels[airI + u_swap * k_maxAirPixels].worldPos.xyz;
         vec3 airVelocity = u_airPixels[airI + u_swap * k_maxAirPixels].velocity.xyz;
-        float turbulence = u_airPixels[airI + u_swap * k_maxAirPixels].worldPos.w;
+        //float turbulence = u_airPixels[airI + u_swap * k_maxAirPixels].worldPos.w;
 
         // Calculate backforce
         vec2 backForce = vec2(0.0f);
@@ -166,6 +166,23 @@ void main() {
             }
         }
 
+        // Color active air pixels more brightly
+        if (bool(u_debug) && k_distinguishActivePixels && u_airGeoMap[airI].geoCount > 0) {
+            ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
+            vec4 color = imageLoad(u_fboImg, texCoord);
+            color.g = 1.0f;
+            //color.b = turbulence;
+            imageStore(u_fboImg, texCoord, color);
+
+            if (!k_ignoreEdges || abs(airWorldPos.x) <= 0.5f) {
+                ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z - 1.0f, airWorldPos.y, 0)));
+                color = imageLoad(u_sideImg, sideTexCoord);
+                color.g = 1.0f;
+                //color.b = turbulence;
+                imageStore(u_sideImg, sideTexCoord, color);
+            }
+        }
+
         // For each associated geo pixel, update backforce, lift, and drag
         // TODO: actually take multiple geo pixels into account
         for (int mapI = 0; mapI < u_airGeoMap[airI].geoCount; ++mapI) {
@@ -177,9 +194,9 @@ void main() {
             backForce = normalize(-geoNormal.xy) * dist*dist;
             backForce *= 600.0f;
 
-            if (distance(geoWorldPos, airWorldPos) >= k_turbulenceDist) {
-                turbulence = 1.0f;
-            }
+            //if (distance(geoWorldPos, airWorldPos) >= k_turbulenceDist) {
+            //    turbulence = 1.0f;
+            //}
 
             // Calculate drag
             float massDensity = 1.0f;
@@ -201,7 +218,7 @@ void main() {
         airWorldPos.xy += airVelocity.xy * u_dt;
         airWorldPos.z -= u_sliceSize;
 
-        u_airPixels[airI + u_swap * k_maxAirPixels].worldPos = vec4(airWorldPos, turbulence);
+        u_airPixels[airI + u_swap * k_maxAirPixels].worldPos = vec4(airWorldPos, 0.0f);//, turbulence);
         u_airPixels[airI + u_swap * k_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
         u_airPixels[airI + u_swap * k_maxAirPixels].backForce = vec4(backForce, 0.0f, 0.0f);
                         
@@ -209,23 +226,6 @@ void main() {
         vec2 liftForce = -backForce * u_sliceSize * 0.1f;			  
         //atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
         accumulationArray[workI].xy += liftForce;
-
-        // Color active air pixels more brightly
-        if (bool(u_debug) && k_distinguishActivePixels && u_airGeoMap[airI].geoCount > 0) {
-            ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
-            vec4 color = imageLoad(u_fboImg, texCoord);
-            color.g = 1.0f;
-            color.b = turbulence;
-            imageStore(u_fboImg, texCoord, color);
-
-            if (!k_ignoreEdges || abs(airWorldPos.x) <= 0.5f) {
-                ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z - 1.0f, airWorldPos.y, 0)));
-                color = imageLoad(u_sideImg, sideTexCoord);
-                color.g = 1.0f;
-                color.b = turbulence;
-                imageStore(u_sideImg, sideTexCoord, color);
-            }
-        }
     }
 
     // Add contents of accumulation array

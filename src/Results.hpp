@@ -1,6 +1,7 @@
 #include <string>
 
 #include "Global.hpp"
+#include "UI.hpp"
 
 
 
@@ -12,11 +13,9 @@ namespace Results {
 
 
 
-bool setup(const std::string & resourcesDir, GLFWwindow * mainWindow);
+bool setup(const std::string & resourcesDir);
 
-void cleanup();
-
-void render();
+void update();
 
 // Submits the lift and drag at the given angle (in degrees) for processing and
 // visualization
@@ -26,7 +25,7 @@ void submit(float angle, float lift, float drag);
 // degrees) and true, or false if the angle is out of interpolation range
 bool valAt(float angle, float & r_lift, float & r_drag);
 
-GLFWwindow * getWindow();
+shr<UI::Component> getUI();
 
 
 

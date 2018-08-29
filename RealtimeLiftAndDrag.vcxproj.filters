@@ -53,6 +53,12 @@
     <ClCompile Include="src\GRLLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TexViewer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\GLSL.h">
@@ -86,6 +92,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="src\GRLLoader.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TexViewer.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

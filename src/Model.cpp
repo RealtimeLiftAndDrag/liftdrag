@@ -142,7 +142,7 @@ void SubModel::localTransform(const mat4 & modelMat, const mat3 & normalMat) {
 
 
 
-static std::unique_ptr<Model> loadOBJ(const std::string & filename) {
+static unq<Model> loadOBJ(const std::string & filename) {
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
 
@@ -166,10 +166,10 @@ static std::unique_ptr<Model> loadOBJ(const std::string & filename) {
         subModels.emplace_back(std::move(shape.name), std::move(mesh));
     }
 
-    return std::unique_ptr<Model>(new Model(std::move(subModels)));
+    return unq<Model>(new Model(std::move(subModels)));
 }
 
-static std::unique_ptr<Model> loadGRL(const std::string & filename) {
+static unq<Model> loadGRL(const std::string & filename) {
     std::vector<grl::Object> objects(grl::load(filename));
     if (objects.empty()) {
         std::cerr << "Failed to load GRL" << std::endl;
@@ -182,13 +182,13 @@ static std::unique_ptr<Model> loadGRL(const std::string & filename) {
         subModels.emplace_back(std::move(object.name), std::move(mesh), object.originMat);
     }
 
-    return std::unique_ptr<Model>(new Model(std::move(subModels)));
+    return unq<Model>(new Model(std::move(subModels)));
 }
 
-std::unique_ptr<Model> Model::load(const std::string & filename) {
+unq<Model> Model::load(const std::string & filename) {
     std::string ext(Util::getExtension(filename));
 
-    std::unique_ptr<Model> model;
+    unq<Model> model;
     if (ext == "obj") {
         model = loadOBJ(filename);
     }

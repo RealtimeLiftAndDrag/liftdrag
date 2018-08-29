@@ -11,7 +11,7 @@
 static const std::string k_curveVertFilename("graph_curve.vert"), k_curveFragFilename("graph_curve.frag");
 static const std::string k_linesVertFilename("graph_lines.vert"), k_linesFragFilename("graph_lines.frag");
 
-static std::unique_ptr<Program> s_curveProg, s_linesProg;
+static unq<Program> s_curveProg, s_linesProg;
 static uint s_squareVAO, s_squareVBO;
 
 static float detGridSize(float v) {
@@ -33,7 +33,7 @@ Graph::Curve::Curve(const vec3 & color, int maxNPoints) :
     points.reserve(maxNPoints);
 }
 
-bool Graph::Curve::setup() {
+bool Graph::Curve::setup() const {
     // Setup curve vao
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);    
@@ -55,7 +55,7 @@ bool Graph::Curve::setup() {
     return true;
 }
 
-void Graph::Curve::upload() {
+void Graph::Curve::upload() const {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, glm::min(int(points.size()), maxNPoints) * sizeof(vec2), points.data());
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -124,25 +124,24 @@ bool Graph::setup(const std::string & resourceDir) {
     return true;
 }
 
-Graph::Graph(const vec2 & viewMin, const vec2 & viewMax) :
+Graph::Graph(const vec2 & viewMin, const vec2 & viewMax, const ivec2 & minSize) :
+    Single(minSize, ivec2()),
     m_viewMin(viewMin), m_viewMax(viewMax),
     m_gridSize(detGridSize(m_viewMax.x - m_viewMin.x), detGridSize(m_viewMax.y - m_viewMin.y)),
     m_isFocusX(false),
     m_focusX()
 {}
 
-void Graph::addCurve(const vec3 & color, int maxNPoints) {
-    m_curves.emplace_back(color, maxNPoints);
-}
+void Graph::render(const ivec2 & position) const {
+    glViewport(position.x, position.y, m_size.x, m_size.y);
 
-void Graph::render(const ivec2 & viewportSize) {
     // Render lines
 
     s_linesProg->bind();
     glUniform2f(s_linesProg->getUniform("u_viewMin"), m_viewMin.x, m_viewMin.y);
     glUniform2f(s_linesProg->getUniform("u_viewMax"), m_viewMax.x, m_viewMax.y);
     glUniform2f(s_linesProg->getUniform("u_gridSize"), m_gridSize.x, m_gridSize.y);
-    glUniform2f(s_linesProg->getUniform("u_viewportSize"), float(viewportSize.x), float(viewportSize.y));
+    glUniform2f(s_linesProg->getUniform("u_viewportSize"), float(m_size.x), float(m_size.y));
     glUniform1i(s_linesProg->getUniform("u_isFocusX"), m_isFocusX);
     if (m_isFocusX) glUniform1f(s_linesProg->getUniform("u_focusX"), m_focusX);
     glBindVertexArray(s_squareVAO);
@@ -154,7 +153,7 @@ void Graph::render(const ivec2 & viewportSize) {
     glUniform2f(s_curveProg->getUniform("u_viewMin"), m_viewMin.x, m_viewMin.y);
     glUniform2f(s_curveProg->getUniform("u_viewMax"), m_viewMax.x, m_viewMax.y);
 
-    for (Curve & curve : m_curves) {
+    for (const Curve & curve : m_curves) {
         if (!curve.isSetup) {
             if (!curve.setup()) {
                 continue;
@@ -183,6 +182,14 @@ void Graph::render(const ivec2 & viewportSize) {
 
     glUseProgram(0);
     glBindVertexArray(0);
+}
+
+void Graph::pack(const ivec2 & size) {
+    m_size = size;
+}
+
+void Graph::addCurve(const vec3 & color, int maxNPoints) {
+    m_curves.emplace_back(color, maxNPoints);
 }
 
 const std::vector<vec2> & Graph::accessPoints(int curveI) const {

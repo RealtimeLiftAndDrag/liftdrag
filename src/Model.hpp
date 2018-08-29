@@ -89,7 +89,7 @@ class Model {
 
     public:
 
-    static std::unique_ptr<Model> load(const std::string & filename);
+    static unq<Model> load(const std::string & filename);
 
     private:
 
