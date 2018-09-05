@@ -27,9 +27,6 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
-const int k_maxGeoPixels = 32768;
-const int k_maxAirPixels = 32768;
-
 const int k_invocCount = 1024;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
@@ -47,8 +44,10 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;
     int u_geoCount;
     int u_airCount[2];
-    ivec2 u_screenSize;
-    vec2 u_screenAspectFactor;
+    int u_maxGeoPixels;
+    int u_maxAirPixels;
+    int u_screenSize;
+    int u_padding0;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -72,9 +71,8 @@ layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
 
 vec2 worldToScreen(vec3 world) {
     vec2 screenPos = world.xy;
-    screenPos *= u_screenAspectFactor; // compensate for aspect ratio
     screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= vec2(u_screenSize); // scale to texture space
+    screenPos *= float(u_screenSize); // scale to texture space
     return screenPos;
 }
 
@@ -90,14 +88,14 @@ void main() {
             return;
         }
 
-        vec3 worldPos = u_airPixels[prevAirI + counterSwap * k_maxAirPixels].worldPos.xyz;
-        float turbulence = u_airPixels[prevAirI + counterSwap * k_maxAirPixels].worldPos.w;
+        vec3 worldPos = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].worldPos.xyz;
+        float turbulence = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].worldPos.w;
         
         ivec2 texCoord = ivec2(worldToScreen(worldPos));
         ivec2 sideTexCoord; if (bool(u_debug)) sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z - 1.0f, worldPos.y, 0)));
 
         // Check if in texture
-        if (texCoord.x < 0 || texCoord.y < 0 || texCoord.x >= u_screenSize.x || texCoord.y >= u_screenSize.y) {
+        if (texCoord.x < 0 || texCoord.y < 0 || texCoord.x >= u_screenSize || texCoord.y >= u_screenSize) {
             continue;
         }
         // Check if in geometry
@@ -108,10 +106,10 @@ void main() {
         
         // Move to current air pixel buffer
         int airI = atomicAdd(u_airCount[u_swap], 1);
-        if (airI >= k_maxAirPixels) {
+        if (airI >= u_maxAirPixels) {
             return;
         }
-        u_airPixels[airI + u_swap * k_maxAirPixels] = u_airPixels[prevAirI + counterSwap * k_maxAirPixels];
+        u_airPixels[airI + u_swap * u_maxAirPixels] = u_airPixels[prevAirI + counterSwap * u_maxAirPixels];
         u_airGeoMap[airI].geoCount = 0; // This air pixel is not yet associated with any geometry
 
         // Store air index

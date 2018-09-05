@@ -27,9 +27,6 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
-const int k_maxGeoPixels = 32768;
-const int k_maxAirPixels = 32768;
-
 const int k_invocCount = 1024;
 
 const float k_maxSearchDist = 0.2f; // In world space
@@ -53,8 +50,10 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;
     int u_geoCount;
     coherent int u_airCount[2]; // TODO: does this need to be coherent?
-    ivec2 u_screenSize;
-    vec2 u_screenAspectFactor;
+    int u_maxGeoPixels;
+    int u_maxAirPixels;
+    int u_screenSize;
+    int u_padding0;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -78,14 +77,13 @@ layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
 
 vec2 worldToScreen(vec3 world) {
     vec2 screenPos = world.xy;
-    screenPos *= u_screenAspectFactor; // compensate for aspect ratio
     screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= vec2(u_screenSize); // scale to texture space
+    screenPos *= float(u_screenSize); // scale to texture space
     return screenPos;
 }
 
 float screenToWorldDist(float screenDist) {
-    return screenDist / (float(min(u_screenSize.x, u_screenSize.y)) * 0.5f);
+    return 2.0f * screenDist / float(u_screenSize);
 }
 
 void main() {
@@ -170,7 +168,7 @@ void main() {
         // Make a new air pixel
         if (shouldSpawn) {
             int airI = atomicAdd(u_airCount[u_swap], 1);
-            if (airI >= k_maxAirPixels) {
+            if (airI >= u_maxAirPixels) {
                 continue;
             }
 
@@ -181,9 +179,9 @@ void main() {
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
             vec3 airVelocity = refl * u_windSpeed;
 
-            u_airPixels[airI + u_swap * k_maxAirPixels].worldPos = vec4(airWorldPos, 0.0f);
-            u_airPixels[airI + u_swap * k_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
-            u_airPixels[airI + u_swap * k_maxAirPixels].backForce = vec4(0.0f);
+            u_airPixels[airI + u_swap * u_maxAirPixels].worldPos = vec4(airWorldPos, 0.0f);
+            u_airPixels[airI + u_swap * u_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
+            u_airPixels[airI + u_swap * u_maxAirPixels].backForce = vec4(0.0f);
 
             // Draw to fbo to avoid another draw later, only necessary for seeing the results immediately
             if (bool(u_debug)) {

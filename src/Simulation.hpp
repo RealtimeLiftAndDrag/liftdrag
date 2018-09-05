@@ -46,7 +46,7 @@ namespace Simulation {
     uint frontTex();
     uint sideTex();
 
-    const ivec2 & size();
+    int size();
 
 
 }

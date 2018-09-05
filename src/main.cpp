@@ -353,8 +353,8 @@ static bool setup() {
         return false;
     }
 
-    s_frontTexViewer.reset(new TexViewer(Simulation::frontTex(), Simulation::size(), ivec2(128)));
-    s_sideTexViewer.reset(new TexViewer(Simulation::sideTex(), Simulation::size(), ivec2(128)));
+    s_frontTexViewer.reset(new TexViewer(Simulation::frontTex(), ivec2(Simulation::size()), ivec2(128)));
+    s_sideTexViewer.reset(new TexViewer(Simulation::sideTex(), ivec2(Simulation::size()), ivec2(128)));
 
     shr<UI::HorizontalGroup> displayGroup(new UI::HorizontalGroup());
     displayGroup->add(s_frontTexViewer);

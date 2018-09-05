@@ -14,9 +14,6 @@ struct GeoPixel {
 
 // Constants -------------------------------------------------------------------
 
-const int k_maxGeoPixels = 32768;
-const int k_maxAirPixels = 32768;
-
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
@@ -27,8 +24,10 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;
     coherent int u_geoCount; // TODO: does this need to be coherent?
     int u_airCount[2];
-    ivec2 u_screenSize;
-    vec2 u_screenAspectFactor;
+    int u_maxGeoPixels;
+    int u_maxAirPixels;
+    int u_screenSize;
+    int u_padding0;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -56,7 +55,7 @@ ivec2 getPixelDelta(vec2 dir) {
 
 void main() {
     ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
-    if (texCoord.x >= u_screenSize.x || texCoord.y >= u_screenSize.y) {
+    if (texCoord.x >= u_screenSize || texCoord.y >= u_screenSize) {
         return;
     }
 
@@ -75,7 +74,7 @@ void main() {
     }
 
     int geoI = atomicAdd(u_geoCount, 1);
-    if (geoI >= k_maxGeoPixels) {
+    if (geoI >= u_maxGeoPixels) {
         return;
     }
 

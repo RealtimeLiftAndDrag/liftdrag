@@ -27,8 +27,10 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;
     int u_geoCount;
     int u_airCount[2];
-    ivec2 u_screenSize;
-    vec2 u_screenAspectFactor;
+    int u_maxGeoPixels;
+    int u_maxAirPixels;
+    int u_screenSize;
+    int u_padding0;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -41,9 +43,8 @@ layout (binding = 0, std430) restrict buffer SSBO {
 
 vec2 worldToScreen(vec3 world) {
     vec2 screenPos = world.xy;
-    screenPos *= u_screenAspectFactor; // compensate for aspect ratio
     screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= vec2(u_screenSize); // scale to texture space
+    screenPos *= float(u_screenSize); // scale to texture space
     return screenPos;
 }
 
