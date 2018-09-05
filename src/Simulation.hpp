@@ -27,7 +27,7 @@ namespace Simulation {
     // Does a full sweep
     void sweep();
 
-    // Returns the index of the slice that would be next
+    // Returns the index of the slice that would be NEXT
     int slice();
 
     // Returns the total number of slices

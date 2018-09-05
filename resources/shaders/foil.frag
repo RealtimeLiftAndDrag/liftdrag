@@ -25,7 +25,7 @@ layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
 layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;
-    int u_geoCount;
+    coherent int u_geoCount;
     int u_airCount[2];
     ivec2 u_screenSize;
     vec2 u_screenAspectFactor;
@@ -33,10 +33,8 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_windSpeed;
     float u_dt;
     uint u_debug;
-    ivec4 u_momentum;
-    vec4 u_force;
-    ivec4 u_dragForce;
-    ivec4 u_dragMomentum;
+    vec4 u_lift;
+    vec4 u_drag;
 };
 
 // Functions -------------------------------------------------------------------
@@ -60,4 +58,6 @@ void main() {
         vec2 sideTexPos = worldToScreen(vec3(-in_pos.z - 1.0f, in_pos.y, 0));
         imageStore(u_sideImg, ivec2(sideTexPos), vec4(k_inactiveVal, 0.0f, 0.0f, 0.0f));
     }
+
+    atomicAdd(u_geoCount, 1);
 }

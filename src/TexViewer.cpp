@@ -25,18 +25,19 @@ bool TexViewer::setup(const std::string & resourceDir) {
         return false;
     }
     s_texProg->addUniform("u_tex");
+    s_texProg->addUniform("u_viewBounds");
     glUseProgram(s_texProg->pid);
     glUniform1i(s_texProg->getUniform("u_tex"), 0);
     glUseProgram(0);
 
     // Setup square vao
     vec2 positions[6]{
-        { -1.0f, -1.0f },
-        {  1.0f, -1.0f },
-        {  1.0f,  1.0f },
-        {  1.0f,  1.0f },
-        { -1.0f,  1.0f },
-        { -1.0f, -1.0f }
+        { 0.0f, 0.0f },
+        { 1.0f, 0.0f },
+        { 1.0f, 1.0f },
+        { 1.0f, 1.0f },
+        { 0.0f, 1.0f },
+        { 0.0f, 0.0f }
     };
     glGenVertexArrays(1, &s_squareVAO);
     glBindVertexArray(s_squareVAO);    
@@ -60,28 +61,58 @@ bool TexViewer::setup(const std::string & resourceDir) {
 TexViewer::TexViewer(uint tex, const ivec2 & texSize, const ivec2 & minSize) :
     Single(minSize, ivec2()),
     m_tex(tex),
-    m_texSize(texSize)
+    m_texSize(texSize),
+    m_viewSize(),
+    m_center(0.5f),
+    m_zoom(1.0f)
 {}
 
-void TexViewer::render(const ivec2 & position) const {
-    glViewport(position.x, position.y, m_size.x, m_size.y);
+void TexViewer::render() const {
+    glViewport(m_position.x, m_position.y, m_size.x, m_size.y);
 
     glUseProgram(s_texProg->pid);
-    glBindVertexArray(s_squareVAO);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_tex);
 
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    vec2 corner(m_center - m_viewSize * 0.5f / m_zoom);
+    glUniform4f(s_texProg->getUniform("u_viewBounds"), corner.x, corner.y, m_viewSize.x / m_zoom, m_viewSize.y / m_zoom);
 
+    glBindVertexArray(s_squareVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
+
     glUseProgram(0);
 }
 
-void TexViewer::pack(const ivec2 & size) {
-    m_size = size;
+void TexViewer::pack() {
+    m_viewSize = vec2(m_size) / vec2(m_texSize);
 }
 
-void TexViewer::cleanup() {
-    
+void TexViewer::cursorPositionEvent(const ivec2 & pos, const ivec2 & delta) {
+    if (UI::isMouseButtonPressed(0)) {
+        vec2 factor(m_viewSize / vec2(m_size));
+        moveCenter(-factor * vec2(delta) / m_zoom);
+    }
+}
+
+void TexViewer::scrollEvent(const ivec2 & delta) {
+    if (delta.y < 0) zoomBy(0.5f);
+    else if (delta.y > 0) zoomBy(2.0f);
+}
+
+void TexViewer::center(const vec2 & p) {
+    m_center = p;
+}
+
+void TexViewer::moveCenter(const vec2 & delta) {
+    m_center += delta;
+}
+
+void TexViewer::zoom(float zoom) {
+    m_zoom = zoom;
+}
+
+void TexViewer::zoomBy(float factor) {
+    m_zoom *= factor;
 }

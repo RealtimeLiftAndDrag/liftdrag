@@ -10,14 +10,13 @@ extern "C" {
 }
 #endif
 
-// TODO: do we care about z world space?
-// TODO: can we assume square?
-// TODO: idea of and air frame or air space
-// TODO: lift proportional to slice size?
+// TODO: should average backforce when multiple geo pixels, or simply sum?
+// TODO: lift should be independent of the number of slices
 
 
 
 #include <iostream>
+#include <sstream>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
@@ -34,6 +33,17 @@ extern "C" {
 #include "Text.hpp"
 #include "Graph.hpp"
 #include "TexViewer.hpp"
+#include "Util.hpp"
+
+
+
+class MainUIC : public UI::VerticalGroup {
+
+    public:
+    
+    virtual void keyEvent(int key, int action, int mods) override;
+
+};
 
 
 
@@ -41,9 +51,11 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::sphere);
+static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static const std::string k_defResourceDir("resources");
+
+static const ivec2 k_defWindowSize(1280, 720);
 
 static constexpr float k_minAngleOfAttack(-90.0f), k_maxAngleOfAttack(90.0f);
 static constexpr float k_minRudderAngle(-90.0f), k_maxRudderAngle(90.0f);
@@ -54,9 +66,23 @@ static constexpr float k_angleOfAttackIncrement(1.0f); // the granularity of ang
 static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
 static constexpr float k_autoAngleIncrement(7.0f); // how many degrees to change the angle of attack by when auto progressing
 
+static const std::string k_controlsString(
+    "Controls"                                      "\n"
+    "  space       : step to next slice"            "\n"
+    "  shift-space : sweep through all steps"       "\n"
+    "  ctrl-space  : toggle auto angle progression" "\n"
+    "  f           : do fast sweep"                 "\n"
+    "  shift-f     : do fast sweep of all angles"   "\n"
+    "  o or i      : change rudder angle"           "\n"
+    "  k or j      : change elevator angle"         "\n"
+    "  m or n      : change aileron angle"          "\n"
+    "  =           : reset UI elements"
+);
+
 
 
 static std::string s_resourceDir(k_defResourceDir);
+
 
 static unq<Model> s_model;
 //all in degrees
@@ -65,15 +91,18 @@ static float s_aileronAngle(0.0f);
 static float s_rudderAngle(0.0f);
 static float s_elevatorAngle(0.0f);
 
-static GLFWwindow * s_mainWindow;
 static bool s_shouldStep(false);
 static bool s_shouldSweep(true);
 static bool s_shouldAutoProgress(false);
 
-static shr<UI::VertGroup> s_parentGroup;
-
-static shr<UI::HorizGroup> s_displayGroup;
+static shr<MainUIC> s_mainUIC;
 static shr<TexViewer> s_frontTexViewer, s_sideTexViewer;
+static shr<Text> s_angleText, s_angleLiftText, s_angleDragText;
+static shr<Text> s_sliceText, s_sliceLiftText, s_sliceDragText;
+static shr<Text> s_rudderText, s_elevatorText, s_aileronText;
+
+static bool s_isInfoChange(true);
+static bool s_isF18Change(true);
 
 
 
@@ -97,7 +126,7 @@ static bool processArgs(int argc, char ** argv) {
 static void changeAngleOfAttack(float deltaAngle) {
     s_angleOfAttack = glm::clamp(s_angleOfAttack + deltaAngle, -k_maxAngleOfAttack, k_maxAngleOfAttack);
 
-    std::cout << "Angle of attack set to " << s_angleOfAttack << std::endl;
+    s_isInfoChange = true;
 }
 
 static void changeRudderAngle(float deltaAngle) {
@@ -108,7 +137,7 @@ static void changeRudderAngle(float deltaAngle) {
     s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
     s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
 
-    std::cout << "Rudder angle set to " << s_rudderAngle << std::endl;
+    s_isF18Change = true;
 }
 
 static void changeAileronAngle(float deltaAngle) {
@@ -121,8 +150,8 @@ static void changeAileronAngle(float deltaAngle) {
     modelMat = glm::rotate(mat4(), -s_aileronAngle, vec3(1.0f, 0.0f, 0.0f));
     normalMat = modelMat;
     s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
-
-    std::cout << "Aileron angle set to " << s_aileronAngle << std::endl;
+    
+    s_isF18Change = true;
 }
 
 static void changeElevatorAngle(float deltaAngle) {
@@ -132,8 +161,8 @@ static void changeElevatorAngle(float deltaAngle) {
     mat3 normalMat(modelMat);
     s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
     s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
-
-    std::cout << "Elevator angle set to " << s_elevatorAngle << std::endl;
+    
+    s_isF18Change = true;
 }
 
 static void setSimulation(float angleOfAttack, bool debug) {
@@ -176,7 +205,7 @@ static void setSimulation(float angleOfAttack, bool debug) {
     Simulation::set(*s_model, modelMat, normalMat, depth, centerOfGravity, debug);
 }
 
-static void doFastSweep(float angleOfAttack) {
+static void doFastSweep(float angleOfAttack, bool submitSlices) {
     setSimulation(angleOfAttack, false);
 
     double then(glfwGetTime());
@@ -185,24 +214,30 @@ static void doFastSweep(float angleOfAttack) {
 
     vec3 lift(Simulation::lift());
     vec3 drag(Simulation::drag());
-    //Results::submit(angleOfAttack, lift.y, drag.y);
+    Results::submitAngle(angleOfAttack, lift.y, drag.x);
 
-    std::cout << "Angle: " << angleOfAttack << ", Lift: " << lift.y << ", Drag: " << drag.y << ", SPS: " << (1.0 / dt) << std::endl;
+    if (submitSlices) {
+        for (int i(0); i < Simulation::sliceCount(); ++i) {
+            Results::submitSlice(i, Simulation::lift(i).y, Simulation::drag(i).x);
+        }
+    }
+
+    Results::update();
+
+    std::cout << "Angle: " << angleOfAttack << ", Lift: " << lift.y << ", Drag: " << drag.x << ", SPS: " << (1.0 / dt) << std::endl;
 }
 
 static void doAllAngles() {
+    Results::clearSlices();
+
     for (float angle(k_minAngleOfAttack); angle <= k_maxAngleOfAttack; angle += k_angleOfAttackIncrement) {
-        doFastSweep(angle);
-        //Results::render();
-        glfwMakeContextCurrent(s_mainWindow);
+        doFastSweep(angle, false);
     }
 }
 
-static void errorCallback(int error, const char * description) {
-    std::cerr << "GLFW error: " << description << std::endl;
-}
+void MainUIC::keyEvent(int key, int action, int mods) {
+    Group::keyEvent(key, action, mods);
 
-static void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mods) {
     // If space bar is pressed, do one slice
     if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         s_shouldStep = true;
@@ -220,7 +255,7 @@ static void keyCallback(GLFWwindow * window, int key, int scancode, int action, 
     // If F is pressed, do fast sweep
     else if (key == GLFW_KEY_F && (action == GLFW_PRESS) && !mods) {
         if (Simulation::slice() == 0 && !s_shouldAutoProgress) {
-            doFastSweep(s_angleOfAttack);
+            doFastSweep(s_angleOfAttack, true);
         }
     }
     // If Shift-F is pressed, do fast sweep of all angles
@@ -243,76 +278,58 @@ static void keyCallback(GLFWwindow * window, int key, int scancode, int action, 
     }
     // If O key is pressed, increase rudder angle
     else if (key == GLFW_KEY_O && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
             changeRudderAngle(k_manualAngleIncrement);
         }
     }
     // If I key is pressed, decrease rudder angle
     else if (key == GLFW_KEY_I && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
             changeRudderAngle(-k_manualAngleIncrement);
         }
     }
     // If K key is pressed, increase elevator angle
     else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
             changeElevatorAngle(k_manualAngleIncrement);
         }
     }
     // If J key is pressed, decrease elevator angle
     else if (key == GLFW_KEY_J && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
             changeElevatorAngle(-k_manualAngleIncrement);
         }
     }
     // If M key is pressed, increase aileron angle
     else if (key == GLFW_KEY_M && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
             changeAileronAngle(k_manualAngleIncrement);
         }
     }
     // If N key is pressed, decrease aileron angle
     else if (key == GLFW_KEY_N && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
             changeAileronAngle(-k_manualAngleIncrement);
         }
+    }
+    // If equals key is pressed, reset UI stuff
+    else if (key == GLFW_KEY_EQUAL && action == GLFW_PRESS && !mods) {
+        s_frontTexViewer->center(vec2(0.5f));
+        s_frontTexViewer->zoom(1.0f);
+        s_sideTexViewer->center(vec2(0.5f));
+        s_sideTexViewer->zoom(1.0f);
+        Results::resetGraphs();
     }
 }
 
 static bool setup() {
-    // Setup GLFW
-    glfwSetErrorCallback(errorCallback);
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
+    // Setup UI, which includes GLFW and GLAD
+    if (!UI::setup(k_defWindowSize, "Realtime Lift and Drag Visualizer", 4, 5, false, s_resourceDir)) {
+        std::cerr << "Failed to setup UI" << std::endl;
         return false;
     }
 
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    ivec2 windowSize(1280, 720);
-    if (!(s_mainWindow = glfwCreateWindow(windowSize.x, windowSize.y, "Realtime Lift and Drag Visualizer", nullptr, nullptr))) {
-        std::cerr << "Failed to create window" << std::endl;
-        return false;
-    }
-    glfwDefaultWindowHints();
-
-    glfwMakeContextCurrent(s_mainWindow);
-
-    glfwSetKeyCallback(s_mainWindow, keyCallback);
-    glfwSwapInterval(0);
-
-    // Setup GLAD
-    if (!gladLoadGL()) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
-        return false;
-    }
-    
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glEnable(GL_DEPTH_TEST);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
-    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+    glDisable(GL_BLEND); // need blending for ui but don't want it for simulation
 
     // Setup model    
     switch (k_simModel) {
@@ -331,21 +348,6 @@ static bool setup() {
         return false;
     }
 
-    if (!Text::setup(s_resourceDir)) {
-        std::cerr << "Failed to setup text" << std::endl;
-        return false;
-    }
-
-    if (!Graph::setup(s_resourceDir)) {
-        std::cerr << "Failed to setup graph" << std::endl;
-        return false;
-    }
-
-    if (!TexViewer::setup(s_resourceDir)) {
-        std::cerr << "Failed to setup texture viewer" << std::endl;
-        return false;
-    }
-
     if (!Results::setup(s_resourceDir)) {
         std::cerr << "Failed to setup results" << std::endl;
         return false;
@@ -354,62 +356,134 @@ static bool setup() {
     s_frontTexViewer.reset(new TexViewer(Simulation::frontTex(), Simulation::size(), ivec2(128)));
     s_sideTexViewer.reset(new TexViewer(Simulation::sideTex(), Simulation::size(), ivec2(128)));
 
-    s_displayGroup.reset(new UI::HorizGroup());
-    s_displayGroup->add(s_frontTexViewer);
-    s_displayGroup->add(s_sideTexViewer);
+    shr<UI::HorizontalGroup> displayGroup(new UI::HorizontalGroup());
+    displayGroup->add(s_frontTexViewer);
+    displayGroup->add(s_sideTexViewer);
 
-    s_parentGroup.reset(new UI::VertGroup());
-    shr<UI::HorizGroup> d(new UI::HorizGroup());
-    s_parentGroup->add(Results::getUI());
-    s_parentGroup->add(s_displayGroup);
-    s_parentGroup->pack(windowSize);
+    shr<Graph> angleGraph(Results::angleGraph());
 
-    // Results Window
-    //if (!Results::setup(s_resourceDir, s_mainWindow)) {
-    //    std::cerr << "Failed to setup results" << std::endl;
-    //    return false;
-    //}
-    //GLFWwindow * resultsWindow(Results::getWindow());
+    shr<Graph> sliceGraph(Results::sliceGraph());
 
-    //Side view Window
-    //if (!SideView::setup(s_resourceDir, Simulation::sideTex(), s_mainWindow)) {
-    //    std::cerr << "Failed to setup results" << std::endl;
-    //    return false;
-    //}
-    //GLFWwindow * sideViewWindow(SideView::getWindow());
+    const int k_infoWidth(16);
+    s_angleText    .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_angleLiftText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_angleDragText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_sliceText    .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_sliceLiftText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_sliceDragText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_rudderText   .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_elevatorText .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_aileronText  .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
 
-    // Arrange windows
-    glfwSetWindowPos(s_mainWindow, 100, 100);
-    int windowWidth, windowHeight;
-    glfwGetWindowSize(s_mainWindow, &windowWidth, &windowHeight);
-    //glfwSetWindowPos(sideViewWindow, 100 + windowWidth + 10, 100);
-    //glfwSetWindowPos(resultsWindow, 100, 100 + windowHeight + 40);
+    shr<UI::HorizontalGroup> angleInfo(new UI::HorizontalGroup());
+    angleInfo->add(s_angleText);
+    angleInfo->add(s_angleLiftText);
+    angleInfo->add(s_angleDragText);
 
-    glfwMakeContextCurrent(s_mainWindow);
-    glfwFocusWindow(s_mainWindow);
+    shr<UI::HorizontalGroup> sliceInfo(new UI::HorizontalGroup());
+    sliceInfo->add(s_sliceText);
+    sliceInfo->add(s_sliceLiftText);
+    sliceInfo->add(s_sliceDragText);
+
+    shr<UI::HorizontalGroup> f18Info(new UI::HorizontalGroup());
+    f18Info->add(s_rudderText);
+    f18Info->add(s_elevatorText);
+    f18Info->add(s_aileronText);
+
+    ivec2 textSize(Text::detDimensions(k_controlsString));
+    shr<Text> controlsText(new Text(k_controlsString, ivec2(1, 0), vec3(1.0f), textSize, ivec2(textSize.x, 0)));
+
+    shr<UI::VerticalGroup> infoGroup(new UI::VerticalGroup());
+    infoGroup->add(controlsText);
+    infoGroup->add(f18Info);
+    infoGroup->add(sliceInfo);
+    infoGroup->add(angleInfo);
+
+    shr<UI::HorizontalGroup> bottomGroup(new UI::HorizontalGroup());
+    bottomGroup->add(angleGraph);
+    bottomGroup->add(sliceGraph);
+    bottomGroup->add(infoGroup);
+
+    s_mainUIC.reset(new MainUIC());
+    s_mainUIC->add(bottomGroup);
+    s_mainUIC->add(displayGroup);
+
+    UI::setRootComponent(s_mainUIC);
 
     return true;
 }
 
 static void cleanup() {
     Simulation::cleanup();
-    //Results::cleanup();
     glfwTerminate();
+}
+
+static void updateInfoText() {
+    std::stringstream ss;
+
+    ss << "Angle: " << Util::numberString(s_angleOfAttack, 2) << "\u00B0";
+    s_angleText->string(ss.str());
+
+    ss.str(std::string());
+
+    ss << "Lift: " << Util::numberString(Simulation::lift().y, 3);
+    s_angleLiftText->string(ss.str());
+
+    ss.str(std::string());
+
+    ss << "Drag: " << Util::numberString(Simulation::drag().x, 3);
+    s_angleDragText->string(ss.str());
+
+    ss.str(std::string());
+    
+    int slice(Simulation::slice() - 1);
+
+    ss << "Slice: " << slice;
+    s_sliceText->string(ss.str());
+
+    ss.str(std::string());
+
+    ss << "Lift: " << Util::numberString(slice >= 0 ? Simulation::lift(slice).y : 0.0f, 3);
+    s_sliceLiftText->string(ss.str());
+
+    ss.str(std::string());
+
+    ss << "Drag: " << Util::numberString(slice >= 0 ? Simulation::drag(slice).x : 0.0f, 3);
+    s_sliceDragText->string(ss.str());
+}
+
+static void updateF18InfoText() {
+    std::stringstream ss;
+
+    ss << "Rudder: " << Util::numberString(s_rudderAngle, 2) << "\u00B0";
+    s_rudderText->string(ss.str());
+
+    ss.str(std::string());
+
+    ss << "Elevator: " << Util::numberString(s_elevatorAngle, 2) << "\u00B0";
+    s_elevatorText->string(ss.str());
+
+    ss.str(std::string());
+
+    ss << "Aileron: " << Util::numberString(s_aileronAngle, 2) << "\u00B0";
+    s_aileronText->string(ss.str());
 }
 
 static void update() {
     if (s_shouldStep || s_shouldSweep) {
-        if (Simulation::slice() == 0) { // About to do first slice
+        int slice(Simulation::slice());
+
+        if (slice == 0) { // About to do first slice
             setSimulation(s_angleOfAttack, true);
+            Results::clearSlices();
         }
 
         if (Simulation::step()) { // That was the last slice
             s_shouldSweep = false;
             vec3 lift(Simulation::lift());
             vec3 drag(Simulation::drag());
-            std::cout << "angle: " << s_angleOfAttack << ", lift: " << lift.y << ", drag: " << drag.y << std::endl;
 
-            Results::submit(s_angleOfAttack, lift.y, drag.y);
+            Results::submitAngle(s_angleOfAttack, lift.y, drag.x);
             Results::update();
 
             if (s_shouldAutoProgress) {
@@ -419,18 +493,34 @@ static void update() {
             }
         }
 
+        s_isInfoChange = true;
+
+        Results::submitSlice(slice, Simulation::lift(slice).y, Simulation::drag(slice).x);
+        Results::update();
+
         s_shouldStep = false;
     }
-}
 
-static void render() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    if (s_isInfoChange) {
+        updateInfoText();
+        s_isInfoChange = false;
+    }
+    if (s_isF18Change) {
+        updateF18InfoText();
+        s_isF18Change = false;
+    }
 
-    glEnable(GL_BLEND);
-    s_parentGroup->render(ivec2());
-    glDisable(GL_BLEND);
+    UI::update();
 
-    glfwSwapBuffers(s_mainWindow);
+    // Make front and side textures line up
+    if (s_frontTexViewer->contains(UI::cursorPosition())) {
+        s_sideTexViewer->center(vec2(s_sideTexViewer->center().x, s_frontTexViewer->center().y));
+        s_sideTexViewer->zoom(s_frontTexViewer->zoom());
+    }
+    else if (s_sideTexViewer->contains(UI::cursorPosition())) {
+        s_frontTexViewer->center(vec2(s_frontTexViewer->center().x, s_sideTexViewer->center().y));
+        s_frontTexViewer->zoom(s_sideTexViewer->zoom());
+    }
 }
 
 
@@ -449,13 +539,15 @@ int main(int argc, char ** argv) {
     double then(glfwGetTime());
     
     // Loop until the user closes the window.
-    while (!glfwWindowShouldClose(s_mainWindow)) {
+    while (!UI::shouldClose()) {
         // Poll for and process events.
-        glfwPollEvents();
+        UI::poll();
 
         update();
-
-        render();
+        
+        glEnable(GL_BLEND); // need blending for ui but don't want it for simulation
+        UI::render();
+        glDisable(GL_BLEND);
 
         ++fps;
         double now(glfwGetTime());

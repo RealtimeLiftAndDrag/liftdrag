@@ -169,14 +169,14 @@
     <ClInclude Include="src\Util.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="resources\shaders\graph_lines.frag" />
+    <None Include="resources\shaders\graph_lines.vert" />
     <None Include="resources\shaders\tex.frag" />
     <None Include="resources\shaders\tex.vert" />
     <None Include="resources\shaders\foil.frag" />
     <None Include="resources\shaders\foil.vert" />
     <None Include="resources\shaders\graph_curve.frag" />
     <None Include="resources\shaders\graph_curve.vert" />
-    <None Include="resources\shaders\graph_lines.frag" />
-    <None Include="resources\shaders\graph_lines.vert" />
     <None Include="resources\shaders\sim_draw.comp" />
     <None Include="resources\shaders\sim_move.comp" />
     <None Include="resources\shaders\sim_outline.comp" />

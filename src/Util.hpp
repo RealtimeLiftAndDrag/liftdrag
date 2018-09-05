@@ -4,6 +4,7 @@
 
 #include <string>
 #include <fstream>
+#include <sstream>
 
 #include "Global.hpp"
 
@@ -54,6 +55,14 @@ namespace Util {
         std::string ext(filename.substr(pos + 1));
         toLower(ext);
         return std::move(ext);
+    }
+
+    // Formats the given number into a string
+    static std::string numberString(float num, int precision) {
+        std::stringstream ss;
+        ss.precision(precision);
+        ss << num;
+        return ss.str();
     }
 
 

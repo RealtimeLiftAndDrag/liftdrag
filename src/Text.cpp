@@ -108,8 +108,36 @@ const ivec2 & Text::fontSize() {
     return s_fontSize;
 }
 
-Text::Text(const std::string & string, const ivec2 & align, const vec3 & color, int minLineSize, int maxLineSize, int maxLineCount) :
-    Single(ivec2(minLineSize, 1) * s_fontSize, ivec2(maxLineSize, maxLineCount) * s_fontSize),
+ivec2 Text::detDimensions(const std::string & str) {
+    if (str.empty()) {
+        return {};
+    }
+
+    ivec2 size(0, 1);
+
+    int width(0);
+    for (char c : str) {
+        if (c == '\n') {
+            if (width > size.x) size.x = width;
+            ++size.y;
+
+            width = 0;
+            continue;
+        }
+
+        ++width;
+    }
+    if (width > size.x) size.x = width;
+
+    return size;
+}
+
+ivec2 Text::detSize(const ivec2 & dimensions) {
+    return dimensions * s_fontSize;
+}
+
+Text::Text(const std::string & string, const ivec2 & align, const vec3 & color, const ivec2 & minDimensions, const ivec2 & maxDimensions) :
+    Single(detSize(minDimensions), detSize(maxDimensions)),
     m_string(string),
     m_align(align),
     m_color(color),
@@ -118,7 +146,7 @@ Text::Text(const std::string & string, const ivec2 & align, const vec3 & color, 
     m_charData()
 {}
 
-void Text::render(const ivec2 & position) const {
+void Text::render() const {
     if (m_vao == 0) {
         if (!prepare()) {
             return;
@@ -135,7 +163,7 @@ void Text::render(const ivec2 & position) const {
         m_isChange = false;
     }
 
-    glViewport(position.x, position.y, m_size.x, m_size.y);
+    glViewport(m_position.x, m_position.y, m_size.x, m_size.y);
 
     s_prog->bind();
 
@@ -152,11 +180,8 @@ void Text::render(const ivec2 & position) const {
     s_prog->unbind();
 }
 
-void Text::pack(const ivec2 & size) {
-    if (size != m_size) {
-        m_size = size;
-        m_isChange = true;
-    }
+void Text::pack() {
+    m_isChange = true;
 }
 
 void Text::cleanup() {

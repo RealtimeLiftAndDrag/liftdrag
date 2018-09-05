@@ -114,12 +114,6 @@
     <None Include="resources\shaders\graph_curve.vert">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="resources\shaders\graph_lines.frag">
-      <Filter>Resource Files\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\graph_lines.vert">
-      <Filter>Resource Files\shaders</Filter>
-    </None>
     <None Include="resources\shaders\sim_draw.comp">
       <Filter>Resource Files\shaders</Filter>
     </None>
@@ -142,6 +136,12 @@
       <Filter>Resource Files\shaders</Filter>
     </None>
     <None Include="resources\shaders\tex.vert">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\graph_lines.frag">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\graph_lines.vert">
       <Filter>Resource Files\shaders</Filter>
     </None>
   </ItemGroup>

@@ -4,50 +4,49 @@
 
 #include <vector>
 
-#include "glad/glad.h"
-
 #include "Global.hpp"
 
 
 
 namespace UI {
 
-    namespace detail {
-
-        inline std::vector<int> distribute(int total, int n) {
-            std::vector<int> vals(n, total / n);
-            int excess(total % n);
-            for (int i(0); i < excess; ++i) ++vals[i];
-            return std::move(vals);
-        }
-
-    }
-
     class Component {
 
         protected:
 
+        ivec2 m_position;
         ivec2 m_size;
     
         public:
 
         virtual void update() {};
 
-        virtual void render(const ivec2 & position) const = 0;
+        virtual void render() const = 0;
 
-        virtual void pack(const ivec2 & size) = 0;
+        virtual void pack() = 0;
 
-        virtual ivec2 minSize() const = 0;
+        virtual const ivec2 & position() const final { return m_position; }
+        virtual void position(const ivec2 & position) final;
 
-        virtual ivec2 maxSize() const = 0;
+        virtual const ivec2 & size() const final { return m_size; }
+        virtual void size(const ivec2 & size) final;
 
-        virtual int minWidth() const = 0;
+        virtual const ivec2 & minSize() const = 0;
+        virtual const ivec2 & maxSize() const = 0;
 
-        virtual int minHeight() const = 0;
+        virtual bool contains(const ivec2 & point) const final;
 
-        virtual int maxWidth() const = 0;
+        virtual void keyEvent(int key, int action, int mods) {}
 
-        virtual int maxHeight() const = 0;
+        virtual void cursorPositionEvent(const ivec2 & pos, const ivec2 & delta) {}
+
+        virtual void cursorEnterEvent() {}
+
+        virtual void cursorExitEvent() {}
+
+        virtual void mouseButtonEvent(int button, int action, int mods) {}
+
+        virtual void scrollEvent(const ivec2 & delta) {}
 
     };
 
@@ -55,7 +54,8 @@ namespace UI {
 
         protected:
 
-        ivec2 m_minSize, m_maxSize;
+        ivec2 m_minSize;
+        ivec2 m_maxSize;
 
         Single() :
             m_minSize(),
@@ -69,240 +69,98 @@ namespace UI {
 
         public:
 
-        virtual ivec2 minSize() const override { return m_minSize; }
+        virtual void pack() override {}
 
-        virtual ivec2 maxSize() const override { return m_maxSize; }
-
-        virtual int minWidth() const override { return m_minSize.x;}
-
-        virtual int minHeight() const override { return m_minSize.y; }
-
-        virtual int maxWidth() const override { return m_maxSize.x; }
-
-        virtual int maxHeight() const override { return m_maxSize.y; }
+        virtual const ivec2 & minSize() const override final { return m_minSize; }
+        virtual const ivec2 & maxSize() const override final { return m_maxSize; }
 
     };
 
     class Group : public Component {
 
         protected:
-
-        struct SubComponent {
-
-            shr<Component> component;
-            ivec2 position;
-            ivec2 tempSize;
-            ivec2 tempMinSize;
-            ivec2 tempMaxSize;
-
-            SubComponent(shr<Component> component) :
-                component(component)
-            {}
-
-        };
         
-        std::vector<SubComponent> m_subComponents;
+        std::vector<shr<Component>> m_components;
+
+        mutable Component * m_cursorOverComp;
+
+        mutable ivec2 m_minSize;
+        mutable ivec2 m_maxSize;
+        mutable bool m_areSizeExtremaValid;
 
         public:
 
-        virtual void render(const ivec2 & position) const override {
-            for (const auto & comp : m_subComponents) {
-                comp.component->render(position + comp.position);
-            }
-        }
+        virtual void update() override;
 
-        virtual ivec2 minSize() const override { return ivec2(minWidth(), minHeight()); }
+        virtual void render() const override;
 
-        virtual ivec2 maxSize() const override { return ivec2(maxWidth(), maxHeight()); }
+        virtual const ivec2 & minSize() const override;
+        virtual const ivec2 & maxSize() const override;
 
-        virtual void add(shr<Component> component) {
-            m_subComponents.emplace_back(component);
-        }
+        virtual void keyEvent(int key, int action, int mods) override;
+
+        virtual void cursorPositionEvent(const ivec2 & pos, const ivec2 & delta) override;
+
+        virtual void cursorExitEvent() override;
+
+        virtual void mouseButtonEvent(int button, int action, int mods) override;
+
+        virtual void scrollEvent(const ivec2 & delta) override;
+
+        virtual void add(shr<Component> component);
 
         protected:
 
-        virtual void setTempDimensions() {
-            for (auto & subComp : m_subComponents) {
-                subComp.tempSize = ivec2(0);
-                subComp.tempMinSize = subComp.component->minSize();
-                subComp.tempMaxSize = subComp.component->maxSize();
-            }
-        }
+        virtual void detSizeExtrema() const = 0;
 
-        virtual void packSubComponents() {
-            for (auto & subComp : m_subComponents) {
-                subComp.component->pack(subComp.tempSize);
-            }
-        }
+        virtual void packComponents();
+
+        virtual void detCursorOverComp(const ivec2 & cursorPos) const;
 
     };
 
-    class HorizGroup : public Group {
+    class HorizontalGroup : public Group {
 
         public:
 
-        virtual void pack(const ivec2 & size) override {
-            setTempDimensions();
+        virtual void pack() override;
 
-            int remainingWidth(size.x);
-            for (auto & subComp : m_subComponents) {
-                subComp.tempSize.x = subComp.tempMinSize.x;
-                subComp.tempSize.y = size.y;
-                remainingWidth -= subComp.tempSize.x;
-            }
+        private:
 
-            bool wasChange;
-            while (remainingWidth) {
-                wasChange = false;
-                for (auto & subComp : m_subComponents) {
-                    if (subComp.tempSize.x < subComp.tempMaxSize.x || !subComp.tempMaxSize.x) {
-                        ++subComp.tempSize.x;
-                        --remainingWidth;
-                        wasChange = true;
-                        if (!remainingWidth) {
-                            break;
-                        }
-                    }
-                }
-                if (!wasChange) {
-                    break;
-                }
-            }
-
-            ivec2 pos;
-            for (auto & subComp : m_subComponents) {
-                subComp.position = pos;
-                pos.x += subComp.tempSize.x;
-            }
-
-            packSubComponents();
-        }
-    
-        virtual int minWidth() const override {
-            int minW(0);
-            for (const auto & subComp : m_subComponents) {
-                minW += subComp.component->minWidth();
-            }
-            return minW;
-        }
-
-        virtual int minHeight() const override {
-            int minH(0);
-            for (const auto & subComp : m_subComponents) {
-                minH = glm::max(minH, subComp.component->minHeight());
-            }
-            return minH;
-        }
-
-        virtual int maxWidth() const override {
-            int maxW(0);
-            for (const auto & subComp : m_subComponents) {
-                int w(subComp.component->maxWidth());
-                if (!w) {
-                    return 0;
-                }
-                maxW += w;
-            }
-            return maxW;
-        }
-    
-        virtual int maxHeight() const override {
-            int maxH(std::numeric_limits<int>::max());
-            bool set(false);
-            for (const auto & subComp : m_subComponents) {
-                int h(subComp.component->maxHeight());
-                if (h && h < maxH) {
-                    maxH = h;
-                    set = true;
-                }
-            }
-            return set ? maxH : 0;
-        }
+        virtual void detSizeExtrema() const override;
 
     };
 
-    class VertGroup : public Group {
+    class VerticalGroup : public Group {
 
         public:
 
-        virtual void pack(const ivec2 & size) override {
-            setTempDimensions();
+        virtual void pack() override;
 
-            int remainingHeight(size.y);
-            for (auto & subComp : m_subComponents) {
-                subComp.tempSize.x = size.x;
-                subComp.tempSize.y = subComp.tempMinSize.y;
-                remainingHeight -= subComp.tempSize.y;
-            }
+        private:
 
-            bool wasChange;
-            while (remainingHeight) {
-                wasChange = false;
-                for (auto & subComp : m_subComponents) {
-                    if (subComp.tempSize.y < subComp.tempMaxSize.y || !subComp.tempMaxSize.y) {
-                        ++subComp.tempSize.y;
-                        --remainingHeight;
-                        wasChange = true;
-                        if (!remainingHeight) {
-                            break;
-                        }
-                    }
-                }
-                if (!wasChange) {
-                    break;
-                }
-            }
-
-            ivec2 pos;
-            for (auto & subComp : m_subComponents) {
-                subComp.position = pos;
-                pos.y += subComp.tempSize.y;
-            }
-
-            packSubComponents();
-        }
-
-        virtual int minWidth() const override {
-            int minW(0);
-            for (const auto & subComp : m_subComponents) {
-                minW = glm::max(minW, subComp.component->minWidth());
-            }
-            return minW;
-        }
-    
-        virtual int minHeight() const override {
-            int minH(0);
-            for (const auto & subComp : m_subComponents) {
-                minH += subComp.component->minHeight();
-            }
-            return minH;
-        }
-    
-        virtual int maxWidth() const override {
-            int maxW(std::numeric_limits<int>::max());
-            bool set(false);
-            for (const auto & subComp : m_subComponents) {
-                int w(subComp.component->maxWidth());
-                if (w && w < maxW) {
-                    maxW = w;
-                    set = true;
-                }
-            }
-            return set ? maxW : 0;
-        }
-
-        virtual int maxHeight() const override {
-            int maxH(0);
-            for (const auto & subComp : m_subComponents) {
-                int h(subComp.component->maxHeight());
-                if (!h) {
-                    return 0;
-                }
-                maxH += h;
-            }
-            return maxH;
-        }
+        virtual void detSizeExtrema() const override;
 
     };
+
+    bool setup(const ivec2 & windowSize, const std::string & windowTitle, int majorGLVersion, int minorGLVersion, bool vSync, const std::string & resourceDir);
+
+    void setRootComponent(shr<Component> root);
+
+    void setTooltip(shr<Component> tooltip);
+
+    void poll();
+
+    void update();
+
+    void render();
+
+    bool shouldClose();
+
+    const ivec2 & cursorPosition();
+
+    bool isMouseButtonPressed(int button);
+
+    bool isKeyPressed(int key);
 
 }

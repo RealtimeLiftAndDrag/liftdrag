@@ -53,10 +53,8 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_windSpeed;
     float u_dt;
     uint u_debug;
-    ivec4 u_momentum;
-    vec4 u_force;
-    ivec4 u_dragForce;
-    ivec4 u_dragMomentum;
+    vec4 u_lift;
+    vec4 u_drag;
 };
 
 // Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason

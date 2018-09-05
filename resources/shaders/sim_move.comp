@@ -55,10 +55,8 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_windSpeed;
     float u_dt;
     uint u_debug;
-    ivec4 u_momentum;
-    vec4 u_force;
-    ivec4 u_dragForce;
-    ivec4 u_dragMomentum;
+    vec4 u_lift;
+    vec4 u_drag;
 };
 
 // Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason
@@ -94,9 +92,19 @@ float screenToWorldDist(float screenDist) {
     return screenDist / (float(min(u_screenSize.x, u_screenSize.y)) * 0.5f);
 }
 
+void accumulate() {
+    uint workI = gl_LocalInvocationID.x;
+    for (uint n = gl_WorkGroupSize.x / 2; n > 0; n /= 2) {
+        barrier();
+        if (workI < n) accumulationArray[workI] += accumulationArray[workI + n];
+    }
+}
+
 void main() {
     int workI = int(gl_LocalInvocationID.x);
-    accumulationArray[workI] = vec3(0.0f);
+
+    vec3 totalLift = vec3(0.0f);
+    vec3 totalDrag = vec3(0.0f);
 
     for (int airI = workI; airI < u_airCount[u_swap]; airI += int(gl_WorkGroupSize.x)) {
 
@@ -104,13 +112,13 @@ void main() {
         vec3 airVelocity = u_airPixels[airI + u_swap * k_maxAirPixels].velocity.xyz;
         //float turbulence = u_airPixels[airI + u_swap * k_maxAirPixels].worldPos.w;
 
-        // Calculate backforce
         vec2 backForce = vec2(0.0f);
-        float lift = 0.0f;
         float drag = 0.0f;
+
+        int geoCount = u_airGeoMap[airI].geoCount;
         
         // If no geo found for this air, search for geo
-        if (u_airGeoMap[airI].geoCount == 0) {
+        if (geoCount == 0) {
             vec2 screenPos = worldToScreen(airWorldPos);
             ivec2 pixel = ivec2(screenPos);
             vec2 searchDir = u_airPixels[airI + u_swap * k_maxAirPixels].backForce.xy;
@@ -156,6 +164,7 @@ void main() {
                         if (geoI != 0) { // TODO: this should not be necessary, just here for sanity
                             --geoI;
 
+                            ++geoCount;
                             ++u_airGeoMap[airI].geoCount;
                             u_airGeoMap[airI].geoIndices[0] = geoI;                   
  
@@ -167,7 +176,7 @@ void main() {
         }
 
         // Color active air pixels more brightly
-        if (bool(u_debug) && k_distinguishActivePixels && u_airGeoMap[airI].geoCount > 0) {
+        if (bool(u_debug) && k_distinguishActivePixels && geoCount > 0) {
             ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
             vec4 color = imageLoad(u_fboImg, texCoord);
             color.g = 1.0f;
@@ -183,31 +192,41 @@ void main() {
             }
         }
 
+        // TODO: figure out these constants
+        float massDensity = 1.0f;
+        float flowVelocity = u_windSpeed; // TODO: is this correct?
+        float dragC = 1.0f;
+        float area = 2.0f / min(u_screenSize.x, u_screenSize.y);
+        area = area * area;
+
         // For each associated geo pixel, update backforce, lift, and drag
         // TODO: actually take multiple geo pixels into account
-        for (int mapI = 0; mapI < u_airGeoMap[airI].geoCount; ++mapI) {
+        for (int mapI = 0; mapI < geoCount; ++mapI) {
             int geoI = u_airGeoMap[airI].geoIndices[mapI];
 
+            // Calculate backforce
             vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
             float dist = distance(airWorldPos.xy, geoWorldPos.xy);
-            backForce = normalize(-geoNormal.xy) * dist*dist;
-            backForce *= 600.0f;
+            backForce += normalize(-geoNormal.xy) * dist * dist  * 500.0f; // TODO: magic number
 
             //if (distance(geoWorldPos, airWorldPos) >= k_turbulenceDist) {
             //    turbulence = 1.0f;
             //}
 
             // Calculate drag
-            float massDensity = 1.0f;
-            float flowVelocity = 1.0f;
-            float area = screenToWorldDir(vec2(1.0f, 0.0f)).x;
-            area = area * area;
-            float dragC = 1.0f;
-            float dragForce = 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f);
-            dragForce *= 100.0f;
-            atomicAdd(u_dragForce.x, int(round(dragForce * 1.0e6f)));
+            drag += 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f) * u_sliceSize * 100.0f; // TODO: magic number
         }
+        // Average
+        if (geoCount > 0) {
+            float invGeoCount = 1.0f / float(geoCount);
+            backForce *= invGeoCount;
+            drag *= invGeoCount;
+        }
+        // Add to total
+        vec2 lift = -backForce * 0.0001f;
+        totalLift.xy += lift;
+        totalDrag.x += drag;
 
         // Update velocity
         airVelocity.xy += backForce;
@@ -221,19 +240,15 @@ void main() {
         u_airPixels[airI + u_swap * k_maxAirPixels].worldPos = vec4(airWorldPos, 0.0f);//, turbulence);
         u_airPixels[airI + u_swap * k_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
         u_airPixels[airI + u_swap * k_maxAirPixels].backForce = vec4(backForce, 0.0f, 0.0f);
-                        
-        // Calculate lift     
-        vec2 liftForce = -backForce * u_sliceSize * 0.1f;			  
-        //atomicAdd(u_force.x, int(round(liftForce * 1.0e6f)));
-        accumulationArray[workI].xy += liftForce;
     }
 
-    // Add contents of accumulation array
-    for (int n = int(gl_WorkGroupSize.x) / 2; n > 0; n /= 2) {
-        barrier();
-        accumulationArray[workI] += accumulationArray[workI + n];
-    }
-    if (workI == 0) {
-        u_force.xyz = accumulationArray[0];
-    }
+    // Accumulate lift
+    accumulationArray[workI] = totalLift;
+    accumulate();
+    if (workI == 0) u_lift.xyz = accumulationArray[0];
+
+    // Accumulate drag
+    accumulationArray[workI] = totalDrag;
+    accumulate();
+    if (workI == 0) u_drag.xyz = accumulationArray[0];
 }

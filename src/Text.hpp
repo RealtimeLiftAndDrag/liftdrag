@@ -18,6 +18,12 @@ class Text : public UI::Single {
 
     static const ivec2 & fontSize();
 
+    // x is in characters, y is in lines
+    static ivec2 detDimensions(const std::string & str);
+
+    // dimensions in string space, returns pixel space
+    static ivec2 detSize(const ivec2 & dimensions);
+
     private:
 
     std::string m_string;
@@ -31,11 +37,11 @@ class Text : public UI::Single {
 
     public:
 
-    Text(const std::string & string, const ivec2 & align, const vec3 & color, int minLineSize, int maxLineSize, int maxLineCount);
+    Text(const std::string & string, const ivec2 & align, const vec3 & color, const ivec2 & minDimensions, const ivec2 & maxDimensions);
 
-    virtual void render(const ivec2 & position) const override;
+    virtual void render() const override;
 
-    virtual void pack(const ivec2 & size) override;
+    virtual void pack() override;
 
     void cleanup();
 

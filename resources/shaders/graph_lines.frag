@@ -1,22 +1,13 @@
 #version 450 core
 
-layout (location = 0) in vec2 in_pos;
-
 layout (location = 0) out vec4 out_color;
 
-uniform vec2 u_viewMin;
-uniform vec2 u_viewMax;
-uniform vec2 u_gridSize;
-uniform vec2 u_viewportSize;
-uniform bool u_isFocusX;
-uniform float u_focusX;
-
-const vec3 k_backColor = vec3(0.0f);
-const vec3 k_gridColor = vec3(0.15f);
-const vec3 k_axisColor = vec3(0.3f);
-const vec3 k_focusColor = vec3(0.5f);
+uniform vec3 u_color;
 
 void main() {
+    out_color.rgb = u_color;
+    out_color.a = 1.0f;
+    /*
     vec2 viewSize = u_viewMax - u_viewMin;
     vec2 graphToPixelSpace = u_viewportSize / viewSize;
 
@@ -37,4 +28,5 @@ void main() {
         float focusDist = (p.x - u_focusX) * graphToPixelSpace.x;
         if (focusDist > 0.0f && focusDist < 1.0f) out_color.rgb = k_focusColor;
     }
+    */
 }

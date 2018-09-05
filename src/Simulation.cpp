@@ -52,10 +52,8 @@ namespace Simulation {
         float windSpeed;
         float dt;
         u32 debug;
-        ivec4 momentum;
-        vec4 force;
-        ivec4 dragForce;
-        ivec4 dragMomentum;
+        vec4 lift;
+        vec4 drag;
     };
 
 
@@ -107,8 +105,6 @@ namespace Simulation {
     }
 
     static uint loadShader(const std::string & compPath) {
-        std::cout << "Loading shader: " << compPath << std::endl;
-
         auto [res, str](Util::readTextFile(compPath));
         if (!res) {
             std::cerr << "Failed to read file: " << compPath << std::endl;
@@ -123,7 +119,7 @@ namespace Simulation {
         CHECKED_GL_CALL(glGetShaderiv(shaderId, GL_COMPILE_STATUS, &rc));
         if (!rc) {
             GLSL::printShaderInfoLog(shaderId);
-            std::cout << "Failed to compile" << std::endl;
+            std::cerr << "Failed to compile" << std::endl;
             return 0;
         }
 
@@ -133,12 +129,12 @@ namespace Simulation {
         glGetProgramiv(progId, GL_LINK_STATUS, &rc);
         if (!rc) {
             GLSL::printProgramInfoLog(progId);
-            std::cout << "Failed to link" << std::endl;
+            std::cerr << "Failed to link" << std::endl;
             return 0;
         }
 
         if (glGetError()) {
-            std::cout << "OpenGL error" << std::endl;
+            std::cerr << "OpenGL error" << std::endl;
             return 0;
         }
 
@@ -189,11 +185,14 @@ namespace Simulation {
     }
 
     static bool setupFramebuffer() {
+        float emptyColor[4]{};
+
         // Color texture
         glGenTextures(1, &s_fboTex);
         glBindTexture(GL_TEXTURE_2D, s_fboTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -202,8 +201,9 @@ namespace Simulation {
         //sideview texture
         glGenTextures(1, &s_sideTex);
         glBindTexture(GL_TEXTURE_2D, s_sideTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_width, k_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -212,8 +212,9 @@ namespace Simulation {
         // Position texture
         glGenTextures(1, &s_fboPosTex);
         glBindTexture(GL_TEXTURE_2D, s_fboPosTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_width, k_height, 0, GL_RGBA, GL_FLOAT, nullptr);
@@ -222,8 +223,9 @@ namespace Simulation {
         // Normal texture
         glGenTextures(1, &s_fboNormTex);
         glBindTexture(GL_TEXTURE_2D, s_fboNormTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_width, k_height, 0, GL_RGBA, GL_FLOAT, nullptr);
@@ -354,10 +356,8 @@ namespace Simulation {
         s_ssboLocal.windSpeed = k_windSpeed;
         s_ssboLocal.dt = s_dt;
         s_ssboLocal.debug = s_debug;
-        s_ssboLocal.momentum = ivec4();
-        s_ssboLocal.force = vec4();
-        s_ssboLocal.dragForce = ivec4();
-        s_ssboLocal.dragMomentum = ivec4();
+        s_ssboLocal.lift = vec4();
+        s_ssboLocal.drag = vec4();
     }
 
     static void clearFlagTex() {
@@ -506,8 +506,8 @@ namespace Simulation {
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
 
         downloadSSBO();
-        vec3 lift(s_ssboLocal.force);
-        vec3 drag(vec3(s_ssboLocal.dragForce) * 1.0e-6f);
+        vec3 lift(s_ssboLocal.lift);
+        vec3 drag(s_ssboLocal.drag);
         s_sweepLift += lift;
         s_sweepDrag += drag;
         s_sliceLifts.push_back(lift);
