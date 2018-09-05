@@ -18,7 +18,7 @@ struct GeoPixel {
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
 layout (binding = 1, rgba32f) uniform image2D u_fboPosImg;
-layout (binding = 2, rgba32f) uniform image2D u_fboNormImg;
+layout (binding = 2, rgba16_snorm) uniform image2D u_fboNormImg;
 
 layout (binding = 0, std430) restrict buffer SSBO {
     int u_swap;

@@ -102,7 +102,7 @@ void main() {
         u_airGeoMap[airI].geoCount = 0; // This air pixel is not yet associated with any geometry
 
         // Store air index
-        imageAtomicExchange(u_flagImg, texCoord, airI + 1);
+        imageStore(u_flagImg, texCoord, ivec4(airI + 1, 0, 0, 0));
         
         // Draw to front view
         color.g = k_inactiveVal;

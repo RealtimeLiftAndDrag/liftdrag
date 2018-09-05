@@ -96,10 +96,10 @@ namespace Simulation {
     static uint s_flagTex;
     static uint s_sideTex;
 
-    static uint prospectProg;
-    static uint outlineProg;
-    static uint moveProg;
-    static uint drawProg;
+    static uint s_prospectProg;
+    static uint s_outlineProg;
+    static uint s_moveProg;
+    static uint s_drawProg;
 
 
 
@@ -161,25 +161,25 @@ namespace Simulation {
         s_foilProg->addUniform("u_normalMat");
 
         // Prospect Compute Shader
-        if (!(prospectProg = loadShader(shadersDir + "/sim_prospect.comp"))) {
+        if (!(s_prospectProg = loadShader(shadersDir + "/sim_prospect.comp"))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
             return false;
         }
 
         // Outline Compute Shader
-        if (!(outlineProg = loadShader(shadersDir + "/sim_outline.comp"))) {
+        if (!(s_outlineProg = loadShader(shadersDir + "/sim_outline.comp"))) {
             std::cerr << "Failed to load outline shader" << std::endl;
             return false;
         }
     
         // Move Compute Shader
-        if (!(moveProg = loadShader(shadersDir + "/sim_move.comp"))) {
+        if (!(s_moveProg = loadShader(shadersDir + "/sim_move.comp"))) {
             std::cerr << "Failed to load move shader" << std::endl;
             return false;
         }
     
         // Draw Compute Shader
-        if (!(drawProg = loadShader(shadersDir + "/sim_draw.comp"))) {
+        if (!(s_drawProg = loadShader(shadersDir + "/sim_draw.comp"))) {
             std::cerr << "Failed to load draw shader" << std::endl;
             return false;
         }
@@ -231,7 +231,7 @@ namespace Simulation {
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_size, k_size, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16_SNORM, k_size, k_size, 0, GL_RGB, GL_SHORT, nullptr);
 
         // Depth render buffer
         uint fboDepthRB(0);
@@ -264,28 +264,28 @@ namespace Simulation {
     }
 
     static void computeProspect() {
-        glUseProgram(prospectProg);
+        glUseProgram(s_prospectProg);
 
         glDispatchCompute((k_size + 7) / 8, (k_size + 7) / 8, 1); // Must also tweak in shader
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all     
     }
 
     static void computeOutline() {
-        glUseProgram(outlineProg);
+        glUseProgram(s_outlineProg);
 
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
     static void computeMove() {
-        glUseProgram(moveProg);
+        glUseProgram(s_moveProg);
 
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all  
     }
 
     static void computeDraw() {
-        glUseProgram(drawProg);
+        glUseProgram(s_drawProg);
     
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
@@ -372,11 +372,12 @@ namespace Simulation {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
 
-        glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,   GL_RGBA8);
-        glBindImageTexture(1,  s_fboPosTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-        glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,    GL_R32I);
-        glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,   GL_RGBA8);    
+        glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,       GL_RGBA8);
+        glBindImageTexture(1,  s_fboPosTex, 0, GL_FALSE, 0, GL_READ_WRITE,     GL_RGBA32F);
+
+        glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
+        glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_R32I);
+        glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,       GL_RGBA8);    
     }
 
 
