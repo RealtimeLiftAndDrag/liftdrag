@@ -4,7 +4,7 @@
 
 
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 
@@ -26,8 +26,6 @@ struct AirGeoMapElement {
 };
 
 // Constants -------------------------------------------------------------------
-
-const int k_invocCount = 1024;
 
 const float k_maxSearchDist = 0.2f; // In world space
 const float k_turbulenceDist = 0.1f;
@@ -84,14 +82,9 @@ float screenToWorldDist(float screenDist) {
 }
 
 void main() {
-    int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (u_geoCount + k_invocCount - 1) / k_invocCount;    
-    for (int ii = 0; ii < invocWorkload; ++ii) {
-    
-        int geoI = invocI + (k_invocCount * ii);
-        if (geoI >= u_geoCount) {
-            return;
-        }
+    int workI = int(gl_LocalInvocationID.x);
+
+    for (int geoI = workI; geoI < u_geoCount; geoI += int(gl_WorkGroupSize.x)) {
 
         vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
         vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
