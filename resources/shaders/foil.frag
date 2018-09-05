@@ -41,11 +41,8 @@ layout (binding = 0, std430) restrict buffer SSBO {
 
 // Functions -------------------------------------------------------------------
 
-vec2 worldToScreen(vec3 world) {
-    vec2 screenPos = world.xy;
-    screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= float(u_screenSize); // scale to texture space
-    return screenPos;
+vec2 worldToScreen(vec2 world) {
+    return (world * 0.5f + 0.5f) * float(u_screenSize);
 }
 
 void main() {
@@ -56,7 +53,7 @@ void main() {
             
     // Side View
     if (bool(u_debug)) {
-        vec2 sideTexPos = worldToScreen(vec3(-in_pos.z - 1.0f, in_pos.y, 0));
+        vec2 sideTexPos = worldToScreen(vec2(-in_pos.z - 1.0f, in_pos.y));
         imageStore(u_sideImg, ivec2(sideTexPos), vec4(k_inactiveVal, 0.0f, 0.0f, 0.0f));
     }
 }

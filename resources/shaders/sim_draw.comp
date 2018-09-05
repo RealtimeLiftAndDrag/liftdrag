@@ -4,7 +4,7 @@
 
 
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 
@@ -26,8 +26,6 @@ struct AirGeoMapElement {
 };
 
 // Constants -------------------------------------------------------------------
-
-const int k_invocCount = 1024;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
@@ -69,30 +67,21 @@ layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
 
 // Functions -------------------------------------------------------------------
 
-vec2 worldToScreen(vec3 world) {
-    vec2 screenPos = world.xy;
-    screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= float(u_screenSize); // scale to texture space
-    return screenPos;
+vec2 worldToScreen(vec2 world) {
+    return (world * 0.5f + 0.5f) * float(u_screenSize);
 }
 
 void main() {
+    int workI = int(gl_LocalInvocationID.x);
     int counterSwap = 1 - u_swap;
 
-    int invocI = int(gl_GlobalInvocationID.x);
-    int invocWorkload = (u_airCount[counterSwap] + k_invocCount - 1) / k_invocCount;
-    for (int ii = 0; ii < invocWorkload; ++ii) {
-
-        int prevAirI = invocI + (k_invocCount * ii);
-        if (prevAirI >= u_airCount[counterSwap]) {
-            return;
-        }
+    for (int prevAirI = workI; prevAirI < u_airCount[counterSwap]; prevAirI += int(gl_WorkGroupSize.x)) {
 
         vec3 worldPos = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].worldPos.xyz;
         float turbulence = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].worldPos.w;
         
-        ivec2 texCoord = ivec2(worldToScreen(worldPos));
-        ivec2 sideTexCoord; if (bool(u_debug)) sideTexCoord = ivec2(worldToScreen(vec3(-worldPos.z - 1.0f, worldPos.y, 0)));
+        ivec2 texCoord = ivec2(worldToScreen(worldPos.xy));
+        ivec2 sideTexCoord; if (bool(u_debug)) sideTexCoord = ivec2(worldToScreen(vec2(-worldPos.z - 1.0f, worldPos.y)));
 
         // Check if in texture
         if (texCoord.x < 0 || texCoord.y < 0 || texCoord.x >= u_screenSize || texCoord.y >= u_screenSize) {

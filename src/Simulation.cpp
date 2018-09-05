@@ -287,7 +287,7 @@ namespace Simulation {
     static void computeDraw() {
         glUseProgram(drawProg);
     
-        glDispatchCompute(1024, 1, 1);
+        glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 

@@ -75,15 +75,8 @@ shared vec3 accumulationArray[gl_WorkGroupSize.x];
 
 // Functions -------------------------------------------------------------------
 
-vec2 worldToScreen(vec3 world) {
-    vec2 screenPos = world.xy;
-    screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= float(u_screenSize); // scale to texture space
-    return screenPos;
-}
-
-vec2 screenToWorldDir(vec2 screenDir) {
-    return 2.0f * screenDir / float(u_screenSize);
+vec2 worldToScreen(vec2 world) {
+    return (world * 0.5f + 0.5f) * float(u_screenSize);
 }
 
 float screenToWorldDist(float screenDist) {
@@ -117,7 +110,7 @@ void main() {
         
         // If no geo found for this air, search for geo
         if (geoCount == 0) {
-            vec2 screenPos = worldToScreen(airWorldPos);
+            vec2 screenPos = worldToScreen(airWorldPos.xy);
             ivec2 pixel = ivec2(screenPos);
             vec2 searchDir = u_airPixels[airI + u_swap * u_maxAirPixels].backForce.xy;
             if (searchDir != vec2(0.0f)) {                
@@ -175,14 +168,14 @@ void main() {
 
         // Color active air pixels more brightly
         if (bool(u_debug) && k_distinguishActivePixels && geoCount > 0) {
-            ivec2 texCoord = ivec2(worldToScreen(airWorldPos));
+            ivec2 texCoord = ivec2(worldToScreen(airWorldPos.xy));
             vec4 color = imageLoad(u_fboImg, texCoord);
             color.g = 1.0f;
             //color.b = turbulence;
             imageStore(u_fboImg, texCoord, color);
 
             if (!k_ignoreEdges || abs(airWorldPos.x) <= 0.5f) {
-                ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-airWorldPos.z - 1.0f, airWorldPos.y, 0)));
+                ivec2 sideTexCoord = ivec2(worldToScreen(vec2(-airWorldPos.z - 1.0f, airWorldPos.y)));
                 color = imageLoad(u_sideImg, sideTexCoord);
                 color.g = 1.0f;
                 //color.b = turbulence;
@@ -194,7 +187,7 @@ void main() {
         float massDensity = 1.0f;
         float flowVelocity = u_windSpeed; // TODO: is this correct?
         float dragC = 1.0f;
-        float area = 2.0f / u_screenSize;
+        float area = screenToWorldDist(1.0f);
         area = area * area;
 
         // For each associated geo pixel, update backforce, lift, and drag

@@ -75,11 +75,8 @@ layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
 
 // Functions -------------------------------------------------------------------
 
-vec2 worldToScreen(vec3 world) {
-    vec2 screenPos = world.xy;
-    screenPos = screenPos * 0.5f + 0.5f; // center
-    screenPos *= float(u_screenSize); // scale to texture space
-    return screenPos;
+vec2 worldToScreen(vec2 world) {
+    return (world * 0.5f + 0.5f) * float(u_screenSize);
 }
 
 float screenToWorldDist(float screenDist) {
@@ -198,7 +195,7 @@ void main() {
             imageStore(u_fboImg, geoTexCoord, color);
 
             if (!k_ignoreEdges || abs(geoWorldPos.x) <= 0.5f) {
-                ivec2 sideTexCoord = ivec2(worldToScreen(vec3(-geoWorldPos.z - 1.0f, geoWorldPos.y, 0)));
+                ivec2 sideTexCoord = ivec2(worldToScreen(vec2(-geoWorldPos.z - 1.0f, geoWorldPos.y)));
                 sideTexCoord.y = geoTexCoord.y;
                 color = imageLoad(u_sideImg, sideTexCoord);
                 color.r = 1.0f;
