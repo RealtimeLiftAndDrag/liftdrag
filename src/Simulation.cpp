@@ -198,7 +198,7 @@ namespace Simulation {
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_size, k_size, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, k_size, k_size);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         //sideview texture
@@ -209,7 +209,7 @@ namespace Simulation {
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, k_size, k_size, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, k_size, k_size);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Position texture
@@ -220,7 +220,7 @@ namespace Simulation {
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, k_size, k_size, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, k_size, k_size);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Normal texture
@@ -231,7 +231,7 @@ namespace Simulation {
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16_SNORM, k_size, k_size, 0, GL_RGB, GL_SHORT, nullptr);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16_SNORM, k_size, k_size);
 
         // Depth render buffer
         uint fboDepthRB(0);
@@ -440,7 +440,7 @@ namespace Simulation {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, k_size, k_size, 0, GL_RED_INTEGER, GL_INT, nullptr);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, k_size, k_size);
         uint clearcolor = 0;
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearcolor);
         if (glGetError() != GL_NO_ERROR) {
