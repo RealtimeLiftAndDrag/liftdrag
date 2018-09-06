@@ -4,11 +4,11 @@
 #include <iostream>
 
 #include "glad/glad.h"
-#include "Program.h"
-#include "GLSL.h"
-#include "glm/gtc/matrix_transform.hpp"
+#include "Common/Program.h"
+#include "Common/GLSL.h"
+#include "Common/glm/gtc/matrix_transform.hpp"
 
-#include "Util.hpp"
+#include "Common/Util.hpp"
 
 
 

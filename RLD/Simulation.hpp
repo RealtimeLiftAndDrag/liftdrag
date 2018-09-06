@@ -4,8 +4,8 @@
 
 #include <string>
 
-#include "Global.hpp"
-#include "Model.hpp"
+#include "Common/Global.hpp"
+#include "Common/Model.hpp"
 
 
 

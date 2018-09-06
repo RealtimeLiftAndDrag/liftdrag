@@ -45,7 +45,6 @@
     <ClInclude Include="GRLLoader.hpp" />
     <ClInclude Include="Model.hpp" />
     <ClInclude Include="Program.h" />
-    <ClInclude Include="Simulation.hpp" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="Text.hpp" />
     <ClInclude Include="TexViewer.hpp" />
@@ -59,8 +58,7 @@
     <ClCompile Include="GRLLoader.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="Program.cpp" />
-    <ClCompile Include="Simulation.cpp" />
-    <ClCompile Include="stb_image.cpp" />
+    <ClCompile Include="stb_image.c" />
     <ClCompile Include="Text.cpp" />
     <ClCompile Include="TexViewer.cpp" />
     <ClCompile Include="tiny_obj_loader.cpp" />

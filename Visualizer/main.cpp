@@ -24,7 +24,7 @@ extern "C" {
 #include "Common/glm/gtc/constants.hpp"
 #include "Common/glm/gtc/matrix_transform.hpp"
 
-#include "Common/Simulation.hpp"
+#include "RLD/Simulation.hpp"
 #include "Results.hpp"
 #include "Common/Model.hpp"
 #include "Common/Program.h"
