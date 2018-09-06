@@ -3,7 +3,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "glad.h"
+#include "glad/glad.h"
 #include "GLSL.h"
 #include "Program.h"
 #include "Util.hpp"

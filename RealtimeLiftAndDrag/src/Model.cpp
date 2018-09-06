@@ -4,7 +4,7 @@
 #include <fstream>
 #include <sstream>
 
-#include "glad.h"
+#include "glad/glad.h"
 #include "tiny_obj_loader.h"
 #include "GRLLoader.hpp"
 

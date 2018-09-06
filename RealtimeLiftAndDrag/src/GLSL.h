@@ -8,7 +8,7 @@
 #ifndef LAB471_GLSL_H_INCLUDED
 #define LAB471_GLSL_H_INCLUDED
 
-#include <glad.h>
+#include <glad/glad.h>
 #include <string>
 
 

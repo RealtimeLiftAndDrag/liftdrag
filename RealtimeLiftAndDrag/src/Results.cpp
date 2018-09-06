@@ -5,7 +5,7 @@
 #include <map>
 #include <sstream>
 
-#include "glad.h"
+#include "glad/glad.h"
 #include "GLFW/glfw3.h"
 
 #include "GLSL.h"

@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "glad.h"
+#include "glad/glad.h"
 #include "GLSL.h"
 #include "Program.h"
 

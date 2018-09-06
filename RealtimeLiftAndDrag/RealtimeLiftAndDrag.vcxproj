@@ -76,7 +76,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag\Glad;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -90,7 +90,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag\Glad;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -106,7 +106,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag\Glad;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_OPENGL_ERROR_CHECKS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
@@ -125,7 +125,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag\Glad;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_OPENGL_ERROR_CHECKS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
@@ -184,8 +184,8 @@
     <None Include="resources\shaders\text.vert" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Glad\Glad.vcxproj">
-      <Project>{21141e30-ce6f-4f53-bca7-45e551e302de}</Project>
+    <ProjectReference Include="..\glad\glad.vcxproj">
+      <Project>{a5828bcb-fe89-42ca-81ad-50f893352d58}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
