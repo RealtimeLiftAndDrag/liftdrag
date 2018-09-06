@@ -225,7 +225,7 @@ namespace Simulation {
         uint fboDepthRB(0);
         glGenRenderbuffers(1, &fboDepthRB);
         glBindRenderbuffer(GL_RENDERBUFFER, fboDepthRB);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, k_size, k_size);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, k_size, k_size);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Create FBO
