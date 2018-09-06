@@ -19,21 +19,20 @@ extern "C" {
 #include <sstream>
 
 #include "glad/glad.h"
-#include "GLFW/glfw3.h"
-#include "glm/glm.hpp"
-#include "glm/gtc/constants.hpp"
-#include "glm/gtc/matrix_transform.hpp"
+#include "Common/GLFW/glfw3.h"
+#include "Common/glm/glm.hpp"
+#include "Common/glm/gtc/constants.hpp"
+#include "Common/glm/gtc/matrix_transform.hpp"
 
-#include "Simulation.hpp"
+#include "Common/Simulation.hpp"
 #include "Results.hpp"
-#include "SideView.hpp"
-#include "Model.hpp"
-#include "Program.h"
-#include "UI.hpp"
-#include "Text.hpp"
-#include "Graph.hpp"
-#include "TexViewer.hpp"
-#include "Util.hpp"
+#include "Common/Model.hpp"
+#include "Common/Program.h"
+#include "Common/UI.hpp"
+#include "Common/Text.hpp"
+#include "Common/Graph.hpp"
+#include "Common/TexViewer.hpp"
+#include "Common/Util.hpp"
 
 
 

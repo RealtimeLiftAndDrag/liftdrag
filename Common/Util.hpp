@@ -47,14 +47,17 @@ namespace Util {
     }
 
     inline std::string getExtension(const std::string & filename) {
-        size_t pos(filename.find('.'));
-        if (pos == std::string::npos) {
-            return {};
+        for (size_t i(0); i < filename.size() - 1; ++i) {
+            if (filename[i] == '.') {
+                char nextC(filename[i + 1]);
+                if (nextC != '.' && nextC != '/' && nextC != '\\') {
+                    std::string ext(filename.substr(i + 1));
+                    toLower(ext);
+                    return std::move(ext);
+                }
+            }
         }
-
-        std::string ext(filename.substr(pos + 1));
-        toLower(ext);
-        return std::move(ext);
+        return {};
     }
 
     // Formats the given number into a string

@@ -6,12 +6,12 @@
 #include <sstream>
 
 #include "glad/glad.h"
-#include "GLFW/glfw3.h"
+#include "Common/GLFW/glfw3.h"
 
-#include "GLSL.h"
-#include "Program.h"
-#include "Graph.hpp"
-#include "Text.hpp"
+#include "Common/GLSL.h"
+#include "Common/Program.h"
+#include "Common/Graph.hpp"
+#include "Common/Text.hpp"
 
 
 
