@@ -11,8 +11,7 @@ layout (location = 2) in vec2 in_texCoord;
 // Outputs ---------------------------------------------------------------------
 
 layout (location = 0) out vec4 out_color;
-layout (location = 1) out vec4 out_pos;
-layout (location = 2) out vec4 out_norm;
+layout (location = 1) out vec4 out_norm;
 
 // Constants -------------------------------------------------------------------
 
@@ -46,9 +45,11 @@ vec2 worldToScreen(vec2 world) {
 }
 
 void main() {
-    out_color = vec4(k_inactiveVal, 0.0f, 0.0f, 0.0f);
+    // Using the g and b channels to store world position
+    vec2 subPixelPos = worldToScreen(in_pos.xy);
+    subPixelPos -= gl_FragCoord.xy - 0.5f;
+    out_color = vec4(k_inactiveVal, subPixelPos, 0.0f);
 
-    out_pos = vec4(in_pos, 0.0f);
     out_norm = vec4(normalize(in_norm), 0.0f);
             
     // Side View

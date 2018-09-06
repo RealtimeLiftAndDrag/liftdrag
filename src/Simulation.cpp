@@ -91,7 +91,6 @@ namespace Simulation {
 
     static uint s_fbo;
     static uint s_fboTex;
-    static uint s_fboPosTex;
     static uint s_fboNormTex;
     static uint s_flagTex;
     static uint s_sideTex;
@@ -212,17 +211,6 @@ namespace Simulation {
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, k_size, k_size);
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        // Position texture
-        glGenTextures(1, &s_fboPosTex);
-        glBindTexture(GL_TEXTURE_2D, s_fboPosTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, k_size, k_size);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
         // Normal texture
         glGenTextures(1, &s_fboNormTex);
         glBindTexture(GL_TEXTURE_2D, s_fboNormTex);
@@ -244,8 +232,7 @@ namespace Simulation {
         glGenFramebuffers(1, &s_fbo);
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_fboTex, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, s_fboPosTex, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, s_fboNormTex, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, s_fboNormTex, 0);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fboDepthRB);
 
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -374,8 +361,6 @@ namespace Simulation {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
 
         glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,       GL_RGBA8);
-        glBindImageTexture(1,  s_fboPosTex, 0, GL_FALSE, 0, GL_READ_WRITE,     GL_RGBA32F);
-
         glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
         glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_R32I);
         glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,       GL_RGBA8);    

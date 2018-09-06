@@ -17,7 +17,6 @@ struct GeoPixel {
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
-layout (binding = 1, rgba32f) uniform image2D u_fboPosImg;
 layout (binding = 2, rgba16_snorm) uniform image2D u_fboNormImg;
 
 layout (binding = 0, std430) restrict buffer SSBO {
@@ -40,6 +39,12 @@ layout (binding = 1, std430) buffer GeoPixels { // TODO: should be restrict?
     GeoPixel u_geoPixels[];
 };
 
+// Functions -------------------------------------------------------------------
+
+vec2 screenToWorld(vec2 screen) {
+    return screen / u_screenSize * 2.0f - 1.0f;
+}
+
 ivec2 getPixelDelta(vec2 dir) {
     vec2 signs = sign(dir);
     vec2 mags = dir * signs;
@@ -50,8 +55,6 @@ ivec2 getPixelDelta(vec2 dir) {
         return ivec2(int(signs.x), 0);
     }
 }
-
-// Functions -------------------------------------------------------------------
 
 void main() {
     ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
@@ -64,8 +67,10 @@ void main() {
         return;
     }
 
-    vec4 geoWorldPos = imageLoad(u_fboPosImg, texCoord);
-    vec4 geoNormal = imageLoad(u_fboNormImg, texCoord);
+    imageStore(u_fboImg, texCoord, vec4(color.r, 0.0f, 0.0f, 0.0f));
+
+    vec2 geoWorldPos = screenToWorld(vec2(texCoord) + color.gb);
+    vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
 
     ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
     vec4 nextColor = imageLoad(u_fboImg, nextTexCoord);
@@ -79,6 +84,6 @@ void main() {
     }
 
     u_geoPixels[geoI].worldPos = geoWorldPos.xy;
-    u_geoPixels[geoI].normal = geoNormal;
+    u_geoPixels[geoI].normal = vec4(geoNormal, 0.0f);
     u_geoPixels[geoI].texCoord = texCoord;
 }
