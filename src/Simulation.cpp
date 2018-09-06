@@ -27,15 +27,15 @@ namespace Simulation {
 
 
     struct GeoPixel {
-        vec3 worldPos;
-        vec3 normal;
+        vec2 worldPos;
         ivec2 texCoord;
+        vec4 normal;
     };
 
     struct AirPixel {
-        vec4 worldPos;
+        vec2 worldPos;
+        vec2 backForce;
         vec4 velocity;
-        vec4 backForce;
     };
 
     struct AirGeoMapElement {
@@ -50,7 +50,7 @@ namespace Simulation {
         s32 maxGeoPixels;
         s32 maxAirPixels;
         s32 screenSize;
-        s32 padding0;
+        s32 slice;
         float sliceSize;
         float windSpeed;
         float dt;
@@ -348,6 +348,7 @@ namespace Simulation {
         s_ssboLocal.maxGeoPixels = k_maxGeoPixels;
         s_ssboLocal.maxAirPixels = k_maxAirPixels;
         s_ssboLocal.screenSize = k_size;
+        s_ssboLocal.slice = 0;
         s_ssboLocal.sliceSize = s_sliceSize;
         s_ssboLocal.windSpeed = k_windSpeed;
         s_ssboLocal.dt = s_dt;
@@ -493,6 +494,7 @@ namespace Simulation {
         s_ssboLocal.swap = s_swap;
         s_ssboLocal.geoCount = 0;
         s_ssboLocal.airCount[s_swap] = 0;
+        s_ssboLocal.slice = s_currentSlice;
         uploadSSBO();
 
         renderGeometry(); // Render geometry to fbo

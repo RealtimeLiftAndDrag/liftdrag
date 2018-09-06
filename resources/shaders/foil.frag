@@ -30,7 +30,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
-    int u_padding0;
+    int u_slice;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;

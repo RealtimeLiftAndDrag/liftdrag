@@ -9,15 +9,15 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 // Types -----------------------------------------------------------------------
 
 struct GeoPixel {
-    vec4 worldPos;
+    vec2 worldPos;
+    ivec2 texCoord;
     vec4 normal;
-    ivec4 texCoord;
 };
 
 struct AirPixel {
-    vec4 worldPos;
+    vec2 worldPos;
+    vec2 backForce;
     vec4 velocity;
-    vec4 backForce;
 };
 
 struct AirGeoMapElement {
@@ -49,7 +49,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
-    int u_padding0;
+    int u_slice;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -99,7 +99,7 @@ void main() {
 
     for (int airI = workI; airI < u_airCount[u_swap]; airI += int(gl_WorkGroupSize.x)) {
 
-        vec3 airWorldPos = u_airPixels[airI + u_swap * u_maxAirPixels].worldPos.xyz;
+        vec2 airWorldPos = u_airPixels[airI + u_swap * u_maxAirPixels].worldPos;
         vec3 airVelocity = u_airPixels[airI + u_swap * u_maxAirPixels].velocity.xyz;
         //float turbulence = u_airPixels[airI + u_swap * k_maxAirPixels].worldPos.w;
 
@@ -175,7 +175,8 @@ void main() {
             imageStore(u_fboImg, texCoord, color);
 
             if (!k_ignoreEdges || abs(airWorldPos.x) <= 0.5f) {
-                ivec2 sideTexCoord = ivec2(worldToScreen(vec2(-airWorldPos.z - 1.0f, airWorldPos.y)));
+                float worldZ = u_slice * u_sliceSize - 1.0f;
+                ivec2 sideTexCoord = ivec2(worldToScreen(vec2(worldZ, airWorldPos.y)));
                 color = imageLoad(u_sideImg, sideTexCoord);
                 color.g = 1.0f;
                 //color.b = turbulence;
@@ -196,7 +197,7 @@ void main() {
             int geoI = u_airGeoMap[airI].geoIndices[mapI];
 
             // Calculate backforce
-            vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
+            vec2 geoWorldPos = u_geoPixels[geoI].worldPos;
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
             float dist = distance(airWorldPos.xy, geoWorldPos.xy);
             backForce += normalize(-geoNormal.xy) * dist * dist  * 500.0f; // TODO: magic number
@@ -226,11 +227,10 @@ void main() {
 
         // Update location
         airWorldPos.xy += airVelocity.xy * u_dt;
-        airWorldPos.z -= u_sliceSize;
 
-        u_airPixels[airI + u_swap * u_maxAirPixels].worldPos = vec4(airWorldPos, 0.0f);//, turbulence);
+        u_airPixels[airI + u_swap * u_maxAirPixels].worldPos = airWorldPos;//, turbulence);
         u_airPixels[airI + u_swap * u_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
-        u_airPixels[airI + u_swap * u_maxAirPixels].backForce = vec4(backForce, 0.0f, 0.0f);
+        u_airPixels[airI + u_swap * u_maxAirPixels].backForce = backForce;
     }
 
     // Accumulate lift

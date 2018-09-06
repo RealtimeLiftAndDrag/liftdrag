@@ -9,15 +9,15 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 // Types -----------------------------------------------------------------------
 
 struct GeoPixel {
-    vec4 worldPos;
+    vec2 worldPos;
+    ivec2 texCoord;
     vec4 normal;
-    ivec4 texCoord;
 };
 
 struct AirPixel {
-    vec4 worldPos;
+    vec2 worldPos;
+    vec2 backForce;
     vec4 velocity;
-    vec4 backForce;
 };
 
 struct AirGeoMapElement {
@@ -45,7 +45,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
-    int u_padding0;
+    int u_slice;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -77,11 +77,15 @@ void main() {
 
     for (int prevAirI = workI; prevAirI < u_airCount[counterSwap]; prevAirI += int(gl_WorkGroupSize.x)) {
 
-        vec3 worldPos = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].worldPos.xyz;
-        float turbulence = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].worldPos.w;
+        vec2 worldPos = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].worldPos;
+        //float turbulence = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].worldPos.w;
         
         ivec2 texCoord = ivec2(worldToScreen(worldPos.xy));
-        ivec2 sideTexCoord; if (bool(u_debug)) sideTexCoord = ivec2(worldToScreen(vec2(-worldPos.z - 1.0f, worldPos.y)));
+        ivec2 sideTexCoord;
+        if (bool(u_debug)) {
+            float worldZ = u_slice * u_sliceSize - 1.0f;
+            sideTexCoord = ivec2(worldToScreen(vec2(worldZ, worldPos.y)));
+        }
 
         // Check if in texture
         if (texCoord.x < 0 || texCoord.y < 0 || texCoord.x >= u_screenSize || texCoord.y >= u_screenSize) {
@@ -106,14 +110,14 @@ void main() {
         
         // Draw to front view
         color.g = k_inactiveVal;
-        color.b = turbulence;
+        //color.b = turbulence;
         imageStore(u_fboImg, texCoord, color);
 
         // Draw to side view
         if (bool(u_debug) && (!k_ignoreEdges || abs(worldPos.x) <= 0.5f)) {
             color = imageLoad(u_sideImg, sideTexCoord);
             color.g = k_inactiveVal;
-            color.b = turbulence;
+            //color.b = turbulence;
             imageStore(u_sideImg, sideTexCoord, color);
         }
     }        

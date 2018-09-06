@@ -7,9 +7,9 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 // Types -----------------------------------------------------------------------
 
 struct GeoPixel {
-    vec4 worldPos;
+    vec2 worldPos;
+    ivec2 texCoord;
     vec4 normal;
-    ivec4 texCoord;
 };
 
 // Constants -------------------------------------------------------------------
@@ -27,7 +27,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
-    int u_padding0;
+    int u_slice;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -78,7 +78,7 @@ void main() {
         return;
     }
 
-    u_geoPixels[geoI].worldPos = geoWorldPos;
+    u_geoPixels[geoI].worldPos = geoWorldPos.xy;
     u_geoPixels[geoI].normal = geoNormal;
-    u_geoPixels[geoI].texCoord = ivec4(texCoord, 0, 0);
+    u_geoPixels[geoI].texCoord = texCoord;
 }

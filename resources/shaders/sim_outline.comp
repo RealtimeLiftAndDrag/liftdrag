@@ -9,15 +9,15 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 // Types -----------------------------------------------------------------------
 
 struct GeoPixel {
-    vec4 worldPos;
+    vec2 worldPos;
+    ivec2 texCoord;
     vec4 normal;
-    ivec4 texCoord;
 };
 
 struct AirPixel {
-    vec4 worldPos;
+    vec2 worldPos;
+    vec2 backForce;
     vec4 velocity;
-    vec4 backForce;
 };
 
 struct AirGeoMapElement {
@@ -51,7 +51,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
-    int u_padding0;
+    int u_slice;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -86,9 +86,9 @@ void main() {
 
     for (int geoI = workI; geoI < u_geoCount; geoI += int(gl_WorkGroupSize.x)) {
 
-        vec3 geoWorldPos = u_geoPixels[geoI].worldPos.xyz;
+        vec2 geoWorldPos = u_geoPixels[geoI].worldPos;
         vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-        ivec2 geoTexCoord = u_geoPixels[geoI].texCoord.xy; // Need exact texture coord because rasterization math and our world-to-screen math don't always align
+        ivec2 geoTexCoord = u_geoPixels[geoI].texCoord; // Need exact texture coord because rasterization math and our world-to-screen math don't always align
 
         // TODO: magic numbers
         bool shouldSpawn = geoNormal.z >= 0.01f && geoNormal.z <= 0.99f;
@@ -165,13 +165,13 @@ void main() {
             u_airGeoMap[airI].geoCount = 1;
             u_airGeoMap[airI].geoIndices[0] = geoI;
 
-            vec3 airWorldPos = geoWorldPos;
+            vec2 airWorldPos = geoWorldPos;
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
             vec3 airVelocity = refl * u_windSpeed;
 
-            u_airPixels[airI + u_swap * u_maxAirPixels].worldPos = vec4(airWorldPos, 0.0f);
+            u_airPixels[airI + u_swap * u_maxAirPixels].worldPos = airWorldPos;
             u_airPixels[airI + u_swap * u_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
-            u_airPixels[airI + u_swap * u_maxAirPixels].backForce = vec4(0.0f);
+            u_airPixels[airI + u_swap * u_maxAirPixels].backForce = vec2(0.0f);
 
             // Draw to fbo to avoid another draw later, only necessary for seeing the results immediately
             if (bool(u_debug)) {
@@ -188,7 +188,8 @@ void main() {
             imageStore(u_fboImg, geoTexCoord, color);
 
             if (!k_ignoreEdges || abs(geoWorldPos.x) <= 0.5f) {
-                ivec2 sideTexCoord = ivec2(worldToScreen(vec2(-geoWorldPos.z - 1.0f, geoWorldPos.y)));
+                float worldZ = u_slice * u_sliceSize - 1.0f;
+                ivec2 sideTexCoord = ivec2(worldToScreen(vec2(worldZ, geoWorldPos.y)));
                 sideTexCoord.y = geoTexCoord.y;
                 color = imageLoad(u_sideImg, sideTexCoord);
                 color.r = 1.0f;
