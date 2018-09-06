@@ -3,7 +3,7 @@
 #include <memory>
 #include <iostream>
 
-#include "glad/glad.h"
+#include "glad.h"
 #include "Program.h"
 #include "GLSL.h"
 #include "glm/gtc/matrix_transform.hpp"

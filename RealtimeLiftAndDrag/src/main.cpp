@@ -18,7 +18,7 @@ extern "C" {
 #include <iostream>
 #include <sstream>
 
-#include "glad/glad.h"
+#include "glad.h"
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/constants.hpp"

@@ -7,7 +7,7 @@
 #include <map>
 #include <string>
 
-#include <glad/glad.h>
+#include <glad.h>
 
 
 std::string readFileAsString(const std::string &fileName);

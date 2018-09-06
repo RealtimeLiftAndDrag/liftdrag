@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "glad/glad.h"
+#include "glad.h"
 #include "stb_image.h"
 
 #include "Program.h"
