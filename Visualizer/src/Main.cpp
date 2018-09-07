@@ -14,6 +14,9 @@ extern "C" {
 // TODO: lift should be independent of the number of slices
 // TODO: world space, air space, and simulation space
 // TODO: how far away should turbulence start? linear or squared air speed?
+// TODO: torque porportional to angle
+// TODO: add windspeed
+// TODO: UBO for shader constants
 
 
 
@@ -90,6 +93,7 @@ static unq<Model> s_model;
 static mat4 s_modelMat;
 static mat3 s_normalMat;
 static float s_windframeWidth, s_windframeDepth;
+static float s_windSpeed;
 
 //all in degrees
 static float s_angleOfAttack(0.0f);
@@ -174,7 +178,7 @@ static void changeElevatorAngle(float deltaAngle) {
 static void setSimulation(float angleOfAttack, bool debug) {
     mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
 
-    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_windframeWidth, s_windframeDepth, debug);
+    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
 }
 
 static void doFastSweep(float angleOfAttack, bool submitSlices) {
@@ -306,25 +310,27 @@ static bool setupModel() {
     }
 
     s_modelMat = mat4();
-    s_windframeWidth = 2.0f;
-    s_windframeDepth = 2.0f;
 
+    // Must set windframe and windSpeed!!
     switch (k_simModel) {
         case SimModel::airfoil:
             s_modelMat = glm::scale(mat4(), vec3(0.5f, 1.0f, 1.0f)) * s_modelMat;
             s_windframeWidth = 1.25f;
             s_windframeDepth = 1.5f;
+            s_windSpeed = 10.0f;
             break;
 
         case SimModel::f18:
             s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
             s_windframeWidth = 14.5f;
             s_windframeDepth = 22.0f;
+            s_windSpeed = 10.0f;
             break;
 
         case SimModel::sphere:
             s_windframeWidth = 2.5f;
             s_windframeDepth = 2.5f;
+            s_windSpeed = 10.0f;
             break;
     }
     

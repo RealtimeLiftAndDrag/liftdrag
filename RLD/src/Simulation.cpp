@@ -16,7 +16,6 @@ namespace rld {
 
     static const int k_size(720); // Width and height of the textures, which are square
     static constexpr int k_sliceCount(100); // Should also change in `Results.cpp`
-    static constexpr float k_windSpeed(10.0f); // Speed of air in -z direction
 
     static constexpr int k_maxPixelsDivisor(16); // max dense pixels is the total pixels divided by this
     static const int k_maxGeoPixels(k_size * k_size / k_maxPixelsDivisor);
@@ -71,6 +70,7 @@ namespace rld {
     static float s_windframeWidth; // width and height of the windframe
     static float s_windframeDepth; // depth of the windframe
     static float s_sliceSize; // Distance between slices in wind space
+    static float s_windSpeed;
     static float s_dt; // The time it would take to travel `s_sliceSize` at `s_windSpeed`
     static bool s_debug; // Whether to enable non essentials like side view or active pixel highlighting
 
@@ -341,7 +341,7 @@ namespace rld {
         s_ssboLocal.screenSize = k_size;
         s_ssboLocal.windframeSize = s_windframeWidth;
         s_ssboLocal.sliceSize = s_sliceSize;
-        s_ssboLocal.windSpeed = k_windSpeed;
+        s_ssboLocal.windSpeed = s_windSpeed;
         s_ssboLocal.dt = s_dt;
         s_ssboLocal.slice = 0;
         s_ssboLocal.sliceZ = s_windframeDepth * -0.5f;
@@ -453,14 +453,23 @@ namespace rld {
         // TODO
     }
 
-    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float windframeWidth, float windframeDepth, bool debug) {
+    void set(
+        const Model & model,
+        const mat4 & modelMat,
+        const mat3 & normalMat,
+        float windframeWidth,
+        float windframeDepth,
+        float windSpeed,
+        bool debug
+    ) {
         s_model = &model;
         s_modelMat = modelMat;
         s_normalMat = normalMat;
         s_windframeWidth = windframeWidth;
         s_windframeDepth = windframeDepth;
         s_sliceSize = s_windframeDepth / k_sliceCount;
-        s_dt = s_sliceSize / k_windSpeed;
+        s_windSpeed = windSpeed;
+        s_dt = s_sliceSize / s_windSpeed;
         s_debug = debug;
     }
 

@@ -19,7 +19,7 @@ namespace rld {
 
     void cleanup();
 
-    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float windframeWidth, float windframeDepth, bool debug);
+    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float windframeWidth, float windframeDepth, float windSpeed, bool debug);
 
     // Does one slice and returns if it was the last one
     bool step(bool isExternalCall = true);
@@ -28,7 +28,7 @@ namespace rld {
     void sweep();
 
     // Returns the index of the slice that would be NEXT
-    int slice();
+    int slice();    
 
     // Returns the total number of slices
     int sliceCount();
