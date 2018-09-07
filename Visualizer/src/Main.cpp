@@ -15,7 +15,6 @@ extern "C" {
 // TODO: world space, air space, and simulation space
 // TODO: how far away should turbulence start? linear or squared air speed?
 // TODO: torque porportional to angle
-// TODO: add windspeed
 // TODO: UBO for shader constants
 
 
@@ -356,7 +355,7 @@ static bool setup() {
 
     // Setup simulation
     if (!rld::setup(s_resourceDir)) {
-        std::cerr << "Failed to setup simulation" << std::endl;
+        std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
 
