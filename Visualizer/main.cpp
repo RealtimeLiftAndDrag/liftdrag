@@ -18,14 +18,11 @@ extern "C" {
 #include <iostream>
 #include <sstream>
 
-#include "glad/glad.h"
+#include "Common/glad/glad.h"
 #include "Common/GLFW/glfw3.h"
 #include "Common/glm/glm.hpp"
 #include "Common/glm/gtc/constants.hpp"
 #include "Common/glm/gtc/matrix_transform.hpp"
-
-#include "RLD/Simulation.hpp"
-#include "Results.hpp"
 #include "Common/Model.hpp"
 #include "Common/Program.h"
 #include "Common/UI.hpp"
@@ -33,6 +30,10 @@ extern "C" {
 #include "Common/Graph.hpp"
 #include "Common/TexViewer.hpp"
 #include "Common/Util.hpp"
+
+#include "RLD/Simulation.hpp"
+
+#include "Results.hpp"
 
 
 
@@ -201,23 +202,23 @@ static void setSimulation(float angleOfAttack, bool debug) {
             break;
     }
 
-    Simulation::set(*s_model, modelMat, normalMat, depth, centerOfGravity, debug);
+    rld::set(*s_model, modelMat, normalMat, depth, centerOfGravity, debug);
 }
 
 static void doFastSweep(float angleOfAttack, bool submitSlices) {
     setSimulation(angleOfAttack, false);
 
     double then(glfwGetTime());
-    Simulation::sweep();
+    rld::sweep();
     double dt(glfwGetTime() - then);
 
-    vec3 lift(Simulation::lift());
-    vec3 drag(Simulation::drag());
+    vec3 lift(rld::lift());
+    vec3 drag(rld::drag());
     Results::submitAngle(angleOfAttack, lift.y, drag.x);
 
     if (submitSlices) {
-        for (int i(0); i < Simulation::sliceCount(); ++i) {
-            Results::submitSlice(i, Simulation::lift(i).y, Simulation::drag(i).x);
+        for (int i(0); i < rld::sliceCount(); ++i) {
+            Results::submitSlice(i, rld::lift(i).y, rld::drag(i).x);
         }
     }
 
@@ -253,61 +254,61 @@ void MainUIC::keyEvent(int key, int action, int mods) {
     }
     // If F is pressed, do fast sweep
     else if (key == GLFW_KEY_F && (action == GLFW_PRESS) && !mods) {
-        if (Simulation::slice() == 0 && !s_shouldAutoProgress) {
+        if (rld::slice() == 0 && !s_shouldAutoProgress) {
             doFastSweep(s_angleOfAttack, true);
         }
     }
     // If Shift-F is pressed, do fast sweep of all angles
     else if (key == GLFW_KEY_F && action == GLFW_PRESS && mods == GLFW_MOD_SHIFT) {
-        if (Simulation::slice() == 0 && !s_shouldAutoProgress) {
+        if (rld::slice() == 0 && !s_shouldAutoProgress) {
             doAllAngles();
         }
     }
     // If up arrow is pressed, increase angle of attack
     else if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::slice() == 0 && !s_shouldAutoProgress) {
+        if (rld::slice() == 0 && !s_shouldAutoProgress) {
             changeAngleOfAttack(k_angleOfAttackIncrement);
         }
     }
     // If down arrow is pressed, decrease angle of attack
     else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (Simulation::slice() == 0 && !s_shouldAutoProgress) {
+        if (rld::slice() == 0 && !s_shouldAutoProgress) {
             changeAngleOfAttack(-k_angleOfAttackIncrement);
         }
     }
     // If O key is pressed, increase rudder angle
     else if (key == GLFW_KEY_O && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && rld::slice() == 0) {
             changeRudderAngle(k_manualAngleIncrement);
         }
     }
     // If I key is pressed, decrease rudder angle
     else if (key == GLFW_KEY_I && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && rld::slice() == 0) {
             changeRudderAngle(-k_manualAngleIncrement);
         }
     }
     // If K key is pressed, increase elevator angle
     else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && rld::slice() == 0) {
             changeElevatorAngle(k_manualAngleIncrement);
         }
     }
     // If J key is pressed, decrease elevator angle
     else if (key == GLFW_KEY_J && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && rld::slice() == 0) {
             changeElevatorAngle(-k_manualAngleIncrement);
         }
     }
     // If M key is pressed, increase aileron angle
     else if (key == GLFW_KEY_M && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && rld::slice() == 0) {
             changeAileronAngle(k_manualAngleIncrement);
         }
     }
     // If N key is pressed, decrease aileron angle
     else if (key == GLFW_KEY_N && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (k_simModel == SimModel::f18 && Simulation::slice() == 0) {
+        if (k_simModel == SimModel::f18 && rld::slice() == 0) {
             changeAileronAngle(-k_manualAngleIncrement);
         }
     }
@@ -342,7 +343,7 @@ static bool setup() {
     }
 
     // Setup simulation
-    if (!Simulation::setup(s_resourceDir)) {
+    if (!rld::setup(s_resourceDir)) {
         std::cerr << "Failed to setup simulation" << std::endl;
         return false;
     }
@@ -352,8 +353,8 @@ static bool setup() {
         return false;
     }
 
-    s_frontTexViewer.reset(new TexViewer(Simulation::frontTex(), ivec2(Simulation::size()), ivec2(128)));
-    s_sideTexViewer.reset(new TexViewer(Simulation::sideTex(), ivec2(Simulation::size()), ivec2(128)));
+    s_frontTexViewer.reset(new TexViewer(rld::frontTex(), ivec2(rld::size()), ivec2(128)));
+    s_sideTexViewer.reset(new TexViewer(rld::sideTex(), ivec2(rld::size()), ivec2(128)));
 
     shr<UI::HorizontalGroup> displayGroup(new UI::HorizontalGroup());
     displayGroup->add(s_frontTexViewer);
@@ -413,7 +414,7 @@ static bool setup() {
 }
 
 static void cleanup() {
-    Simulation::cleanup();
+    rld::cleanup();
     glfwTerminate();
 }
 
@@ -425,29 +426,29 @@ static void updateInfoText() {
 
     ss.str(std::string());
 
-    ss << "Lift: " << Util::numberString(Simulation::lift().y, 3);
+    ss << "Lift: " << Util::numberString(rld::lift().y, 3);
     s_angleLiftText->string(ss.str());
 
     ss.str(std::string());
 
-    ss << "Drag: " << Util::numberString(Simulation::drag().x, 3);
+    ss << "Drag: " << Util::numberString(rld::drag().x, 3);
     s_angleDragText->string(ss.str());
 
     ss.str(std::string());
     
-    int slice(Simulation::slice() - 1);
+    int slice(rld::slice() - 1);
 
     ss << "Slice: " << slice;
     s_sliceText->string(ss.str());
 
     ss.str(std::string());
 
-    ss << "Lift: " << Util::numberString(slice >= 0 ? Simulation::lift(slice).y : 0.0f, 3);
+    ss << "Lift: " << Util::numberString(slice >= 0 ? rld::lift(slice).y : 0.0f, 3);
     s_sliceLiftText->string(ss.str());
 
     ss.str(std::string());
 
-    ss << "Drag: " << Util::numberString(slice >= 0 ? Simulation::drag(slice).x : 0.0f, 3);
+    ss << "Drag: " << Util::numberString(slice >= 0 ? rld::drag(slice).x : 0.0f, 3);
     s_sliceDragText->string(ss.str());
 }
 
@@ -470,17 +471,17 @@ static void updateF18InfoText() {
 
 static void update() {
     if (s_shouldStep || s_shouldSweep) {
-        int slice(Simulation::slice());
+        int slice(rld::slice());
 
         if (slice == 0) { // About to do first slice
             setSimulation(s_angleOfAttack, true);
             Results::clearSlices();
         }
 
-        if (Simulation::step()) { // That was the last slice
+        if (rld::step()) { // That was the last slice
             s_shouldSweep = false;
-            vec3 lift(Simulation::lift());
-            vec3 drag(Simulation::drag());
+            vec3 lift(rld::lift());
+            vec3 drag(rld::drag());
 
             Results::submitAngle(s_angleOfAttack, lift.y, drag.x);
             Results::update();
@@ -494,7 +495,7 @@ static void update() {
 
         s_isInfoChange = true;
 
-        Results::submitSlice(slice, Simulation::lift(slice).y, Simulation::drag(slice).x);
+        Results::submitSlice(slice, rld::lift(slice).y, rld::drag(slice).x);
         Results::update();
 
         s_shouldStep = false;

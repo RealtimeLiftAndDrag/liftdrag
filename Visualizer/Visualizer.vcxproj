@@ -141,9 +141,6 @@
     <ProjectReference Include="..\Common\Common.vcxproj">
       <Project>{6885343a-9037-492e-b9bc-c7d8bf9542a9}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\glad\glad.vcxproj">
-      <Project>{a5828bcb-fe89-42ca-81ad-50f893352d58}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\RLD\RLD.vcxproj">
       <Project>{7189f2a1-f8ef-4599-be9f-73d44e329e09}</Project>
     </ProjectReference>

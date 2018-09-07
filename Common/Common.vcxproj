@@ -53,6 +53,7 @@
     <ClInclude Include="Util.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="glad\glad.c" />
     <ClCompile Include="GLSL.cpp" />
     <ClCompile Include="Graph.cpp" />
     <ClCompile Include="GRLLoader.cpp" />
@@ -63,11 +64,6 @@
     <ClCompile Include="TexViewer.cpp" />
     <ClCompile Include="tiny_obj_loader.cpp" />
     <ClCompile Include="UI.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\glad\glad.vcxproj">
-      <Project>{a5828bcb-fe89-42ca-81ad-50f893352d58}</Project>
-    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

@@ -5,9 +5,8 @@
 #include <map>
 #include <sstream>
 
-#include "glad/glad.h"
+#include "Common/glad/glad.h"
 #include "Common/GLFW/glfw3.h"
-
 #include "Common/GLSL.h"
 #include "Common/Program.h"
 #include "Common/Graph.hpp"

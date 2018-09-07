@@ -3,7 +3,7 @@
 #include <memory>
 #include <iostream>
 
-#include "glad/glad.h"
+#include "Common/glad/glad.h"
 #include "Common/Program.h"
 #include "Common/GLSL.h"
 #include "Common/glm/gtc/matrix_transform.hpp"
@@ -12,7 +12,7 @@
 
 
 
-namespace Simulation {
+namespace rld {
 
     static const int k_size(720); // Width and height of the textures, which are square
     static constexpr int k_sliceCount(100); // Should also change in `Results.cpp`

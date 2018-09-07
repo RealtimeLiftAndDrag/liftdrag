@@ -13,7 +13,7 @@ struct GLFWwindow;
 
 
 
-namespace Simulation {
+namespace rld {
 
     bool setup(const std::string & resourceDir);
 
@@ -47,6 +47,5 @@ namespace Simulation {
     uint sideTex();
 
     int size();
-
 
 }
