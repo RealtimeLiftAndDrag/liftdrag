@@ -2,6 +2,11 @@
 
 // Types -----------------------------------------------------------------------
 
+// Constants -------------------------------------------------------------------
+
+const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
+const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
+
 // Inputs ----------------------------------------------------------------------
 
 layout (location = 0) in vec3 in_pos;
@@ -13,19 +18,13 @@ layout (location = 2) in vec2 in_texCoord;
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_norm;
 
-// Constants -------------------------------------------------------------------
-
-const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
-const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
-
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
-layout (binding = 0, std430) restrict buffer SSBO {
+// Uniform buffer for better read-only performance
+layout (binding = 0, std140) uniform Constants {
     int u_swap;
-    int u_geoCount;
-    int u_airCount[2];
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
@@ -37,10 +36,6 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_slice;
     float u_sliceZ;
     uint u_debug;
-    int u_padding0;
-    vec4 u_lift;
-    vec4 u_drag;
-    vec4 u_torque;
 };
 
 // Functions -------------------------------------------------------------------

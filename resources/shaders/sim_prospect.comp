@@ -1,6 +1,6 @@
 #version 450 core
 
-
+#define MAX_GEO_PER_AIR 3
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
@@ -12,6 +12,17 @@ struct GeoPixel {
     vec4 normal;
 };
 
+struct AirPixel {
+    vec2 windPos;
+    vec2 backforce;
+    vec4 velocity;
+};
+
+struct AirGeoMapElement {
+    int geoCount;
+    int geoIndices[MAX_GEO_PER_AIR];
+};
+
 // Constants -------------------------------------------------------------------
 
 // Uniforms --------------------------------------------------------------------
@@ -19,10 +30,9 @@ struct GeoPixel {
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
 layout (binding = 2, rgba16_snorm) uniform image2D u_fboNormImg;
 
-layout (binding = 0, std430) restrict buffer SSBO {
+// Uniform buffer for better read-only performance
+layout (binding = 0, std140) uniform Constants {
     int u_swap;
-    coherent int u_geoCount; // TODO: does this need to be coherent?
-    int u_airCount[2];
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
@@ -34,7 +44,12 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_slice;
     float u_sliceZ;
     uint u_debug;
+};
+
+layout (binding = 0, std430) restrict buffer Mutables {
     int u_padding0;
+    int u_geoCount;
+    coherent int u_airCount[2];
     vec4 u_lift;
     vec4 u_drag;
     vec4 u_torque;
@@ -43,6 +58,13 @@ layout (binding = 0, std430) restrict buffer SSBO {
 layout (binding = 1, std430) restrict buffer GeoPixels {
     GeoPixel u_geoPixels[];
 };
+layout (binding = 2, std430) restrict buffer AirPixels {
+    AirPixel u_airPixels[];
+};
+layout (binding = 3, std430) restrict buffer AirGeoMap {
+    AirGeoMapElement u_airGeoMap[]; // TODO: does this need to be coherent?
+};
+
 
 // Functions -------------------------------------------------------------------
 

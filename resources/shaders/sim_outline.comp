@@ -2,8 +2,6 @@
 
 #define MAX_GEO_PER_AIR 3
 
-
-
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
@@ -40,17 +38,15 @@ const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
 const bool k_ignoreEdges = false;
 
-
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
 layout (binding = 3, r32i) uniform iimage2D u_flagImg;
 layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
-layout (binding = 0, std430) restrict buffer SSBO {
+// Uniform buffer for better read-only performance
+layout (binding = 0, std140) uniform Constants {
     int u_swap;
-    int u_geoCount;
-    coherent int u_airCount[2]; // TODO: does this need to be coherent?
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
@@ -62,7 +58,12 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_slice;
     float u_sliceZ;
     uint u_debug;
+};
+
+layout (binding = 0, std430) restrict buffer Mutables {
     int u_padding0;
+    int u_geoCount;
+    coherent int u_airCount[2];
     vec4 u_lift;
     vec4 u_drag;
     vec4 u_torque;
