@@ -1,145 +1,129 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
+    <Filter Include="shaders">
+      <UniqueIdentifier>{273d8364-bc49-4e34-8647-e4e815307c8d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="include">
+      <UniqueIdentifier>{7850402f-8ed5-4f7a-abe4-b2019e6d229a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resource Files\shaders">
-      <UniqueIdentifier>{ae7ad9c4-43a2-4fbf-93c1-0cf8d334f4af}</UniqueIdentifier>
+    <Filter Include="src\tinyobjloader">
+      <UniqueIdentifier>{5102dc01-be41-451b-8215-e8036bac8ae3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\stb">
+      <UniqueIdentifier>{efd6ea33-fa94-4859-800e-3bf0eda7cfb6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\glad">
+      <UniqueIdentifier>{9da8727a-36f2-430b-be1d-0e89b62a0668}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="resources\shaders\foil.frag">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\graph_curve.frag">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\foil.vert">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\graph_curve.vert">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\graph_curve.frag">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\graph_lines.frag">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\graph_curve.vert">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\graph_lines.vert">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\graph_lines.frag">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\graph_lines_old.frag">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\graph_lines.vert">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\graph_lines_old.vert">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\graph_lines_old.frag">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\phong.frag">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\graph_lines_old.vert">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\phong.vert">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\phong.frag">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\tex.frag">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\phong.vert">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\tex.vert">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\sim_draw.comp">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\text.frag">
+      <Filter>shaders</Filter>
     </None>
-    <None Include="resources\shaders\sim_move.comp">
-      <Filter>Resource Files\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\sim_outline.comp">
-      <Filter>Resource Files\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\sim_prospect.comp">
-      <Filter>Resource Files\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\tex.frag">
-      <Filter>Resource Files\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\tex.vert">
-      <Filter>Resource Files\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\text.frag">
-      <Filter>Resource Files\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\text.vert">
-      <Filter>Resource Files\shaders</Filter>
+    <None Include="..\resources\shaders\text.vert">
+      <Filter>shaders</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Global.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GLSL.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Graph.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GRLLoader.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Model.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Program.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="stb_image.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Text.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TexViewer.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="tiny_obj_loader.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="UI.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Util.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
+    <ClCompile Include="src\GLSL.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graph.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GRLLoader.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Model.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Program.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Text.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TexViewer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tinyobjloader\tiny_obj_loader.cpp">
+      <Filter>src\tinyobjloader</Filter>
+    </ClCompile>
+    <ClCompile Include="src\stb\stb_image.c">
+      <Filter>src\stb</Filter>
+    </ClCompile>
+    <ClCompile Include="src\glad\glad.c">
+      <Filter>src\glad</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="GLSL.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Graph.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="GRLLoader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Model.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Program.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Text.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="TexViewer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="tiny_obj_loader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="UI.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="stb_image.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="glad\glad.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <ClInclude Include="include\Global.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\GLSL.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Graph.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\GRLLoader.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Model.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Program.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Text.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\TexViewer.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Util.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

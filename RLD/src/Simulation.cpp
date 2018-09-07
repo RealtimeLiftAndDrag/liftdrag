@@ -3,10 +3,10 @@
 #include <memory>
 #include <iostream>
 
-#include "Common/glad/glad.h"
+#include "glad/glad.h"
 #include "Common/Program.h"
 #include "Common/GLSL.h"
-#include "Common/glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 
 #include "Common/Util.hpp"
 

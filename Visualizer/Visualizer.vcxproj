@@ -77,7 +77,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -91,7 +91,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -107,7 +107,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_OPENGL_ERROR_CHECKS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
@@ -126,7 +126,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_OPENGL_ERROR_CHECKS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
@@ -146,11 +146,11 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="Results.cpp" />
+    <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\Results.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Results.hpp" />
+    <ClInclude Include="src\Results.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

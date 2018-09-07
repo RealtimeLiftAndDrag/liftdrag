@@ -1,23 +1,45 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
+    <Filter Include="src">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="shaders">
+      <UniqueIdentifier>{a62f12b5-0367-4d65-b564-9b6cc0b27ff7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include">
+      <UniqueIdentifier>{28ff2f09-a4c2-4283-8de1-c07cb8e571a2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Simulation.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="..\resources\shaders\foil.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\foil.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\sim_draw.comp">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\sim_move.comp">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\sim_outline.comp">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\sim_prospect.comp">
+      <Filter>shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Simulation.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Simulation.hpp">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="include\Simulation.hpp">
+      <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

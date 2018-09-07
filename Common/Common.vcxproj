@@ -19,51 +19,43 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <None Include="resources\shaders\foil.frag" />
-    <None Include="resources\shaders\foil.vert" />
-    <None Include="resources\shaders\graph_curve.frag" />
-    <None Include="resources\shaders\graph_curve.vert" />
-    <None Include="resources\shaders\graph_lines.frag" />
-    <None Include="resources\shaders\graph_lines.vert" />
-    <None Include="resources\shaders\graph_lines_old.frag" />
-    <None Include="resources\shaders\graph_lines_old.vert" />
-    <None Include="resources\shaders\phong.frag" />
-    <None Include="resources\shaders\phong.vert" />
-    <None Include="resources\shaders\sim_draw.comp" />
-    <None Include="resources\shaders\sim_move.comp" />
-    <None Include="resources\shaders\sim_outline.comp" />
-    <None Include="resources\shaders\sim_prospect.comp" />
-    <None Include="resources\shaders\tex.frag" />
-    <None Include="resources\shaders\tex.vert" />
-    <None Include="resources\shaders\text.frag" />
-    <None Include="resources\shaders\text.vert" />
+    <None Include="..\resources\shaders\graph_curve.frag" />
+    <None Include="..\resources\shaders\graph_curve.vert" />
+    <None Include="..\resources\shaders\graph_lines.frag" />
+    <None Include="..\resources\shaders\graph_lines.vert" />
+    <None Include="..\resources\shaders\graph_lines_old.frag" />
+    <None Include="..\resources\shaders\graph_lines_old.vert" />
+    <None Include="..\resources\shaders\phong.frag" />
+    <None Include="..\resources\shaders\phong.vert" />
+    <None Include="..\resources\shaders\tex.frag" />
+    <None Include="..\resources\shaders\tex.vert" />
+    <None Include="..\resources\shaders\text.frag" />
+    <None Include="..\resources\shaders\text.vert" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Global.hpp" />
-    <ClInclude Include="GLSL.h" />
-    <ClInclude Include="Graph.hpp" />
-    <ClInclude Include="GRLLoader.hpp" />
-    <ClInclude Include="Model.hpp" />
-    <ClInclude Include="Program.h" />
-    <ClInclude Include="stb_image.h" />
-    <ClInclude Include="Text.hpp" />
-    <ClInclude Include="TexViewer.hpp" />
-    <ClInclude Include="tiny_obj_loader.h" />
-    <ClInclude Include="UI.hpp" />
-    <ClInclude Include="Util.hpp" />
+    <ClCompile Include="src\glad\glad.c" />
+    <ClCompile Include="src\GLSL.cpp" />
+    <ClCompile Include="src\Graph.cpp" />
+    <ClCompile Include="src\GRLLoader.cpp" />
+    <ClCompile Include="src\Model.cpp" />
+    <ClCompile Include="src\Program.cpp" />
+    <ClCompile Include="src\stb\stb_image.c" />
+    <ClCompile Include="src\Text.cpp" />
+    <ClCompile Include="src\TexViewer.cpp" />
+    <ClCompile Include="src\tinyobjloader\tiny_obj_loader.cpp" />
+    <ClCompile Include="src\UI.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="glad\glad.c" />
-    <ClCompile Include="GLSL.cpp" />
-    <ClCompile Include="Graph.cpp" />
-    <ClCompile Include="GRLLoader.cpp" />
-    <ClCompile Include="Model.cpp" />
-    <ClCompile Include="Program.cpp" />
-    <ClCompile Include="stb_image.c" />
-    <ClCompile Include="Text.cpp" />
-    <ClCompile Include="TexViewer.cpp" />
-    <ClCompile Include="tiny_obj_loader.cpp" />
-    <ClCompile Include="UI.cpp" />
+    <ClInclude Include="include\Global.hpp" />
+    <ClInclude Include="include\GLSL.h" />
+    <ClInclude Include="include\Graph.hpp" />
+    <ClInclude Include="include\GRLLoader.hpp" />
+    <ClInclude Include="include\Model.hpp" />
+    <ClInclude Include="include\Program.h" />
+    <ClInclude Include="include\Text.hpp" />
+    <ClInclude Include="include\TexViewer.hpp" />
+    <ClInclude Include="include\UI.hpp" />
+    <ClInclude Include="include\Util.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -137,7 +129,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/Common;include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -153,7 +145,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/Common;include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -171,7 +163,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/Common;include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -191,7 +183,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Dev\RealtimeLiftAndDrag;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/Common;include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>

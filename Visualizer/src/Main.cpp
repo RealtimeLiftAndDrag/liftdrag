@@ -18,11 +18,11 @@ extern "C" {
 #include <iostream>
 #include <sstream>
 
-#include "Common/glad/glad.h"
-#include "Common/GLFW/glfw3.h"
-#include "Common/glm/glm.hpp"
-#include "Common/glm/gtc/constants.hpp"
-#include "Common/glm/gtc/matrix_transform.hpp"
+#include "glad/glad.h"
+#include "GLFW/glfw3.h"
+#include "glm/glm.hpp"
+#include "glm/gtc/constants.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 #include "Common/Model.hpp"
 #include "Common/Program.h"
 #include "Common/UI.hpp"
@@ -53,7 +53,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 static constexpr SimModel k_simModel(SimModel::f18);
 
-static const std::string k_defResourceDir("resources");
+static const std::string k_defResourceDir("../resources");
 
 static const ivec2 k_defWindowSize(1280, 720);
 
