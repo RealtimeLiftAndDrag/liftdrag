@@ -58,21 +58,20 @@ layout (binding = 0, std430) restrict buffer SSBO {
     vec4 u_drag;
 };
 
-// Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason
-layout (binding = 1, std430) buffer GeoPixels { // TODO: should be restrict?
+layout (binding = 1, std430) restrict buffer GeoPixels {
     GeoPixel u_geoPixels[];
 };
-layout (binding = 2, std430) buffer AirPixels { // TODO: should be restrict?
+layout (binding = 2, std430) restrict buffer AirPixels {
     AirPixel u_airPixels[];
 };
-layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
+layout (binding = 3, std430) restrict buffer AirGeoMap {
     AirGeoMapElement u_airGeoMap[];
 };
 
 // Functions -------------------------------------------------------------------
 
 vec2 windToScreen(vec2 wind) {
-    return (wind / (u_windframeSize * 0.5f) * 0.5f + 0.5f) * float(u_screenSize);
+    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
 }
 
 void main() {

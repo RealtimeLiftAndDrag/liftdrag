@@ -30,6 +30,9 @@ struct AirGeoMapElement {
 const float k_maxSearchDist = 0.2f; // In wind space
 const float k_turbulenceDist = 0.1f;
 
+const float k_minNormalZ = 1.0f / 1000000.0f;
+const float k_maxNormalZ = 1.0f - k_minNormalZ;
+
 const bool k_doLineSearch = true;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
@@ -64,25 +67,24 @@ layout (binding = 0, std430) restrict buffer SSBO {
     vec4 u_drag;
 };
 
-// Done this way because having a lot of large static sized arrays makes shader compilation super slow for some reason
-layout (binding = 1, std430) buffer GeoPixels { // TODO: should be restrict?
+layout (binding = 1, std430) restrict buffer GeoPixels {
     GeoPixel u_geoPixels[];
 };
-layout (binding = 2, std430) buffer AirPixels { // TODO: should be restrict?
+layout (binding = 2, std430) restrict buffer AirPixels {
     AirPixel u_airPixels[];
 };
-layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
+layout (binding = 3, std430) restrict buffer AirGeoMap {
     coherent AirGeoMapElement u_airGeoMap[]; // TODO: does this need to be coherent?
 };
 
 // Functions -------------------------------------------------------------------
 
 vec2 windToScreen(vec2 wind) {
-    return (wind / (u_windframeSize * 0.5f) * 0.5f + 0.5f) * float(u_screenSize);
+    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
 }
 
 float screenToWindDist(float screenDist) {
-    return 2.0f * screenDist / float(u_screenSize) * (u_windframeSize * 0.5f);
+    return screenDist / float(u_screenSize) * u_windframeSize;
 }
 
 void main() {
@@ -94,8 +96,7 @@ void main() {
         vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
         ivec2 geoTexCoord = u_geoPixels[geoI].texCoord; // Need exact texture coord because rasterization math and our wind-to-screen math don't always align
 
-        // TODO: magic numbers
-        bool shouldSpawn = geoNormal.z >= 0.01f && geoNormal.z <= 0.99f;
+        bool shouldSpawn = geoNormal.z >= k_minNormalZ && geoNormal.z <= k_maxNormalZ;
 
         // Look for existing air pixel
         vec2 screenPos = vec2(geoTexCoord) + 0.5f;

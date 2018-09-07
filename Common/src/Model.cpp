@@ -200,6 +200,10 @@ unq<Model> Model::load(const std::string & filename) {
         return {};
     }
 
+    if (!model) {
+        return {};
+    }
+
     for (SubModel & subModel : model->m_subModels) {
         if (!subModel.m_mesh.load()) {
             std::cerr << "Failed to load sub model: " << subModel.m_name << std::endl;

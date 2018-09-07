@@ -45,7 +45,7 @@ layout (binding = 0, std430) restrict buffer SSBO {
 // Functions -------------------------------------------------------------------
 
 vec2 windToScreen(vec2 wind) {
-    return (wind / (u_windframeSize * 0.5f) * 0.5f + 0.5f) * float(u_screenSize);
+    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
 }
 
 void main() {

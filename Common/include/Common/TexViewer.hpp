@@ -18,7 +18,8 @@ class TexViewer : public UI::Single {
     ivec2 m_texSize;
     vec2 m_viewSize; // in texture space
     vec2 m_center; // in texture space
-    float m_zoom;
+    int m_zoom;
+    float m_zoomFactor;
 
     public:
 
@@ -37,9 +38,14 @@ class TexViewer : public UI::Single {
 
     void moveCenter(const vec2 & delta);
 
-    float zoom() const { return m_zoom; }
-    void zoom(float zoom);
+    int zoom() const { return m_zoom; }
+    void zoom(int zoom);
 
-    void zoomBy(float factor);
+    void zoomIn();
+
+    void zoomOut();
+
+    void zoomReset();
+
 
 };

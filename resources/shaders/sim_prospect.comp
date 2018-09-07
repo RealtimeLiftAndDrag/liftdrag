@@ -39,14 +39,14 @@ layout (binding = 0, std430) restrict buffer SSBO {
     vec4 u_drag;
 };
 
-layout (binding = 1, std430) buffer GeoPixels { // TODO: should be restrict?
+layout (binding = 1, std430) restrict buffer GeoPixels {
     GeoPixel u_geoPixels[];
 };
 
 // Functions -------------------------------------------------------------------
 
 vec2 screenToWind(vec2 screen) {
-    return (screen / u_screenSize * 2.0f - 1.0f) * (u_windframeSize * 0.5f);
+    return (screen / u_screenSize - 0.5f) * u_windframeSize;
 }
 
 ivec2 getPixelDelta(vec2 dir) {

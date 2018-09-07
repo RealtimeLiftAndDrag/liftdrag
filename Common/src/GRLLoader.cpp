@@ -8,114 +8,126 @@
 
 namespace grl {
 
+    static bool isEmpty(std::istream & is) {
+        return (is >> std::ws).peek() == std::char_traits<char>::eof();
+    }
+
+    static bool readMatrix(std::istream & is, mat4 & r_m) {
+        static std::string line;
+
+        for (int c(0); c < 4; ++c) {
+            if (!std::getline(is, line)) {
+                return false;
+            }
+            std::stringstream ss(line);
+            for (int r(0); r < 4; ++r) {
+                if (!(ss >> r_m[c][r])) {
+                    return false;
+                }
+            }
+            if (!isEmpty(ss)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static bool readVertex(std::istream & is, vec3 & r_position, vec3 & r_normal, vec2 & r_texCoord) {
+        static std::string line;
+
+        if (!std::getline(is, line)) {
+            return false;
+        }
+        std::stringstream ss(line);
+        if (!(
+            (ss >> r_position.x) &&
+            (ss >> r_position.y) &&
+            (ss >> r_position.z) &&
+
+            (ss >> r_texCoord.x) &&
+            (ss >> r_texCoord.y) &&
+
+            (ss >> r_normal.x) &&
+            (ss >> r_normal.y) &&
+            (ss >> r_normal.z)
+        )) {
+            return false;
+        }
+
+        return true;
+    }
+
     std::vector<Object> load(const std::string & filename) {
-        std::ifstream file(filename);
-        if (!file.good()) {
+        std::ifstream ifs(filename);
+        if (!ifs.good()) {
             std::cerr << "File not found: " << filename << std::endl;
             return {};
         }
 
         std::vector<Object> objects;
 
-        int state = 0; //0 = unset; 1 = matrix; 2 = vertices
-
-        int lineNum = 0;
-        int maxVertCount = 0;
-        int vertCount = 0;
-        int matrixLine = 0;
-        lineNum++;
-        std::string line;
-        while (getline(file, line)) {
-            //only used for debugging
-            lineNum++;
-
-            //TODO trim whitespace before line
-
-            //skip empty line
+        std::string line, word, tag;
+        while (std::getline(ifs, line)) {
+            // Skip empty line
             if (line.length() == 0) {
                 continue;
             }
 
-            //skip comments
-            if (line.rfind("//", 0) == 0) {
+            std::stringstream ss(line);
+            
+            ss >> word;
+
+            // Skip comment
+            if (word == "//") {
                 continue;
             }
 
-            //tokenize
-            std::vector<std::string> tokens;
-            std::stringstream lineStream(line);
-            std::string token;
-        
-            //right now just grabbing 8 elements
-            //Change to while if all are needed/wanted
-            for (int i = 0; i < 8; i++){
-                if (getline(lineStream, token, ' ')) {
-                    tokens.push_back(token);
-                }
+            // Anything else should be meta tag
+            if (word != "#") {
+                std::cerr << "Unknown content: " << line << std::endl;
+                return {};
             }
 
-            //meta tags
-            if (tokens.at(0)[0] == '#') {
-                std::string metaType = tokens.at(1);
-                if (metaType == "name:") {
-                    //push back previous sub model unless we are on the first submodel
-                    objects.resize(objects.size() + 1); // increment number of objects
-                    objects.back().name = tokens.back();
-                    state = 0;
-                }
-                else if (metaType == "origin") {
-                    matrixLine = 0;
-                    state = 1;
-                }
-                else if (metaType == "vertices_count:") {
-                    maxVertCount = stoi(tokens.back());
-                    vertCount = 0;
-                    objects.back().posData.reserve(maxVertCount);
-                    objects.back().norData.reserve(maxVertCount);
-                    objects.back().texData.reserve(maxVertCount);
-                    state = 2;
-                }
-                //TODO implement other meta tags if wanted
+            // Get meta tag
+            if (!(ss >> tag)) {
+                // Empty meta tag
+                continue;
             }
-            else { //either matrix or vertices
-                if (state == 1) {
-                    if (tokens.size() < 4) {
-                        std::cerr << "Not a valid matrix row in " << filename << ":" << lineNum << std::endl;
-                        return {};
-                    }
 
-                    //opengl uses column row so assuming same of grl
-                    objects.back().originMat[matrixLine][0] = stof(tokens.at(0));
-                    objects.back().originMat[matrixLine][1] = stof(tokens.at(1));
-                    objects.back().originMat[matrixLine][2] = stof(tokens.at(2));
-                    objects.back().originMat[matrixLine][3] = stof(tokens.at(3));
-                    matrixLine++;
+            // Name
+            if (tag == "name:") {
+                objects.resize(objects.size() + 1); // increment number of objects
+                if (!(ss >> objects.back().name)) {
+                    std::cerr << "Missing name" << std::endl;
+                    return {};
                 }
-                else if (state == 2) {
-                    if (vertCount < maxVertCount) {
-                        if (tokens.size() < 8) {
-                            std::cerr << "Not a valid vertex in " << filename << ":" << lineNum << std::endl;
-                            return {};
-                        }
-
-                        //TODO speed up this by using something else than stof
-                        float pos_x = stof(tokens.at(0));
-                        float pos_y = stof(tokens.at(1));
-                        float pos_z = stof(tokens.at(2));
-
-                        float tex_u = stof(tokens.at(3));
-                        float tex_v = stof(tokens.at(4));
-
-                        float nor_x = stof(tokens.at(5));
-                        float nor_y = stof(tokens.at(6));
-                        float nor_z = stof(tokens.at(7));                    
-
-                        objects.back().posData.emplace_back(pos_x, pos_y, pos_z);
-                        objects.back().norData.emplace_back(nor_x, nor_y, nor_z);
-                        objects.back().texData.emplace_back(tex_u, tex_v);
-                    }
-                    else {
-                        std::cerr << "Expected meta tag in " << filename << ":" << lineNum << std::endl;
+            }
+            // Origin matrix
+            else if (tag == "origin" && (ss >> word) && word == "matrix") {
+                if (!readMatrix(ifs, objects.back().originMat)) {
+                    std::cerr << "Invalid matrix" << std::endl;
+                    return {};
+                }
+            }
+            // Vertices
+            else if (tag == "vertices_count:") {
+                int vertexCount;
+                if (!(ss >> vertexCount)) {
+                    std::cerr << "Invalid vertex count";
+                    return {};
+                }
+                objects.back().posData.resize(vertexCount);
+                objects.back().norData.resize(vertexCount);
+                objects.back().texData.resize(vertexCount);
+                for (int i(0); i < vertexCount; ++i) {
+                    if (!readVertex(
+                        ifs,
+                        objects.back().posData[i],
+                        objects.back().norData[i],
+                        objects.back().texData[i]
+                    )) {
+                        std::cerr << "Invalid vertex" << std::endl;
                         return {};
                     }
                 }

@@ -53,7 +53,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::f18);
 
 static const std::string k_defResourceDir("../resources");
 
@@ -172,7 +172,9 @@ static void changeElevatorAngle(float deltaAngle) {
 }
 
 static void setSimulation(float angleOfAttack, bool debug) {
-    rld::set(*s_model, s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, debug);
+    mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
+
+    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_windframeWidth, s_windframeDepth, debug);
 }
 
 static void doFastSweep(float angleOfAttack, bool submitSlices) {
@@ -285,9 +287,9 @@ void MainUIC::keyEvent(int key, int action, int mods) {
     // If equals key is pressed, reset UI stuff
     else if (key == GLFW_KEY_EQUAL && action == GLFW_PRESS && !mods) {
         s_frontTexViewer->center(vec2(0.5f));
-        s_frontTexViewer->zoom(1.0f);
+        s_frontTexViewer->zoomReset();
         s_sideTexViewer->center(vec2(0.5f));
-        s_sideTexViewer->zoom(1.0f);
+        s_sideTexViewer->zoomReset();
         Results::resetGraphs();
     }
 }
