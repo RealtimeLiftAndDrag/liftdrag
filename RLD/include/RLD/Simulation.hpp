@@ -19,7 +19,7 @@ namespace rld {
 
     void cleanup();
 
-    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float windframeWidth, float windframeDepth, float windSpeed, bool debug);
+    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float momentOfInertia, float windframeWidth, float windframeDepth, float windSpeed, bool debug);
 
     // Does one slice and returns if it was the last one
     bool step(bool isExternalCall = true);
@@ -42,6 +42,11 @@ namespace rld {
     const vec3 & drag();
     // Returns the drag of a particular slice
     const vec3 & drag(int slice);
+
+    // Returns the torque of the sweep
+    const vec3 & torque();
+    // Returns the torque of a particular slice
+    const vec3 & torque(int slice);
 
     uint frontTex();
     uint sideTex();

@@ -16,7 +16,7 @@ struct GeoPixel {
 
 struct AirPixel {
     vec2 windPos;
-    vec2 backForce;
+    vec2 backforce;
     vec4 velocity;
 };
 
@@ -58,13 +58,14 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
+    float u_momentOfInertia;
     int u_slice;
     float u_sliceZ;
     uint u_debug;
     int u_padding0;
-    int u_padding1;
     vec4 u_lift;
     vec4 u_drag;
+    vec4 u_torque;
 };
 
 layout (binding = 1, std430) restrict buffer GeoPixels {
@@ -176,7 +177,7 @@ void main() {
 
             u_airPixels[airI + u_swap * u_maxAirPixels].windPos = airWindPos;
             u_airPixels[airI + u_swap * u_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
-            u_airPixels[airI + u_swap * u_maxAirPixels].backForce = vec2(0.0f);
+            u_airPixels[airI + u_swap * u_maxAirPixels].backforce = vec2(0.0f);
 
             // Draw to fbo to avoid another draw later, only necessary for seeing the results immediately
             if (bool(u_debug)) {

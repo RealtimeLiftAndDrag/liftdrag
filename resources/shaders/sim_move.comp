@@ -16,7 +16,7 @@ struct GeoPixel {
 
 struct AirPixel {
     vec2 windPos;
-    vec2 backForce;
+    vec2 backforce;
     vec4 velocity;
 };
 
@@ -53,13 +53,14 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
+    float u_momentOfInertia;
     int u_slice;
     float u_sliceZ;
     uint u_debug;
     int u_padding0;
-    int u_padding1;
     vec4 u_lift;
     vec4 u_drag;
+    vec4 u_torque;
 };
 
 layout (binding = 1, std430) restrict buffer GeoPixels {
@@ -99,6 +100,14 @@ void main() {
 
     vec3 totalLift = vec3(0.0f);
     vec3 totalDrag = vec3(0.0f);
+    vec3 totalTorque = vec3(0.0f);
+
+    // TODO: figure out these constants
+    float massDensity = 1.0f;
+    float flowVelocity = u_windSpeed; // TODO: is this correct?
+    float dragC = 1.0f;
+    float area = screenToWindDist(1.0f);
+    area = area * area * u_sliceSize; // TODO: is this correct?
 
     for (int airI = workI; airI < u_airCount[u_swap]; airI += int(gl_WorkGroupSize.x)) {
 
@@ -106,16 +115,13 @@ void main() {
         vec3 airVelocity = u_airPixels[airI + u_swap * u_maxAirPixels].velocity.xyz;
         //float turbulence = u_airPixels[airI + u_swap * k_maxAirPixels].windPos.w;
 
-        vec2 backForce = vec2(0.0f);
-        float drag = 0.0f;
-
         int geoCount = u_airGeoMap[airI].geoCount;
         
         // If no geo found for this air, search for geo
         if (geoCount == 0) {
-            vec2 screenPos = windToScreen(airWindPos.xy);
+            vec2 screenPos = windToScreen(airWindPos);
             ivec2 pixel = ivec2(screenPos);
-            vec2 searchDir = u_airPixels[airI + u_swap * u_maxAirPixels].backForce.xy;
+            vec2 searchDir = u_airPixels[airI + u_swap * u_maxAirPixels].backforce.xy;
             if (searchDir != vec2(0.0f)) {                
                 vec2 screenDir = normalize(searchDir);
                 vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
@@ -171,7 +177,7 @@ void main() {
 
         // Color active air pixels more brightly
         if (bool(u_debug) && k_distinguishActivePixels && geoCount > 0) {
-            ivec2 texCoord = ivec2(windToScreen(airWindPos.xy));
+            ivec2 texCoord = ivec2(windToScreen(airWindPos));
             vec4 color = imageLoad(u_fboImg, texCoord);
             color.g = 1.0f;
             //color.b = turbulence;
@@ -186,43 +192,49 @@ void main() {
             }
         }
 
-        // TODO: figure out these constants
-        float massDensity = 1.0f;
-        float flowVelocity = u_windSpeed; // TODO: is this correct?
-        float dragC = 1.0f;
-        float area = screenToWindDist(1.0f);
-        area = area * area;
+        vec2 backforce = vec2(0.0f);
+        vec3 lift = vec3(0.0f);
+        vec3 drag = vec3(0.0f);
+        vec3 torque = vec3(0.0f);
 
         // For each associated geo pixel, update backforce, lift, and drag
         for (int mapI = 0; mapI < geoCount; ++mapI) {
             int geoI = u_airGeoMap[airI].geoIndices[mapI];
-
-            // Calculate backforce
             vec2 geoWindPos = u_geoPixels[geoI].windPos;
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-            float dist = distance(airWindPos.xy, geoWindPos.xy);
-            backForce += normalize(-geoNormal.xy) * dist * dist  * 500.0f; // TODO: magic number
+            vec3 r = vec3(airWindPos - geoWindPos, 0.0f);
+            float dist = length(r);
 
-            //if (distance(geoWindPos, airWindPos) >= k_turbulenceDist) {
-            //    turbulence = 1.0f;
-            //}
+            // Calculate backforce
+            vec2 thisBackforce = normalize(-geoNormal.xy) * dist * dist  * 500.0f; // TODO: magic number
+            backforce += thisBackforce;
+
+            // Calculate lift
+            vec3 thisLift = vec3(-thisBackforce, 0.0f) * 0.0001f; // TODO: magic number
+            lift += thisLift;
 
             // Calculate drag
-            drag += 0.5f * massDensity * flowVelocity * flowVelocity * dragC * area * max(geoNormal.z, 0.0f) * u_sliceSize * 100.0f; // TODO: magic number
+            vec3 thisDrag = -geoNormal * (0.5f * massDensity * dragC * area * -dot(geoNormal, airVelocity) * 2000.0f); // TODO: magic number // TODO: should do that dot? // TODO: should use flow velocity or unnormalized air velocity?
+            drag += thisDrag;
+
+            // Calculate torque
+            torque += u_momentOfInertia * cross(r, thisLift + thisDrag) * 50.0f; // TODO: is this right // TODO: magic number
         }
         // Average
         if (geoCount > 0) {
             float invGeoCount = 1.0f / float(geoCount);
-            backForce *= invGeoCount;
+            backforce *= invGeoCount;
+            lift *= invGeoCount;
             drag *= invGeoCount;
+            torque *= invGeoCount;
         }
         // Add to total
-        vec2 lift = -backForce * 0.0001f;
-        totalLift.xy += lift;
-        totalDrag.x += drag;
+        totalLift += lift;
+        totalDrag += drag;
+        totalTorque += torque;
 
         // Update velocity
-        airVelocity.xy += backForce;
+        airVelocity.xy += backforce;
         airVelocity.z = -u_windSpeed;
         airVelocity = normalize(airVelocity) * u_windSpeed;
 
@@ -231,7 +243,7 @@ void main() {
 
         u_airPixels[airI + u_swap * u_maxAirPixels].windPos = airWindPos;//, turbulence);
         u_airPixels[airI + u_swap * u_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
-        u_airPixels[airI + u_swap * u_maxAirPixels].backForce = backForce;
+        u_airPixels[airI + u_swap * u_maxAirPixels].backforce = backforce;
     }
 
     // Accumulate lift
@@ -243,4 +255,9 @@ void main() {
     accumulationArray[workI] = totalDrag;
     accumulate();
     if (workI == 0) u_drag.xyz = accumulationArray[0];
+    
+    // Accumulate torque
+    accumulationArray[workI] = totalTorque;
+    accumulate();
+    if (workI == 0) u_torque.xyz = accumulationArray[0];
 }

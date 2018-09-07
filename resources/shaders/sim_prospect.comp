@@ -30,13 +30,14 @@ layout (binding = 0, std430) restrict buffer SSBO {
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
+    float u_momentOfInertia;
     int u_slice;
     float u_sliceZ;
     uint u_debug;
     int u_padding0;
-    int u_padding1;
     vec4 u_lift;
     vec4 u_drag;
+    vec4 u_torque;
 };
 
 layout (binding = 1, std430) restrict buffer GeoPixels {

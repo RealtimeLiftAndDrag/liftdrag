@@ -226,7 +226,10 @@ void Graph::PlotComp::render() const {
     glUniform2f(s_curveProg->getUniform("u_viewMin"), m_graph.m_viewMin.x, m_graph.m_viewMin.y);
     glUniform2f(s_curveProg->getUniform("u_viewMax"), m_graph.m_viewMax.x, m_graph.m_viewMax.y);
 
-    for (const Curve & curve : m_graph.m_curves) {
+    // Draw in reverse order
+    for (auto rit (m_graph.m_curves.crbegin()); rit != m_graph.m_curves.crend(); ++rit) {
+        const Curve & curve(*rit);
+
         if (!curve.isSetup) {
             if (!curve.setup()) {
                 continue;
@@ -387,13 +390,13 @@ void Graph::InnerComp::updateGridText() {
 
 
 
-Graph::Graph(const std::string & title, const std::string & xLabel, const vec2 & viewMin, const vec2 & viewMax, const bvec2 & isZoomAllowed, const ivec2 & minPlotSize, const ivec2 & maxPlotSize) :
+Graph::Graph(const std::string & title, const std::string & xLabel, const vec2 & viewMin, const vec2 & viewMax, const bvec2 & isLocked, const ivec2 & minPlotSize, const ivec2 & maxPlotSize) :
     m_xLabel(xLabel),
     m_viewMin(viewMin), m_viewMax(viewMax),
     m_gridSize(detGridSize(m_viewMax.x - m_viewMin.x), detGridSize(m_viewMax.y - m_viewMin.y)),
     m_isFocusX(false),
     m_focusX(),
-    m_isZoomAllowed(isZoomAllowed),
+    m_isLocked(isLocked),
     m_innerComp(new InnerComp(*this, minPlotSize, maxPlotSize))
 {
     add(m_innerComp);
@@ -410,6 +413,7 @@ void Graph::addCurve(const std::string & xLabel, const vec3 & color, int maxNPoi
 }
 
 const std::vector<vec2> & Graph::accessPoints(int curveI) const {
+    return m_curves[curveI].points;
     return m_curves[curveI].points;
 }
 
@@ -431,18 +435,19 @@ void Graph::setView(const vec2 & min, const vec2 & max) {
 }
 
 void Graph::zoomView(float factor) {
-    if (!glm::any(m_isZoomAllowed)) {
+    if (glm::all(m_isLocked)) {
         return;
     }
 
     vec2 viewSize(m_viewMax - m_viewMin);
     vec2 viewSizeDelta(viewSize * (factor - 1.0f));
-    if (!m_isZoomAllowed.x) viewSizeDelta.x = 0.0f;
-    if (!m_isZoomAllowed.y) viewSizeDelta.y = 0.0f;
+    if (m_isLocked.x) viewSizeDelta.x = 0.0f;
+    if (m_isLocked.y) viewSizeDelta.y = 0.0f;
     setView(m_viewMin - viewSizeDelta * 0.5f, m_viewMax + viewSizeDelta * 0.5f);
 }
 
-void Graph::moveView(const vec2 & delta) {
+void Graph::moveView(const vec2 & delta_) {
+    vec2 delta(m_isLocked.x ? 0.0f : delta_.x, m_isLocked.y ? 0.0f : delta_.y);
     setView(m_viewMin + delta, m_viewMax + delta);
 }
 

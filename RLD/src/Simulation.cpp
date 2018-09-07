@@ -33,7 +33,7 @@ namespace rld {
 
     struct AirPixel {
         vec2 windPos;
-        vec2 backForce;
+        vec2 backforce;
         vec4 velocity;
     };
 
@@ -53,13 +53,14 @@ namespace rld {
         float sliceSize;
         float windSpeed;
         float dt;
+        float momentOfInertia;
         s32 slice;
         float sliceZ;
         u32 debug;
         int padding0;
-        int padding1;
         vec4 lift;
         vec4 drag;
+        vec4 torque;
     };
 
 
@@ -72,6 +73,7 @@ namespace rld {
     static float s_sliceSize; // Distance between slices in wind space
     static float s_windSpeed;
     static float s_dt; // The time it would take to travel `s_sliceSize` at `s_windSpeed`
+    static float s_momentOfInertia;
     static bool s_debug; // Whether to enable non essentials like side view or active pixel highlighting
 
     static int s_currentSlice(0); // slice index [0, k_nSlices)
@@ -81,8 +83,10 @@ namespace rld {
     static float s_aileronAngle(0.0f); // IN DEGREES
     static vec3 s_sweepLift; // accumulating lift force for entire sweep
     static vec3 s_sweepDrag; // accumulating drag force for entire sweep
+    static vec3 s_sweepTorque; // accumulating torque for entire sweep
     static std::vector<vec3> s_sliceLifts; // Lift for each slice
     static std::vector<vec3> s_sliceDrags; // Drag for each slice
+    static std::vector<vec3> s_sliceTorques; // Torque for each slice
     static int s_swap;
 
     static shr<Program> s_foilProg;
@@ -343,11 +347,13 @@ namespace rld {
         s_ssboLocal.sliceSize = s_sliceSize;
         s_ssboLocal.windSpeed = s_windSpeed;
         s_ssboLocal.dt = s_dt;
+        s_ssboLocal.momentOfInertia = s_momentOfInertia;
         s_ssboLocal.slice = 0;
         s_ssboLocal.sliceZ = s_windframeDepth * -0.5f;
         s_ssboLocal.debug = s_debug;
         s_ssboLocal.lift = vec4();
         s_ssboLocal.drag = vec4();
+        s_ssboLocal.torque = vec4();
     }
 
     static void clearFlagTex() {
@@ -457,6 +463,7 @@ namespace rld {
         const Model & model,
         const mat4 & modelMat,
         const mat3 & normalMat,
+        float momentOfInertia,
         float windframeWidth,
         float windframeDepth,
         float windSpeed,
@@ -470,6 +477,7 @@ namespace rld {
         s_sliceSize = s_windframeDepth / k_sliceCount;
         s_windSpeed = windSpeed;
         s_dt = s_sliceSize / s_windSpeed;
+        s_momentOfInertia = momentOfInertia;
         s_debug = debug;
     }
 
@@ -484,8 +492,10 @@ namespace rld {
             if (s_debug) clearSideTex();
             s_sweepLift = vec3();
             s_sweepDrag = vec3();
+            s_sweepTorque = vec3();
             s_sliceLifts.clear();
             s_sliceDrags.clear();
+            s_sliceTorques.clear();
             s_swap = 1;
         }
         
@@ -508,10 +518,13 @@ namespace rld {
         downloadSSBO();
         vec3 lift(s_ssboLocal.lift);
         vec3 drag(s_ssboLocal.drag);
+        vec3 torque(s_ssboLocal.torque);
         s_sweepLift += lift;
         s_sweepDrag += drag;
+        s_sweepTorque += torque;
         s_sliceLifts.push_back(lift);
         s_sliceDrags.push_back(drag);
+        s_sliceTorques.push_back(torque);
 
         if (++s_currentSlice >= k_sliceCount) {
             s_currentSlice = 0;
@@ -549,6 +562,14 @@ namespace rld {
 
     const vec3 & drag(int slice) {
         return s_sliceDrags[slice];
+    }
+
+    const vec3 & torque() {
+        return s_sweepTorque;
+    }
+
+    const vec3 & torque(int slice) {
+        return s_sliceTorques[slice];
     }
 
     uint frontTex() {

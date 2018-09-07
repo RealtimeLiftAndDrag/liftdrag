@@ -55,7 +55,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::sphere);
+static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static const std::string k_defResourceDir("../resources");
 
@@ -91,6 +91,7 @@ static std::string s_resourceDir(k_defResourceDir);
 static unq<Model> s_model;
 static mat4 s_modelMat;
 static mat3 s_normalMat;
+static float s_momentOfInertia;
 static float s_windframeWidth, s_windframeDepth;
 static float s_windSpeed;
 
@@ -177,7 +178,7 @@ static void changeElevatorAngle(float deltaAngle) {
 static void setSimulation(float angleOfAttack, bool debug) {
     mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
 
-    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
+    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
 }
 
 static void doFastSweep(float angleOfAttack, bool submitSlices) {
@@ -189,11 +190,12 @@ static void doFastSweep(float angleOfAttack, bool submitSlices) {
 
     vec3 lift(rld::lift());
     vec3 drag(rld::drag());
-    Results::submitAngle(angleOfAttack, lift.y, drag.x);
+    vec3 torque(rld::torque());
+    Results::submitAngle(angleOfAttack, { lift, drag, torque });
 
     if (submitSlices) {
         for (int i(0); i < rld::sliceCount(); ++i) {
-            Results::submitSlice(i, rld::lift(i).y, rld::drag(i).x);
+            Results::submitSlice(i, { rld::lift(i), rld::drag(i), rld::torque(i) });
         }
     }
 
@@ -310,10 +312,10 @@ static bool setupModel() {
 
     s_modelMat = mat4();
 
-    // Must set windframe and windSpeed!!
     switch (k_simModel) {
         case SimModel::airfoil:
             s_modelMat = glm::scale(mat4(), vec3(0.5f, 1.0f, 1.0f)) * s_modelMat;
+            s_momentOfInertia = 1.0f;
             s_windframeWidth = 1.25f;
             s_windframeDepth = 1.5f;
             s_windSpeed = 10.0f;
@@ -321,12 +323,14 @@ static bool setupModel() {
 
         case SimModel::f18:
             s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
+            s_momentOfInertia = 1.0f;
             s_windframeWidth = 14.5f;
             s_windframeDepth = 22.0f;
             s_windSpeed = 10.0f;
             break;
 
         case SimModel::sphere:
+            s_momentOfInertia = 1.0f;
             s_windframeWidth = 2.5f;
             s_windframeDepth = 2.5f;
             s_windSpeed = 10.0f;
@@ -442,7 +446,7 @@ static void updateInfoText() {
 
     ss.str(std::string());
 
-    ss << "Drag: " << Util::numberString(rld::drag().x, 3);
+    ss << "Drag: " << Util::numberString(glm::length(rld::drag()), 3);
     s_angleDragText->string(ss.str());
 
     ss.str(std::string());
@@ -459,7 +463,7 @@ static void updateInfoText() {
 
     ss.str(std::string());
 
-    ss << "Drag: " << Util::numberString(slice >= 0 ? rld::drag(slice).x : 0.0f, 3);
+    ss << "Drag: " << Util::numberString(slice >= 0 ? glm::length(rld::drag(slice)) : 0.0f, 3);
     s_sliceDragText->string(ss.str());
 }
 
@@ -493,8 +497,9 @@ static void update() {
             s_shouldSweep = false;
             vec3 lift(rld::lift());
             vec3 drag(rld::drag());
+            vec3 torque(rld::torque());
 
-            Results::submitAngle(s_angleOfAttack, lift.y, drag.x);
+            Results::submitAngle(s_angleOfAttack, { lift, drag, torque });
             Results::update();
 
             if (s_shouldAutoProgress) {
@@ -506,7 +511,7 @@ static void update() {
 
         s_isInfoChange = true;
 
-        Results::submitSlice(slice, rld::lift(slice).y, rld::drag(slice).x);
+        Results::submitSlice(slice, { rld::lift(slice), rld::drag(slice), rld::torque(slice) });
         Results::update();
 
         s_shouldStep = false;

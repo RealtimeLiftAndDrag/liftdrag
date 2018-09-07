@@ -34,10 +34,10 @@ namespace Results {
 
 
 
-    static std::map<float, std::pair<float, float>> s_angleRecord; // map of results where key is angle and value is lift/drag pair
+    static std::map<float, Entry> s_angleRecord; // map of results where key is angle and value is lift/drag pair
     static bool s_isAngleRecordChange;
 
-    static std::map<int, std::pair<float, float>> s_sliceRecord;
+    static std::map<int, Entry> s_sliceRecord;
     static bool s_isSliceRecordChange;
 
     static shr<Graph> s_angleGraph, s_sliceGraph;
@@ -60,12 +60,13 @@ namespace Results {
             "Angle",
             min,
             max,
-            bvec2(false, true),
+            bvec2(true, false),
             k_minAngleGraphSize,
             k_maxAngleGraphSize
         ));
         s_angleGraph->addCurve("Lift", vec3(0.0f, 1.0f, 0.0f), int(180.0f * k_invAngleGranularity) + 1);
         s_angleGraph->addCurve("Drag", vec3(1.0f, 0.0f, 0.0f), int(180.0f * k_invAngleGranularity) + 1);
+        s_angleGraph->addCurve("Torque", vec3(0.0f, 0.0f, 1.0f), int(180.0f * k_invAngleGranularity) + 1);
 
         // Slice graph
 
@@ -82,12 +83,13 @@ namespace Results {
             "Slice",
             min,
             max,
-            bvec2(false, true),
+            bvec2(true, false),
             k_minSliceGraphSize,
             k_maxSliceGraphSize
         ));
         s_sliceGraph->addCurve("Lift", vec3(0.0f, 1.0f, 0.0f), k_sliceCount);
         s_sliceGraph->addCurve("Drag", vec3(1.0f, 0.0f, 0.0f), k_sliceCount);
+        s_sliceGraph->addCurve("Torque", vec3(0.0f, 0.0f, 1.0f), k_sliceCount);
 
         return true;
     }
@@ -96,11 +98,14 @@ namespace Results {
         if (s_isAngleRecordChange) {
             auto & liftPoints(s_angleGraph->mutatePoints(0));
             auto & dragPoints(s_angleGraph->mutatePoints(1));
+            auto & torquePoints(s_angleGraph->mutatePoints(2));
             liftPoints.clear();
             dragPoints.clear();
+            torquePoints.clear();
             for (const auto & r : s_angleRecord) {
-                liftPoints.emplace_back(r.first, r.second.first);
-                dragPoints.emplace_back(r.first, r.second.second);
+                liftPoints.emplace_back(r.first, r.second.lift.y); // TODO: figure out a better representation
+                dragPoints.emplace_back(r.first, glm::length(r.second.drag)); // TODO: figure out a better representation
+                torquePoints.emplace_back(r.first, r.second.torque.x); // TODO: figure out a better representation
             }
 
             s_isAngleRecordChange = false;
@@ -108,20 +113,23 @@ namespace Results {
         if (s_isSliceRecordChange) {
             auto & liftPoints(s_sliceGraph->mutatePoints(0));
             auto & dragPoints(s_sliceGraph->mutatePoints(1));
+            auto & torquePoints(s_sliceGraph->mutatePoints(2));
             liftPoints.clear();
             dragPoints.clear();
+            torquePoints.clear();
             for (const auto & r : s_sliceRecord) {
-                liftPoints.emplace_back(r.first, r.second.first);
-                dragPoints.emplace_back(r.first, r.second.second);
+                liftPoints.emplace_back(r.first, r.second.lift.y); // TODO: figure out a better representation
+                dragPoints.emplace_back(r.first, glm::length(r.second.drag)); // TODO: figure out a better representation
+                torquePoints.emplace_back(r.first, r.second.torque.x); // TODO: figure out a better representation
             }
 
             s_isSliceRecordChange = false;
         }
     }
 
-    void submitAngle(float angle, float lift, float drag) {
+    void submitAngle(float angle, const Entry & entry) {
         angle = std::round(angle * k_invAngleGranularity) * k_angleGranularity;
-        s_angleRecord[angle] = { lift, drag };
+        s_angleRecord[angle] = entry;
         s_isAngleRecordChange = true;
     }
 
@@ -130,8 +138,8 @@ namespace Results {
         s_isAngleRecordChange = true;
     }
 
-    void submitSlice(int slice, float lift, float drag) {
-        s_sliceRecord[slice] = { lift, drag };
+    void submitSlice(int slice, const Entry & entry) {
+        s_sliceRecord[slice] = entry;
         s_isSliceRecordChange = true;
     }
 
@@ -140,11 +148,10 @@ namespace Results {
         s_isSliceRecordChange = true;
     }
 
-    bool valAt(float angle, float & r_lift, float & r_drag) {
+    bool valAt(float angle, Entry & r_entry) {
         auto it(s_angleRecord.find(angle));
         if (it != s_angleRecord.end()) {
-            r_lift = it->second.first;
-            r_drag = it->second.second;
+            r_entry = it->second;
             return true;
         }
 
@@ -154,12 +161,15 @@ namespace Results {
         }
         --preIt;
 
-        float preAngle(preIt->first), preLift(preIt->second.first), preDrag(preIt->second.second);
-        float postAngle(postIt->first), postLift(postIt->second.first), postDrag(postIt->second.second);
+        float preAngle(preIt->first);
+        const Entry & preEntry(preIt->second);
+        float postAngle(postIt->first);
+        const Entry & postEntry(postIt->second);
 
         float interpP((angle - preAngle) / (postAngle - preAngle));
-        r_lift = glm::mix(preLift, postLift, interpP);
-        r_drag = glm::mix(preDrag, postDrag, interpP);
+        r_entry.lift = glm::mix(preEntry.lift, postEntry.lift, interpP);
+        r_entry.drag = glm::mix(preEntry.drag, postEntry.drag, interpP);
+        r_entry.torque = glm::mix(preEntry.torque, postEntry.torque, interpP);
         return true;
     }
 
