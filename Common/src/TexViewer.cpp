@@ -63,10 +63,10 @@ TexViewer::TexViewer(uint tex, const ivec2 & texSize, const ivec2 & minSize) :
     Single(minSize, ivec2()),
     m_tex(tex),
     m_texSize(texSize),
+    m_initViewSize(),
     m_viewSize(),
     m_center(0.5f),
-    m_zoom(0),
-    m_zoomFactor(1.0f)
+    m_zoom(0)
 {}
 
 void TexViewer::render() const {
@@ -77,8 +77,8 @@ void TexViewer::render() const {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_tex);
 
-    vec2 corner(m_center - m_viewSize * 0.5f / m_zoomFactor);
-    glUniform4f(s_texProg->getUniform("u_viewBounds"), corner.x, corner.y, m_viewSize.x / m_zoomFactor, m_viewSize.y / m_zoomFactor);
+    vec2 corner(m_center - m_viewSize * 0.5f);
+    glUniform4f(s_texProg->getUniform("u_viewBounds"), corner.x, corner.y, m_viewSize.x, m_viewSize.y);
 
     glBindVertexArray(s_squareVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -88,19 +88,27 @@ void TexViewer::render() const {
 }
 
 void TexViewer::pack() {
-    m_viewSize = vec2(m_size) / vec2(m_texSize);
+    m_initViewSize = vec2(m_size) / vec2(m_texSize);
+    m_viewSize = m_initViewSize;
 }
 
 void TexViewer::cursorPositionEvent(const ivec2 & pos, const ivec2 & delta) {
     if (UI::isMouseButtonPressed(0)) {
         vec2 factor(m_viewSize / vec2(m_size));
-        moveCenter(-factor * vec2(delta) / m_zoomFactor);
+        moveCenter(-factor * vec2(delta));
     }
 }
 
 void TexViewer::scrollEvent(const ivec2 & delta) {
+    vec2 a0(vec2(UI::cursorPosition() - (m_position + m_size / 2)) / vec2(m_size));
+    vec2 prevViewSize(m_viewSize);
+
     if (delta.y < 0) zoomOut();
     else if (delta.y > 0) zoomIn();
+
+    vec2 a1(a0 * m_viewSize / prevViewSize);
+    vec2 b(a0 - a1);
+    center(m_center + b * prevViewSize);
 }
 
 void TexViewer::center(const vec2 & p) {
@@ -113,16 +121,17 @@ void TexViewer::moveCenter(const vec2 & delta) {
 
 void TexViewer::zoom(int zoom) {
     m_zoom = glm::clamp(zoom, -k_maxZoom, k_maxZoom);
-    if      (m_zoom > 0) m_zoomFactor = float(1 << m_zoom);
-    else if (m_zoom < 0) m_zoomFactor = 1.0f / float(1 << -m_zoom);
+    m_viewSize = m_initViewSize;
+    if (m_zoom > 0) m_viewSize *= float(1 << m_zoom);
+    else if (m_zoom < 0) m_viewSize /= float(1 << -m_zoom);
 }
 
 void TexViewer::zoomIn() {
-    zoom(m_zoom + 1);
+    zoom(m_zoom - 1);
 }
 
 void TexViewer::zoomOut() {
-    zoom(m_zoom - 1);
+    zoom(m_zoom + 1);
 }
 
 void TexViewer::zoomReset() {

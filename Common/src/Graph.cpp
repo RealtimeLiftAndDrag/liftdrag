@@ -282,8 +282,16 @@ void Graph::PlotComp::cursorExitEvent() {
 }
 
 void Graph::PlotComp::scrollEvent(const ivec2 & delta) {
+    vec2 a0(vec2(UI::cursorPosition() - (m_position + m_size / 2)) / vec2(m_size));
+    vec2 prevViewSize(m_graph.m_viewMax - m_graph.m_viewMin);
+
     if (delta.y < 0) m_graph.zoomView(k_zoomFactor);
     else if (delta.y > 0) m_graph.zoomView(k_invZoomFactor);
+
+    vec2 viewSize(m_graph.m_viewMax - m_graph.m_viewMin);
+    vec2 a1(a0 * viewSize / prevViewSize);
+    vec2 b(a0 - a1);
+    m_graph.moveView(b * prevViewSize);
 }
 
 void Graph::PlotComp::updateFocus() {

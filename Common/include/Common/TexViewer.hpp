@@ -16,10 +16,10 @@ class TexViewer : public UI::Single {
 
     uint m_tex;
     ivec2 m_texSize;
+    vec2 m_initViewSize; // in texture space
     vec2 m_viewSize; // in texture space
     vec2 m_center; // in texture space
     int m_zoom;
-    float m_zoomFactor;
 
     public:
 
