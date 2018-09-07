@@ -9,13 +9,13 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 // Types -----------------------------------------------------------------------
 
 struct GeoPixel {
-    vec2 worldPos;
+    vec2 windPos;
     ivec2 texCoord;
     vec4 normal;
 };
 
 struct AirPixel {
-    vec2 worldPos;
+    vec2 windPos;
     vec2 backForce;
     vec4 velocity;
 };
@@ -29,7 +29,7 @@ struct AirGeoMapElement {
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
-const float k_maxSearchDist = 0.2f; // In world space
+const float k_maxSearchDist = 0.2f; // In wind space
 const float k_turbulenceDist = 0.0225f;
 
 const bool k_doLineSearch = true;
@@ -49,11 +49,15 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
-    int u_slice;
+    float u_windframeSize;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
+    int u_slice;
+    float u_sliceZ;
     uint u_debug;
+    int u_padding0;
+    int u_padding1;
     vec4 u_lift;
     vec4 u_drag;
 };
@@ -75,12 +79,12 @@ shared vec3 accumulationArray[gl_WorkGroupSize.x];
 
 // Functions -------------------------------------------------------------------
 
-vec2 worldToScreen(vec2 world) {
-    return (world * 0.5f + 0.5f) * float(u_screenSize);
+vec2 windToScreen(vec2 wind) {
+    return (wind / (u_windframeSize * 0.5f) * 0.5f + 0.5f) * float(u_screenSize);
 }
 
-float screenToWorldDist(float screenDist) {
-    return 2.0f * screenDist / float(u_screenSize);
+float screenToWindDist(float screenDist) {
+    return 2.0f * screenDist / float(u_screenSize) * (u_windframeSize * 0.5f);
 }
 
 void accumulate() {
@@ -99,9 +103,9 @@ void main() {
 
     for (int airI = workI; airI < u_airCount[u_swap]; airI += int(gl_WorkGroupSize.x)) {
 
-        vec2 airWorldPos = u_airPixels[airI + u_swap * u_maxAirPixels].worldPos;
+        vec2 airWindPos = u_airPixels[airI + u_swap * u_maxAirPixels].windPos;
         vec3 airVelocity = u_airPixels[airI + u_swap * u_maxAirPixels].velocity.xyz;
-        //float turbulence = u_airPixels[airI + u_swap * k_maxAirPixels].worldPos.w;
+        //float turbulence = u_airPixels[airI + u_swap * k_maxAirPixels].windPos.w;
 
         vec2 backForce = vec2(0.0f);
         float drag = 0.0f;
@@ -110,7 +114,7 @@ void main() {
         
         // If no geo found for this air, search for geo
         if (geoCount == 0) {
-            vec2 screenPos = worldToScreen(airWorldPos.xy);
+            vec2 screenPos = windToScreen(airWindPos.xy);
             ivec2 pixel = ivec2(screenPos);
             vec2 searchDir = u_airPixels[airI + u_swap * u_maxAirPixels].backForce.xy;
             if (searchDir != vec2(0.0f)) {                
@@ -125,18 +129,18 @@ void main() {
                         if (dist.x < dist.y) {
                             screenPos += screenDir * dist.x;
                             pixel.x += int(sign(screenDir.x));
-                            totalDist += screenToWorldDist(dist.x);
+                            totalDist += screenToWindDist(dist.x);
                         }
                         else {
                             screenPos += screenDir * dist.y;
                             pixel.y += int(sign(screenDir.y));
-                            totalDist += screenToWorldDist(dist.y);
+                            totalDist += screenToWindDist(dist.y);
                         }
                     }
                     else {
                         screenPos += screenDir;
                         pixel = ivec2(screenPos);
-                        totalDist += screenToWorldDist(1.0f);
+                        totalDist += screenToWindDist(1.0f);
                     }
 
                     if (totalDist > k_maxSearchDist) {
@@ -168,15 +172,14 @@ void main() {
 
         // Color active air pixels more brightly
         if (bool(u_debug) && k_distinguishActivePixels && geoCount > 0) {
-            ivec2 texCoord = ivec2(worldToScreen(airWorldPos.xy));
+            ivec2 texCoord = ivec2(windToScreen(airWindPos.xy));
             vec4 color = imageLoad(u_fboImg, texCoord);
             color.g = 1.0f;
             //color.b = turbulence;
             imageStore(u_fboImg, texCoord, color);
 
-            if (!k_ignoreEdges || abs(airWorldPos.x) <= 0.5f) {
-                float worldZ = u_slice * u_sliceSize - 1.0f;
-                ivec2 sideTexCoord = ivec2(worldToScreen(vec2(worldZ, airWorldPos.y)));
+            if (!k_ignoreEdges || abs(airWindPos.x) <= 0.5f) {
+                ivec2 sideTexCoord = ivec2(windToScreen(vec2(u_sliceZ, airWindPos.y)));
                 color = imageLoad(u_sideImg, sideTexCoord);
                 color.g = 1.0f;
                 //color.b = turbulence;
@@ -188,7 +191,7 @@ void main() {
         float massDensity = 1.0f;
         float flowVelocity = u_windSpeed; // TODO: is this correct?
         float dragC = 1.0f;
-        float area = screenToWorldDist(1.0f);
+        float area = screenToWindDist(1.0f);
         area = area * area;
 
         // For each associated geo pixel, update backforce, lift, and drag
@@ -197,12 +200,12 @@ void main() {
             int geoI = u_airGeoMap[airI].geoIndices[mapI];
 
             // Calculate backforce
-            vec2 geoWorldPos = u_geoPixels[geoI].worldPos;
+            vec2 geoWindPos = u_geoPixels[geoI].windPos;
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-            float dist = distance(airWorldPos.xy, geoWorldPos.xy);
+            float dist = distance(airWindPos.xy, geoWindPos.xy);
             backForce += normalize(-geoNormal.xy) * dist * dist  * 500.0f; // TODO: magic number
 
-            //if (distance(geoWorldPos, airWorldPos) >= k_turbulenceDist) {
+            //if (distance(geoWindPos, airWindPos) >= k_turbulenceDist) {
             //    turbulence = 1.0f;
             //}
 
@@ -226,9 +229,9 @@ void main() {
         airVelocity = normalize(airVelocity) * u_windSpeed;
 
         // Update location
-        airWorldPos.xy += airVelocity.xy * u_dt;
+        airWindPos.xy += airVelocity.xy * u_dt;
 
-        u_airPixels[airI + u_swap * u_maxAirPixels].worldPos = airWorldPos;//, turbulence);
+        u_airPixels[airI + u_swap * u_maxAirPixels].windPos = airWindPos;//, turbulence);
         u_airPixels[airI + u_swap * u_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
         u_airPixels[airI + u_swap * u_maxAirPixels].backForce = backForce;
     }

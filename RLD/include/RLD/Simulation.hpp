@@ -19,7 +19,7 @@ namespace rld {
 
     void cleanup();
 
-    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float depth, const glm::vec3 & centerOfMass, bool debug);
+    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float windframeWidth, float windframeDepth, bool debug);
 
     // Does one slice and returns if it was the last one
     bool step(bool isExternalCall = true);

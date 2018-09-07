@@ -12,6 +12,8 @@ extern "C" {
 
 // TODO: should average backforce when multiple geo pixels, or simply sum?
 // TODO: lift should be independent of the number of slices
+// TODO: world space, air space, and simulation space
+// TODO: how far away should turbulence start? linear or squared air speed?
 
 
 
@@ -51,7 +53,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::f18);
+static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static const std::string k_defResourceDir("../resources");
 
@@ -85,6 +87,10 @@ static std::string s_resourceDir(k_defResourceDir);
 
 
 static unq<Model> s_model;
+static mat4 s_modelMat;
+static mat3 s_normalMat;
+static float s_windframeWidth, s_windframeDepth;
+
 //all in degrees
 static float s_angleOfAttack(0.0f);
 static float s_aileronAngle(0.0f);
@@ -166,43 +172,7 @@ static void changeElevatorAngle(float deltaAngle) {
 }
 
 static void setSimulation(float angleOfAttack, bool debug) {
-    mat4 modelMat;
-    mat3 normalMat;
-    float depth;
-    vec3 centerOfGravity;
-
-    switch (k_simModel) {
-        case SimModel::airfoil:
-            modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 0.5f)) * modelMat;
-            modelMat = glm::rotate(mat4(), glm::radians(-angleOfAttack), vec3(1.0f, 0.0f, 0.0f)) * modelMat;
-            modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -0.5f)) * modelMat;
-            modelMat = glm::scale(mat4(), vec3(0.875f, 1.0f, 1.0f)) * modelMat;
-            normalMat = glm::transpose(glm::inverse(modelMat));
-            depth = 1.0f;
-            centerOfGravity = vec3(0.0f, 0.0f, depth * 0.5f);
-            break;
-
-        case SimModel::f18:
-            modelMat = glm::scale(mat4(), vec3(0.10f));
-            modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * modelMat;
-            modelMat = glm::rotate(mat4(1.0f), glm::radians(-angleOfAttack), vec3(1.0f, 0.0f, 0.0f)) * modelMat;
-            modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -1.1f)) * modelMat;
-            normalMat = glm::transpose(glm::inverse(modelMat));
-            depth = 2.0f;
-            centerOfGravity = vec3(0.0f, 0.0f, depth * 0.5f);
-            break;
-
-        case SimModel::sphere:
-            modelMat = glm::rotate(mat4(), glm::radians(-angleOfAttack), vec3(1.0f, 0.0f, 0.0f));
-            modelMat = glm::scale(mat4(), vec3(0.5f)) * modelMat;
-            modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -0.5f)) * modelMat;
-            normalMat = glm::transpose(glm::inverse(modelMat));
-            depth = 1.0f;
-            centerOfGravity = vec3(0.0f, 0.0f, depth * 0.5f);
-            break;
-    }
-
-    rld::set(*s_model, modelMat, normalMat, depth, centerOfGravity, debug);
+    rld::set(*s_model, s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, debug);
 }
 
 static void doFastSweep(float angleOfAttack, bool submitSlices) {
@@ -322,6 +292,45 @@ void MainUIC::keyEvent(int key, int action, int mods) {
     }
 }
 
+static bool setupModel() {
+    switch (k_simModel) {
+        case SimModel::airfoil: s_model = Model::load(s_resourceDir + "/models/0012.obj"  ); break;
+        case SimModel::    f18: s_model = Model::load(s_resourceDir + "/models/f18.grl"   ); break;
+        case SimModel:: sphere: s_model = Model::load(s_resourceDir + "/models/sphere.obj"); break;
+    }
+    if (!s_model) {
+        std::cerr << "Failed to load model" << std::endl;
+        return false;
+    }
+
+    s_modelMat = mat4();
+    s_windframeWidth = 2.0f;
+    s_windframeDepth = 2.0f;
+
+    switch (k_simModel) {
+        case SimModel::airfoil:
+            s_modelMat = glm::scale(mat4(), vec3(0.5f, 1.0f, 1.0f)) * s_modelMat;
+            s_windframeWidth = 1.25f;
+            s_windframeDepth = 1.5f;
+            break;
+
+        case SimModel::f18:
+            s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
+            s_windframeWidth = 14.5f;
+            s_windframeDepth = 22.0f;
+            break;
+
+        case SimModel::sphere:
+            s_windframeWidth = 2.5f;
+            s_windframeDepth = 2.5f;
+            break;
+    }
+    
+    s_normalMat = glm::transpose(glm::inverse(s_modelMat));
+
+    return true;
+}
+
 static bool setup() {
     // Setup UI, which includes GLFW and GLAD
     if (!UI::setup(k_defWindowSize, "Realtime Lift and Drag Visualizer", 4, 5, false, s_resourceDir)) {
@@ -331,14 +340,9 @@ static bool setup() {
 
     glDisable(GL_BLEND); // need blending for ui but don't want it for simulation
 
-    // Setup model    
-    switch (k_simModel) {
-        case SimModel::airfoil: s_model = Model::load(s_resourceDir + "/models/0012.obj"  ); break;
-        case SimModel::    f18: s_model = Model::load(s_resourceDir + "/models/f18.grl"   ); break;
-        case SimModel:: sphere: s_model = Model::load(s_resourceDir + "/models/sphere.obj"); break;
-    }
-    if (!s_model) {
-        std::cerr << "Failed to load model" << std::endl;
+    // Setup model
+    if (!setupModel()) {
+        std::cerr << "Failed to setup model" << std::endl;
         return false;
     }
 

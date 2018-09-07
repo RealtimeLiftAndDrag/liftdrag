@@ -27,13 +27,13 @@ namespace rld {
 
 
     struct GeoPixel {
-        vec2 worldPos;
+        vec2 windPos;
         ivec2 texCoord;
         vec4 normal;
     };
 
     struct AirPixel {
-        vec2 worldPos;
+        vec2 windPos;
         vec2 backForce;
         vec4 velocity;
     };
@@ -50,11 +50,15 @@ namespace rld {
         s32 maxGeoPixels;
         s32 maxAirPixels;
         s32 screenSize;
-        s32 slice;
+        float windframeSize;
         float sliceSize;
         float windSpeed;
         float dt;
+        s32 slice;
+        float sliceZ;
         u32 debug;
+        int padding0;
+        int padding1;
         vec4 lift;
         vec4 drag;
     };
@@ -64,9 +68,9 @@ namespace rld {
     static const Model * s_model;
     static mat4 s_modelMat;
     static mat3 s_normalMat;
-    static float s_depth; // Depth of the simulation frame / total depth of all slices
-    static vec3 s_centerOfMass; // Center of mass of the model in world space
-    static float s_sliceSize; // Distance between slices in world space
+    static float s_windframeWidth; // width and height of the windframe
+    static float s_windframeDepth; // depth of the windframe
+    static float s_sliceSize; // Distance between slices in wind space
     static float s_dt; // The time it would take to travel `s_sliceSize` at `s_windSpeed`
     static bool s_debug; // Whether to enable non essentials like side view or active pixel highlighting
 
@@ -290,12 +294,13 @@ namespace rld {
 
         s_foilProg->bind();
 
-        float zNear(s_sliceSize * s_currentSlice);
+        float zNear(s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize);
+        float windframeRadius(s_windframeWidth * 0.5f);
         mat4 projMat(glm::ortho(
-            -1.0f, // left
-             1.0f, // right
-            -1.0f, // bottom
-             1.0f, // top
+            -windframeRadius, // left
+            windframeRadius,  // right
+            -windframeRadius, // bottom
+            windframeRadius,  // top
             zNear, // near
             zNear + s_sliceSize // far
         ));        
@@ -335,10 +340,12 @@ namespace rld {
         s_ssboLocal.maxGeoPixels = k_maxGeoPixels;
         s_ssboLocal.maxAirPixels = k_maxAirPixels;
         s_ssboLocal.screenSize = k_size;
-        s_ssboLocal.slice = 0;
+        s_ssboLocal.windframeSize = s_windframeWidth;
         s_ssboLocal.sliceSize = s_sliceSize;
         s_ssboLocal.windSpeed = k_windSpeed;
         s_ssboLocal.dt = s_dt;
+        s_ssboLocal.slice = 0;
+        s_ssboLocal.sliceZ = s_windframeDepth * -0.5f;
         s_ssboLocal.debug = s_debug;
         s_ssboLocal.lift = vec4();
         s_ssboLocal.drag = vec4();
@@ -447,13 +454,13 @@ namespace rld {
         // TODO
     }
 
-    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float depth, const vec3 & centerOfMass, bool debug) {
+    void set(const Model & model, const mat4 & modelMat, const mat3 & normalMat, float windframeWidth, float windframeDepth, bool debug) {
         s_model = &model;
         s_modelMat = modelMat;
         s_normalMat = normalMat;
-        s_depth = depth;
-        s_centerOfMass = centerOfMass;
-        s_sliceSize = s_depth / k_sliceCount;
+        s_windframeWidth = windframeWidth;
+        s_windframeDepth = windframeDepth;
+        s_sliceSize = s_windframeDepth / k_sliceCount;
         s_dt = s_sliceSize / k_windSpeed;
         s_debug = debug;
     }
@@ -466,7 +473,7 @@ namespace rld {
         // Reset for new sweep
         if (s_currentSlice == 0) {
             resetSSBO();
-            clearSideTex();
+            if (s_debug) clearSideTex();
             s_sweepLift = vec3();
             s_sweepDrag = vec3();
             s_sliceLifts.clear();
@@ -480,6 +487,7 @@ namespace rld {
         s_ssboLocal.geoCount = 0;
         s_ssboLocal.airCount[s_swap] = 0;
         s_ssboLocal.slice = s_currentSlice;
+        s_ssboLocal.sliceZ = s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize;
         uploadSSBO();
 
         renderGeometry(); // Render geometry to fbo

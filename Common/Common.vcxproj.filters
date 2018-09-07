@@ -95,34 +95,34 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\Global.hpp">
+    <ClInclude Include="include\Common\Global.hpp">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\GLSL.h">
+    <ClInclude Include="include\Common\GLSL.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\Graph.hpp">
+    <ClInclude Include="include\Common\Graph.hpp">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\GRLLoader.hpp">
+    <ClInclude Include="include\Common\GRLLoader.hpp">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\Model.hpp">
+    <ClInclude Include="include\Common\Model.hpp">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\Program.h">
+    <ClInclude Include="include\Common\Program.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\Text.hpp">
+    <ClInclude Include="include\Common\Text.hpp">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\TexViewer.hpp">
+    <ClInclude Include="include\Common\TexViewer.hpp">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\UI.hpp">
+    <ClInclude Include="include\Common\UI.hpp">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\Util.hpp">
+    <ClInclude Include="include\Common\Util.hpp">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>

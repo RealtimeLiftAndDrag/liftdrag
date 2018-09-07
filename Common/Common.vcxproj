@@ -46,16 +46,16 @@
     <ClCompile Include="src\UI.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\Global.hpp" />
-    <ClInclude Include="include\GLSL.h" />
-    <ClInclude Include="include\Graph.hpp" />
-    <ClInclude Include="include\GRLLoader.hpp" />
-    <ClInclude Include="include\Model.hpp" />
-    <ClInclude Include="include\Program.h" />
-    <ClInclude Include="include\Text.hpp" />
-    <ClInclude Include="include\TexViewer.hpp" />
-    <ClInclude Include="include\UI.hpp" />
-    <ClInclude Include="include\Util.hpp" />
+    <ClInclude Include="include\Common\Global.hpp" />
+    <ClInclude Include="include\Common\GLSL.h" />
+    <ClInclude Include="include\Common\Graph.hpp" />
+    <ClInclude Include="include\Common\GRLLoader.hpp" />
+    <ClInclude Include="include\Common\Model.hpp" />
+    <ClInclude Include="include\Common\Program.h" />
+    <ClInclude Include="include\Common\Text.hpp" />
+    <ClInclude Include="include\Common\TexViewer.hpp" />
+    <ClInclude Include="include\Common\UI.hpp" />
+    <ClInclude Include="include\Common\Util.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

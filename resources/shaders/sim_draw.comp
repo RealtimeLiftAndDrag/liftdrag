@@ -9,13 +9,13 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 // Types -----------------------------------------------------------------------
 
 struct GeoPixel {
-    vec2 worldPos;
+    vec2 windPos;
     ivec2 texCoord;
     vec4 normal;
 };
 
 struct AirPixel {
-    vec2 worldPos;
+    vec2 windPos;
     vec2 backForce;
     vec4 velocity;
 };
@@ -45,11 +45,15 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
-    int u_slice;
+    float u_windframeSize;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
+    int u_slice;
+    float u_sliceZ;
     uint u_debug;
+    int u_padding0;
+    int u_padding1;
     vec4 u_lift;
     vec4 u_drag;
 };
@@ -67,8 +71,8 @@ layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
 
 // Functions -------------------------------------------------------------------
 
-vec2 worldToScreen(vec2 world) {
-    return (world * 0.5f + 0.5f) * float(u_screenSize);
+vec2 windToScreen(vec2 wind) {
+    return (wind / (u_windframeSize * 0.5f) * 0.5f + 0.5f) * float(u_screenSize);
 }
 
 void main() {
@@ -77,14 +81,13 @@ void main() {
 
     for (int prevAirI = workI; prevAirI < u_airCount[counterSwap]; prevAirI += int(gl_WorkGroupSize.x)) {
 
-        vec2 worldPos = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].worldPos;
-        //float turbulence = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].worldPos.w;
+        vec2 windPos = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].windPos;
+        //float turbulence = u_airPixels[prevAirI + counterSwap * u_maxAirPixels].windPos.w;
         
-        ivec2 texCoord = ivec2(worldToScreen(worldPos.xy));
+        ivec2 texCoord = ivec2(windToScreen(windPos.xy));
         ivec2 sideTexCoord;
         if (bool(u_debug)) {
-            float worldZ = u_slice * u_sliceSize - 1.0f;
-            sideTexCoord = ivec2(worldToScreen(vec2(worldZ, worldPos.y)));
+            sideTexCoord = ivec2(windToScreen(vec2(u_sliceZ, windPos.y)));
         }
 
         // Check if in texture
@@ -114,7 +117,7 @@ void main() {
         imageStore(u_fboImg, texCoord, color);
 
         // Draw to side view
-        if (bool(u_debug) && (!k_ignoreEdges || abs(worldPos.x) <= 0.5f)) {
+        if (bool(u_debug) && (!k_ignoreEdges || abs(windPos.x) <= 0.5f)) {
             color = imageLoad(u_sideImg, sideTexCoord);
             color.g = k_inactiveVal;
             //color.b = turbulence;

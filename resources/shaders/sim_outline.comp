@@ -9,13 +9,13 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 // Types -----------------------------------------------------------------------
 
 struct GeoPixel {
-    vec2 worldPos;
+    vec2 windPos;
     ivec2 texCoord;
     vec4 normal;
 };
 
 struct AirPixel {
-    vec2 worldPos;
+    vec2 windPos;
     vec2 backForce;
     vec4 velocity;
 };
@@ -27,7 +27,7 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
-const float k_maxSearchDist = 0.2f; // In world space
+const float k_maxSearchDist = 0.2f; // In wind space
 const float k_turbulenceDist = 0.1f;
 
 const bool k_doLineSearch = true;
@@ -51,11 +51,15 @@ layout (binding = 0, std430) restrict buffer SSBO {
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
-    int u_slice;
+    float u_windframeSize;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
+    int u_slice;
+    float u_sliceZ;
     uint u_debug;
+    int u_padding0;
+    int u_padding1;
     vec4 u_lift;
     vec4 u_drag;
 };
@@ -73,12 +77,12 @@ layout (binding = 3, std430) buffer AirGeoMap { // TODO: should be restrict?
 
 // Functions -------------------------------------------------------------------
 
-vec2 worldToScreen(vec2 world) {
-    return (world * 0.5f + 0.5f) * float(u_screenSize);
+vec2 windToScreen(vec2 wind) {
+    return (wind / (u_windframeSize * 0.5f) * 0.5f + 0.5f) * float(u_screenSize);
 }
 
-float screenToWorldDist(float screenDist) {
-    return 2.0f * screenDist / float(u_screenSize);
+float screenToWindDist(float screenDist) {
+    return 2.0f * screenDist / float(u_screenSize) * (u_windframeSize * 0.5f);
 }
 
 void main() {
@@ -86,9 +90,9 @@ void main() {
 
     for (int geoI = workI; geoI < u_geoCount; geoI += int(gl_WorkGroupSize.x)) {
 
-        vec2 geoWorldPos = u_geoPixels[geoI].worldPos;
+        vec2 geoWindPos = u_geoPixels[geoI].windPos;
         vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-        ivec2 geoTexCoord = u_geoPixels[geoI].texCoord; // Need exact texture coord because rasterization math and our world-to-screen math don't always align
+        ivec2 geoTexCoord = u_geoPixels[geoI].texCoord; // Need exact texture coord because rasterization math and our wind-to-screen math don't always align
 
         // TODO: magic numbers
         bool shouldSpawn = geoNormal.z >= 0.01f && geoNormal.z <= 0.99f;
@@ -107,18 +111,18 @@ void main() {
                 if (dist.x < dist.y) {
                     screenPos += screenDir * dist.x;
                     pixel.x += int(sign(screenDir.x));
-                    totalDist += screenToWorldDist(dist.x);
+                    totalDist += screenToWindDist(dist.x);
                 }
                 else {
                     screenPos += screenDir * dist.y;
                     pixel.y += int(sign(screenDir.y));
-                    totalDist += screenToWorldDist(dist.y);
+                    totalDist += screenToWindDist(dist.y);
                 }
             }
             else {
                 screenPos += screenDir;
                 pixel = ivec2(screenPos);
-                totalDist += screenToWorldDist(1.0f);
+                totalDist += screenToWindDist(1.0f);
             }
 
             if (totalDist > k_maxSearchDist) {
@@ -165,11 +169,11 @@ void main() {
             u_airGeoMap[airI].geoCount = 1;
             u_airGeoMap[airI].geoIndices[0] = geoI;
 
-            vec2 airWorldPos = geoWorldPos;
+            vec2 airWindPos = geoWindPos;
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
             vec3 airVelocity = refl * u_windSpeed;
 
-            u_airPixels[airI + u_swap * u_maxAirPixels].worldPos = airWorldPos;
+            u_airPixels[airI + u_swap * u_maxAirPixels].windPos = airWindPos;
             u_airPixels[airI + u_swap * u_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
             u_airPixels[airI + u_swap * u_maxAirPixels].backForce = vec2(0.0f);
 
@@ -187,9 +191,8 @@ void main() {
             color.r = 1.0f;
             imageStore(u_fboImg, geoTexCoord, color);
 
-            if (!k_ignoreEdges || abs(geoWorldPos.x) <= 0.5f) {
-                float worldZ = u_slice * u_sliceSize - 1.0f;
-                ivec2 sideTexCoord = ivec2(worldToScreen(vec2(worldZ, geoWorldPos.y)));
+            if (!k_ignoreEdges || abs(geoWindPos.x) <= 0.5f) {
+                ivec2 sideTexCoord = ivec2(windToScreen(vec2(u_sliceZ, geoWindPos.y)));
                 sideTexCoord.y = geoTexCoord.y;
                 color = imageLoad(u_sideImg, sideTexCoord);
                 color.r = 1.0f;
