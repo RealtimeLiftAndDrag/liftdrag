@@ -6,6 +6,12 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 
+struct Result {
+    vec4 lift;
+    vec4 drag;
+    vec4 torq;
+};
+
 struct GeoPixel {
     vec2 windPos;
     ivec2 texCoord;
@@ -56,17 +62,20 @@ layout (binding = 0, std430) restrict buffer Mutables {
     int u_padding0;
     int u_geoCount;
     coherent int u_airCount[2];
-    vec4 u_lift;
-    vec4 u_drag;
-    vec4 u_torque;
 };
+
+//layout (binding = 4, std430) restrict buffer Results {
+//    Result u_results[];
+//};
 
 layout (binding = 1, std430) restrict buffer GeoPixels {
     GeoPixel u_geoPixels[];
 };
+
 layout (binding = 2, std430) restrict buffer AirPixels {
     AirPixel u_airPixels[];
 };
+
 layout (binding = 3, std430) restrict buffer AirGeoMap {
     AirGeoMapElement u_airGeoMap[];
 };

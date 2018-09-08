@@ -98,14 +98,14 @@ namespace Results {
         if (s_isAngleRecordChange) {
             auto & liftPoints(s_angleGraph->mutatePoints(0));
             auto & dragPoints(s_angleGraph->mutatePoints(1));
-            auto & torquePoints(s_angleGraph->mutatePoints(2));
+            auto & torqPoints(s_angleGraph->mutatePoints(2));
             liftPoints.clear();
             dragPoints.clear();
-            torquePoints.clear();
+            torqPoints.clear();
             for (const auto & r : s_angleRecord) {
                 liftPoints.emplace_back(r.first, r.second.lift.y); // TODO: figure out a better representation
                 dragPoints.emplace_back(r.first, glm::length(r.second.drag)); // TODO: figure out a better representation
-                torquePoints.emplace_back(r.first, r.second.torque.x); // TODO: figure out a better representation
+                torqPoints.emplace_back(r.first, r.second.torq.x); // TODO: figure out a better representation
             }
 
             s_isAngleRecordChange = false;
@@ -113,14 +113,14 @@ namespace Results {
         if (s_isSliceRecordChange) {
             auto & liftPoints(s_sliceGraph->mutatePoints(0));
             auto & dragPoints(s_sliceGraph->mutatePoints(1));
-            auto & torquePoints(s_sliceGraph->mutatePoints(2));
+            auto & torqPoints(s_sliceGraph->mutatePoints(2));
             liftPoints.clear();
             dragPoints.clear();
-            torquePoints.clear();
+            torqPoints.clear();
             for (const auto & r : s_sliceRecord) {
                 liftPoints.emplace_back(r.first, r.second.lift.y); // TODO: figure out a better representation
                 dragPoints.emplace_back(r.first, glm::length(r.second.drag)); // TODO: figure out a better representation
-                torquePoints.emplace_back(r.first, r.second.torque.x); // TODO: figure out a better representation
+                torqPoints.emplace_back(r.first, r.second.torq.x); // TODO: figure out a better representation
             }
 
             s_isSliceRecordChange = false;
@@ -169,7 +169,7 @@ namespace Results {
         float interpP((angle - preAngle) / (postAngle - preAngle));
         r_entry.lift = glm::mix(preEntry.lift, postEntry.lift, interpP);
         r_entry.drag = glm::mix(preEntry.drag, postEntry.drag, interpP);
-        r_entry.torque = glm::mix(preEntry.torque, postEntry.torque, interpP);
+        r_entry.torq = glm::mix(preEntry.torq, postEntry.torq, interpP);
         return true;
     }
 

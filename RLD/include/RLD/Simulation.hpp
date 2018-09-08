@@ -35,18 +35,18 @@ namespace rld {
 
     // Returns the lift of the sweep
     const vec3 & lift();
-    // Returns the lift of a particular slice
-    const vec3 & lift(int slice);
-
+    // Returns the lifts for each slice
+    const vec3 * lifts();
+    
     // Returns the drag of the sweep
     const vec3 & drag();
-    // Returns the drag of a particular slice
-    const vec3 & drag(int slice);
+    // Returns the drags for each slice
+    const vec3 * drags();
 
     // Returns the torque of the sweep
     const vec3 & torque();
-    // Returns the torque of a particular slice
-    const vec3 & torque(int slice);
+    // Returns the torques for each slice
+    const vec3 * torques();
 
     uint frontTex();
     uint sideTex();

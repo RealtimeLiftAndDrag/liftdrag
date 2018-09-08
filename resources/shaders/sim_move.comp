@@ -6,6 +6,12 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 
+struct Result {
+    vec4 lift;
+    vec4 drag;
+    vec4 torq;
+};
+
 struct GeoPixel {
     vec2 windPos;
     ivec2 texCoord;
@@ -61,17 +67,20 @@ layout (binding = 0, std430) restrict buffer Mutables {
     int u_padding0;
     int u_geoCount;
     coherent int u_airCount[2];
-    vec4 u_lift;
-    vec4 u_drag;
-    vec4 u_torque;
 };
+
+//layout (binding = 4, std430) restrict buffer Results {
+//    Result u_results[];
+//};
 
 layout (binding = 1, std430) restrict buffer GeoPixels {
     GeoPixel u_geoPixels[];
 };
+
 layout (binding = 2, std430) restrict buffer AirPixels {
     AirPixel u_airPixels[];
 };
+
 layout (binding = 3, std430) restrict buffer AirGeoMap {
     AirGeoMapElement u_airGeoMap[];
 };
@@ -117,7 +126,7 @@ void main() {
 
     vec3 totalLift = vec3(0.0f);
     vec3 totalDrag = vec3(0.0f);
-    vec3 totalTorque = vec3(0.0f);
+    vec3 totalTorq = vec3(0.0f);
 
     // TODO: figure out these constants
     float massDensity = 1.0f;
@@ -195,7 +204,7 @@ void main() {
         vec2 backforce = vec2(0.0f);
         vec3 lift = vec3(0.0f);
         vec3 drag = vec3(0.0f);
-        vec3 torque = vec3(0.0f);
+        vec3 torq = vec3(0.0f);
         float dragFactor = 0.0f;
         float liftFactor = 0.0f;
 
@@ -228,9 +237,9 @@ void main() {
             drag += thisDrag;
 
             // Calculate torque
-            vec3 thisTorque = u_momentOfInertia * cross(r, thisLift + thisDrag); // TODO: is this right
-            thisTorque *= 50.0f; // TODO: magic number
-            torque += thisTorque;
+            vec3 thisTorq = u_momentOfInertia * cross(r, thisLift + thisDrag); // TODO: is this right
+            thisTorq *= 50.0f; // TODO: magic number
+            torq += thisTorq;
         }
         // Average
         if (geoCount > 0) {
@@ -238,12 +247,12 @@ void main() {
             backforce *= invGeoCount;
             lift *= invGeoCount;
             drag *= invGeoCount;
-            torque *= invGeoCount;
+            torq *= invGeoCount;
         }
         // Add to total
         totalLift += lift;
         totalDrag += drag;
-        totalTorque += torque;
+        totalTorq += torq;
 
         // Color active air pixels more brightly
         if (bool(u_debug) && k_distinguishActivePixels && geoCount > 0) {
@@ -280,15 +289,15 @@ void main() {
     // Accumulate lift
     accumulationArray[workI] = totalLift;
     accumulate();
-    if (workI == 0) u_lift.xyz = accumulationArray[0];
+    //if (workI == 0) u_results[u_slice].lift.xyz = accumulationArray[0];
 
     // Accumulate drag
     accumulationArray[workI] = totalDrag;
     accumulate();
-    if (workI == 0) u_drag.xyz = accumulationArray[0];
+    //if (workI == 0) u_results[u_slice].drag.xyz = accumulationArray[0];
     
     // Accumulate torque
-    accumulationArray[workI] = totalTorque;
+    accumulationArray[workI] = totalTorq;
     accumulate();
-    if (workI == 0) u_torque.xyz = accumulationArray[0];
+    //if (workI == 0) u_results[u_slice].torq.xyz = accumulationArray[0];
 }

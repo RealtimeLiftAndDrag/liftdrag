@@ -26,24 +26,28 @@ namespace rld {
     static constexpr bool k_persistentMapping(false); // Should use persistent mapping for mutables ssbo // TODO: test performance
 
 
-
+    
+    // Mirrors GPU struct
     struct GeoPixel {
         vec2 windPos;
         ivec2 texCoord;
         vec4 normal;
     };
-
+    
+    // Mirrors GPU struct
     struct AirPixel {
         vec2 windPos;
         vec2 backforce;
         vec4 velocity;
     };
-
+    
+    // Mirrors GPU struct
     struct AirGeoMapElement {
         s32 geoCount;
         s32 geoIndices[k_maxGeoPerAir];
     };
-
+    
+    // Mirrors GPU struct
     struct Constants {
         s32 swap;
         s32 maxGeoPixels;
@@ -58,14 +62,19 @@ namespace rld {
         float sliceZ;
         u32 debug;
     };
-
+    
+    // Mirrors GPU struct
     struct Mutables {
         int padding0;
         int geoCount;
         int airCount[2];
+    };
+
+    // Mirrors GPU struct
+    struct Result {
         vec4 lift;
         vec4 drag;
-        vec4 torque;
+        vec4 torq;
     };
 
 
@@ -86,12 +95,12 @@ namespace rld {
     static float s_rudderAngle(0.0f); // IN DEGREES
     static float s_elevatorAngle(0.0f); // IN DEGREES
     static float s_aileronAngle(0.0f); // IN DEGREES
-    static vec3 s_sweepLift; // accumulating lift force for entire sweep
-    static vec3 s_sweepDrag; // accumulating drag force for entire sweep
-    static vec3 s_sweepTorque; // accumulating torque for entire sweep
-    static std::vector<vec3> s_sliceLifts; // Lift for each slice
-    static std::vector<vec3> s_sliceDrags; // Drag for each slice
-    static std::vector<vec3> s_sliceTorques; // Torque for each slice
+    static vec3 s_lift; // Total lift for entire sweep
+    static vec3 s_drag; // Total drag for entire sweep
+    static vec3 s_torq; // Total torque for entire sweep
+    static std::vector<vec3> s_lifts; // Lifts for each slice
+    static std::vector<vec3> s_drags; // Drags for each slice
+    static std::vector<vec3> s_torqs; // Torqs for each slice
     static int s_swap;
 
     static shr<Program> s_foilProg;
@@ -101,6 +110,7 @@ namespace rld {
 
     static uint s_constantsUBO;
     static uint s_mutablesSSBO;
+    //static uint s_resultsSSBO;
     static uint s_geoPixelsSSBO;
     static uint s_airPixelsSSBO;
     static uint s_airGeoMapSSBO;
@@ -116,7 +126,7 @@ namespace rld {
     static uint s_moveProg;
     static uint s_drawProg;
 
-    static Mutables * s_mutablesMappedPtr;
+    static Result * s_resultsMappedPtr; // used for persistent mapping
 
 
 
@@ -338,29 +348,50 @@ namespace rld {
     }
 
     static void uploadMutables() {
-        if constexpr (k_persistentMapping) {
-            *s_mutablesMappedPtr = s_mutables;
-        }
-        else {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), &s_mutables);
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);        
-        }
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), &s_mutables);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
     static void downloadMutables() {
-        if constexpr (k_persistentMapping) {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
+        Mutables * p(reinterpret_cast<Mutables *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), GL_MAP_READ_BIT)));
+        s_mutables = *p;
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    }
+
+    /*static void downloadResults() {
+        Result * p;
+        if (k_persistentMapping) {
             glFinish();
-            s_mutables = *s_mutablesMappedPtr;
+            p = s_resultsMappedPtr;
         }
         else {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-            void * p = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), GL_MAP_READ_BIT);
-            std::memcpy(&s_mutables, p, sizeof(Mutables));
-            glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);            
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
+            p = reinterpret_cast<Result *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, k_sliceCount * sizeof(Result), GL_MAP_READ_BIT));         
         }
-    }
+
+        s_lifts.clear();
+        s_drags.clear();
+        s_torqs.clear();
+        s_lift = vec3();
+        s_drag = vec3();
+        s_torq = vec3();
+        for (int i(0); i < k_sliceCount; ++i) {
+            s_lifts.push_back(p[i].lift);
+            s_drags.push_back(p[i].drag);
+            s_torqs.push_back(p[i].torq);
+            s_lift += s_lifts.back();
+            s_drag += s_drags.back();
+            s_torq += s_torqs.back();
+        }
+
+        if (!k_persistentMapping) {
+            glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        }
+    }*/
 
     static void resetConstants() {
         s_constants.swap = 0;
@@ -381,9 +412,6 @@ namespace rld {
         s_mutables.geoCount = 0;
         s_mutables.airCount[0] = 0;
         s_mutables.airCount[1] = 0;
-        s_mutables.lift = vec4();
-        s_mutables.drag = vec4();
-        s_mutables.torque = vec4();
     }
 
     static void clearFlagTex() {
@@ -402,6 +430,7 @@ namespace rld {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
+        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
 
         glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,       GL_RGBA8);
         glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
@@ -427,14 +456,20 @@ namespace rld {
         // Setup mutables SSBO
         glGenBuffers(1, &s_mutablesSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-        if constexpr (k_persistentMapping) {
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(Mutables), nullptr, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-            s_mutablesMappedPtr = reinterpret_cast<Mutables *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT));
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(Mutables), nullptr, GL_DYNAMIC_STORAGE_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+        // Setup results SSBO
+        /*glGenBuffers(1, &s_resultsSSBO);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
+        if (k_persistentMapping) {
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, k_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+            s_resultsMappedPtr = reinterpret_cast<Result *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, k_sliceCount * sizeof(Result), GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT));
         }
         else {
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(Mutables), nullptr, GL_DYNAMIC_STORAGE_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);        
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, k_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT);        
         }
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);*/
 
         // Setup geometry pixels SSBO
         glGenBuffers(1, &s_geoPixelsSSBO);
@@ -480,10 +515,10 @@ namespace rld {
     }
 
     void cleanup() {
-        if constexpr (k_persistentMapping) {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
+        /*if (k_persistentMapping) {
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
             glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-        }
+        }*/
         // TODO
     }
 
@@ -519,12 +554,9 @@ namespace rld {
             resetConstants();
             resetMutables();
             if (s_debug) clearSideTex();
-            s_sweepLift = vec3();
-            s_sweepDrag = vec3();
-            s_sweepTorque = vec3();
-            s_sliceLifts.clear();
-            s_sliceDrags.clear();
-            s_sliceTorques.clear();
+            s_lift = vec3();
+            s_drag = vec3();
+            s_torq = vec3();
             s_swap = 1;
         }
         
@@ -545,18 +577,12 @@ namespace rld {
         computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
 
-        downloadMutables();
-        vec3 lift(s_mutables.lift);
-        vec3 drag(s_mutables.drag);
-        vec3 torque(s_mutables.torque);
-        s_sweepLift += lift;
-        s_sweepDrag += drag;
-        s_sweepTorque += torque;
-        s_sliceLifts.push_back(lift);
-        s_sliceDrags.push_back(drag);
-        s_sliceTorques.push_back(torque);
+        ++s_currentSlice;
 
-        if (++s_currentSlice >= k_sliceCount) {
+        // Was last slice
+        if (s_currentSlice >= k_sliceCount) {
+            //downloadResults();
+
             s_currentSlice = 0;
             return true;
         }
@@ -579,27 +605,27 @@ namespace rld {
     }
 
     const vec3 & lift() {
-        return s_sweepLift;
+        return s_lift;
     }
 
-    const vec3 & lift(int slice) {
-        return s_sliceLifts[slice];
+    const vec3 * lifts() {
+        return s_lifts.data();
     }
 
     const vec3 & drag() {
-        return s_sweepDrag;
+        return s_drag;
     }
 
-    const vec3 & drag(int slice) {
-        return s_sliceDrags[slice];
+    const vec3 * drags() {
+        return s_drags.data();
     }
 
     const vec3 & torque() {
-        return s_sweepTorque;
+        return s_torq;
     }
 
-    const vec3 & torque(int slice) {
-        return s_sliceTorques[slice];
+    const vec3 * torques() {
+        return s_torqs.data();
     }
 
     uint frontTex() {

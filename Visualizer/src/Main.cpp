@@ -108,7 +108,6 @@ static bool s_shouldAutoProgress(false);
 static shr<MainUIC> s_mainUIC;
 static shr<TexViewer> s_frontTexViewer, s_sideTexViewer;
 static shr<Text> s_angleText, s_angleLiftText, s_angleDragText;
-static shr<Text> s_sliceText, s_sliceLiftText, s_sliceDragText;
 static shr<Text> s_rudderText, s_elevatorText, s_aileronText;
 
 static bool s_isInfoChange(true);
@@ -181,27 +180,28 @@ static void setSimulation(float angleOfAttack, bool debug) {
     rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
 }
 
-static void doFastSweep(float angleOfAttack, bool submitSlices) {
+static void submitResults(float angleOfAttack) {
+    Results::submitAngle(angleOfAttack, { rld::lift(), rld::drag(), rld::torque() });
+    const vec3 * lifts(rld::lifts());
+    const vec3 * drags(rld::drags());
+    const vec3 * torqs(rld::torques());
+    for (int i(0); i < rld::sliceCount(); ++i) {
+        Results::submitSlice(i, { lifts[i], drags[i], torqs[i] });
+    }
+
+    Results::update();
+}
+
+static void doFastSweep(float angleOfAttack) {
     setSimulation(angleOfAttack, false);
 
     double then(glfwGetTime());
     rld::sweep();
     double dt(glfwGetTime() - then);
 
-    vec3 lift(rld::lift());
-    vec3 drag(rld::drag());
-    vec3 torque(rld::torque());
-    Results::submitAngle(angleOfAttack, { lift, drag, torque });
+    submitResults(angleOfAttack);
 
-    if (submitSlices) {
-        for (int i(0); i < rld::sliceCount(); ++i) {
-            Results::submitSlice(i, { rld::lift(i), rld::drag(i), rld::torque(i) });
-        }
-    }
-
-    Results::update();
-
-    std::cout << "Angle: " << angleOfAttack << ", Lift: " << lift.y << ", Drag: " << drag.x << ", SPS: " << (1.0 / dt) << std::endl;
+    std::cout << "Angle: " << angleOfAttack << ", Lift: " << rld::lift().y << ", Drag: " << glm::length(rld::drag()) << ", Torque: " << rld::torque().x << ", SPS: " << (1.0 / dt) << std::endl;
 }
 
 static void doAllAngles() {
@@ -211,7 +211,7 @@ static void doAllAngles() {
 
     int count(0);
     for (float angle(k_minAngleOfAttack); angle <= k_maxAngleOfAttack; angle += k_angleOfAttackIncrement) {
-        doFastSweep(angle, false);
+        doFastSweep(angle);
         ++count;
     }
 
@@ -239,7 +239,7 @@ void MainUIC::keyEvent(int key, int action, int mods) {
     // If F is pressed, do fast sweep
     else if (key == GLFW_KEY_F && (action == GLFW_PRESS) && !mods) {
         if (rld::slice() == 0 && !s_shouldAutoProgress) {
-            doFastSweep(s_angleOfAttack, true);
+            doFastSweep(s_angleOfAttack);
         }
     }
     // If Shift-F is pressed, do fast sweep of all angles
@@ -390,9 +390,6 @@ static bool setup() {
     s_angleText    .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
     s_angleLiftText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
     s_angleDragText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_sliceText    .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_sliceLiftText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_sliceDragText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
     s_rudderText   .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
     s_elevatorText .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
     s_aileronText  .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
@@ -401,11 +398,6 @@ static bool setup() {
     angleInfo->add(s_angleText);
     angleInfo->add(s_angleLiftText);
     angleInfo->add(s_angleDragText);
-
-    shr<UI::HorizontalGroup> sliceInfo(new UI::HorizontalGroup());
-    sliceInfo->add(s_sliceText);
-    sliceInfo->add(s_sliceLiftText);
-    sliceInfo->add(s_sliceDragText);
 
     shr<UI::HorizontalGroup> f18Info(new UI::HorizontalGroup());
     f18Info->add(s_rudderText);
@@ -418,7 +410,6 @@ static bool setup() {
     shr<UI::VerticalGroup> infoGroup(new UI::VerticalGroup());
     infoGroup->add(controlsText);
     infoGroup->add(f18Info);
-    infoGroup->add(sliceInfo);
     infoGroup->add(angleInfo);
 
     shr<UI::HorizontalGroup> bottomGroup(new UI::HorizontalGroup());
@@ -459,19 +450,6 @@ static void updateInfoText() {
     ss.str(std::string());
     
     int slice(rld::slice() - 1);
-
-    ss << "Slice: " << slice;
-    s_sliceText->string(ss.str());
-
-    ss.str(std::string());
-
-    ss << "Lift: " << Util::numberString(slice >= 0 ? rld::lift(slice).y : 0.0f, 3);
-    s_sliceLiftText->string(ss.str());
-
-    ss.str(std::string());
-
-    ss << "Drag: " << Util::numberString(slice >= 0 ? glm::length(rld::drag(slice)) : 0.0f, 3);
-    s_sliceDragText->string(ss.str());
 }
 
 static void updateF18InfoText() {
@@ -504,10 +482,9 @@ static void update() {
             s_shouldSweep = false;
             vec3 lift(rld::lift());
             vec3 drag(rld::drag());
-            vec3 torque(rld::torque());
+            vec3 torq(rld::torque());
 
-            Results::submitAngle(s_angleOfAttack, { lift, drag, torque });
-            Results::update();
+            submitResults(s_angleOfAttack);
 
             if (s_shouldAutoProgress) {
                 s_angleOfAttack += k_autoAngleIncrement;
@@ -517,10 +494,6 @@ static void update() {
         }
 
         s_isInfoChange = true;
-
-        Results::submitSlice(slice, { rld::lift(slice), rld::drag(slice), rld::torque(slice) });
-        Results::update();
-
         s_shouldStep = false;
     }
 
