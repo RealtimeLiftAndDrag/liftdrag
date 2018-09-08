@@ -69,9 +69,9 @@ layout (binding = 0, std430) restrict buffer Mutables {
     coherent int u_airCount[2];
 };
 
-//layout (binding = 4, std430) restrict buffer Results {
-//    Result u_results[];
-//};
+layout (binding = 4, std430) restrict buffer Results {
+    Result u_results[];
+};
 
 layout (binding = 1, std430) restrict buffer GeoPixels {
     GeoPixel u_geoPixels[];
@@ -289,15 +289,15 @@ void main() {
     // Accumulate lift
     accumulationArray[workI] = totalLift;
     accumulate();
-    //if (workI == 0) u_results[u_slice].lift.xyz = accumulationArray[0];
+    if (workI == 0) u_results[u_slice].lift.xyz = accumulationArray[0];
 
     // Accumulate drag
     accumulationArray[workI] = totalDrag;
     accumulate();
-    //if (workI == 0) u_results[u_slice].drag.xyz = accumulationArray[0];
+    if (workI == 0) u_results[u_slice].drag.xyz = accumulationArray[0];
     
     // Accumulate torque
     accumulationArray[workI] = totalTorq;
     accumulate();
-    //if (workI == 0) u_results[u_slice].torq.xyz = accumulationArray[0];
+    if (workI == 0) u_results[u_slice].torq.xyz = accumulationArray[0];
 }

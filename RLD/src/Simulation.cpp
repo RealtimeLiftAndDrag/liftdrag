@@ -110,7 +110,7 @@ namespace rld {
 
     static uint s_constantsUBO;
     static uint s_mutablesSSBO;
-    //static uint s_resultsSSBO;
+    static uint s_resultsSSBO;
     static uint s_geoPixelsSSBO;
     static uint s_airPixelsSSBO;
     static uint s_airGeoMapSSBO;
@@ -361,7 +361,7 @@ namespace rld {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
-    /*static void downloadResults() {
+    static void downloadResults() {
         Result * p;
         if (k_persistentMapping) {
             glFinish();
@@ -391,7 +391,7 @@ namespace rld {
             glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
-    }*/
+    }
 
     static void resetConstants() {
         s_constants.swap = 0;
@@ -430,7 +430,7 @@ namespace rld {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
-        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
 
         glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,       GL_RGBA8);
         glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
@@ -460,7 +460,7 @@ namespace rld {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup results SSBO
-        /*glGenBuffers(1, &s_resultsSSBO);
+        glGenBuffers(1, &s_resultsSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
         if (k_persistentMapping) {
             glBufferStorage(GL_SHADER_STORAGE_BUFFER, k_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
@@ -469,7 +469,7 @@ namespace rld {
         else {
             glBufferStorage(GL_SHADER_STORAGE_BUFFER, k_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT);        
         }
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);*/
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup geometry pixels SSBO
         glGenBuffers(1, &s_geoPixelsSSBO);
@@ -515,10 +515,10 @@ namespace rld {
     }
 
     void cleanup() {
-        /*if (k_persistentMapping) {
+        if (k_persistentMapping) {
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
             glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-        }*/
+        }
         // TODO
     }
 
@@ -577,11 +577,15 @@ namespace rld {
         computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
 
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        downloadMutables(); // TOP TODO: WHY THE HELL IS THIS NECESSARY
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
         ++s_currentSlice;
 
         // Was last slice
         if (s_currentSlice >= k_sliceCount) {
-            //downloadResults();
+            downloadResults();
 
             s_currentSlice = 0;
             return true;

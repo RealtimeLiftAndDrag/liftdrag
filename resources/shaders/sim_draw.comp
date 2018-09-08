@@ -64,9 +64,9 @@ layout (binding = 0, std430) restrict buffer Mutables {
     coherent int u_airCount[2];
 };
 
-//layout (binding = 4, std430) restrict buffer Results {
-//    Result u_results[];
-//};
+layout (binding = 4, std430) restrict buffer Results {
+    Result u_results[];
+};
 
 layout (binding = 1, std430) restrict buffer GeoPixels {
     GeoPixel u_geoPixels[];

@@ -58,9 +58,9 @@ layout (binding = 0, std430) restrict buffer Mutables {
     coherent int u_airCount[2];
 };
 
-//layout (binding = 4, std430) restrict buffer Results {
-//    Result u_results[];
-//};
+layout (binding = 4, std430) restrict buffer Results {
+    Result u_results[];
+};
 
 layout (binding = 1, std430) restrict buffer GeoPixels {
     GeoPixel u_geoPixels[];
@@ -71,7 +71,7 @@ layout (binding = 2, std430) restrict buffer AirPixels {
 };
 
 layout (binding = 3, std430) restrict buffer AirGeoMap {
-    AirGeoMapElement u_airGeoMap[]; // TODO: does this need to be coherent?
+    AirGeoMapElement u_airGeoMap[];
 };
 
 

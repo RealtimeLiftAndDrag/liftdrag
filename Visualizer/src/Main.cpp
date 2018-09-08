@@ -107,7 +107,7 @@ static bool s_shouldAutoProgress(false);
 
 static shr<MainUIC> s_mainUIC;
 static shr<TexViewer> s_frontTexViewer, s_sideTexViewer;
-static shr<Text> s_angleText, s_angleLiftText, s_angleDragText;
+static shr<Text> s_angleText, s_angleLiftText, s_angleDragText, s_angleTorqueText;
 static shr<Text> s_rudderText, s_elevatorText, s_aileronText;
 
 static bool s_isInfoChange(true);
@@ -387,17 +387,13 @@ static bool setup() {
     shr<Graph> sliceGraph(Results::sliceGraph());
 
     const int k_infoWidth(16);
-    s_angleText    .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_angleLiftText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_angleDragText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_rudderText   .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_elevatorText .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_aileronText  .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-
-    shr<UI::HorizontalGroup> angleInfo(new UI::HorizontalGroup());
-    angleInfo->add(s_angleText);
-    angleInfo->add(s_angleLiftText);
-    angleInfo->add(s_angleDragText);
+    s_angleText      .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_angleLiftText  .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_angleDragText  .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_angleTorqueText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_rudderText     .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_elevatorText   .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_aileronText    .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
 
     shr<UI::HorizontalGroup> f18Info(new UI::HorizontalGroup());
     f18Info->add(s_rudderText);
@@ -410,7 +406,10 @@ static bool setup() {
     shr<UI::VerticalGroup> infoGroup(new UI::VerticalGroup());
     infoGroup->add(controlsText);
     infoGroup->add(f18Info);
-    infoGroup->add(angleInfo);
+    infoGroup->add(s_angleTorqueText);
+    infoGroup->add(s_angleDragText);
+    infoGroup->add(s_angleLiftText);
+    infoGroup->add(s_angleText);
 
     shr<UI::HorizontalGroup> bottomGroup(new UI::HorizontalGroup());
     bottomGroup->add(angleGraph);
@@ -439,17 +438,18 @@ static void updateInfoText() {
 
     ss.str(std::string());
 
-    ss << "Lift: " << Util::numberString(rld::lift().y, 3);
+    ss << "Lift: " << Util::vectorString(rld::lift(), 3);
     s_angleLiftText->string(ss.str());
 
     ss.str(std::string());
 
-    ss << "Drag: " << Util::numberString(glm::length(rld::drag()), 3);
+    ss << "Drag: " << Util::vectorString(rld::drag(), 3);
     s_angleDragText->string(ss.str());
 
     ss.str(std::string());
-    
-    int slice(rld::slice() - 1);
+
+    ss << "Torq: " << Util::vectorString(rld::torque(), 3);
+    s_angleTorqueText->string(ss.str());
 }
 
 static void updateF18InfoText() {
