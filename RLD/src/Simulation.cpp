@@ -23,6 +23,8 @@ namespace rld {
 
     static constexpr int k_maxGeoPerAir(3); // Maximum number of different geo pixels that an air pixel can be associated with
 
+    static constexpr bool k_persistentMapping(false); // Should use persistent mapping for mutables ssbo // TODO: test performance
+
 
 
     struct GeoPixel {
@@ -96,12 +98,12 @@ namespace rld {
 
     static Constants s_constants;
     static Mutables s_mutables;
+
     static uint s_constantsUBO;
     static uint s_mutablesSSBO;
     static uint s_geoPixelsSSBO;
     static uint s_airPixelsSSBO;
     static uint s_airGeoMapSSBO;
-    static Mutables * s_mutablesMappedPtr;
 
     static uint s_fbo;
     static uint s_fboTex;
@@ -113,6 +115,8 @@ namespace rld {
     static uint s_outlineProg;
     static uint s_moveProg;
     static uint s_drawProg;
+
+    static Mutables * s_mutablesMappedPtr;
 
 
 
@@ -334,12 +338,28 @@ namespace rld {
     }
 
     static void uploadMutables() {
-        *s_mutablesMappedPtr = s_mutables;
+        if constexpr (k_persistentMapping) {
+            *s_mutablesMappedPtr = s_mutables;
+        }
+        else {
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
+            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), &s_mutables);
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);        
+        }
     }
 
     static void downloadMutables() {
-        glFinish();
-        s_mutables = *s_mutablesMappedPtr;
+        if constexpr (k_persistentMapping) {
+            glFinish();
+            s_mutables = *s_mutablesMappedPtr;
+        }
+        else {
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
+            void * p = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), GL_MAP_READ_BIT);
+            std::memcpy(&s_mutables, p, sizeof(Mutables));
+            glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);            
+        }
     }
 
     static void resetConstants() {
@@ -407,8 +427,13 @@ namespace rld {
         // Setup mutables SSBO
         glGenBuffers(1, &s_mutablesSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(Mutables), nullptr, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-        s_mutablesMappedPtr = reinterpret_cast<Mutables *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT));
+        if constexpr (k_persistentMapping) {
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(Mutables), nullptr, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+            s_mutablesMappedPtr = reinterpret_cast<Mutables *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT));
+        }
+        else {
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(Mutables), nullptr, GL_DYNAMIC_STORAGE_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);        
+        }
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup geometry pixels SSBO
@@ -455,8 +480,10 @@ namespace rld {
     }
 
     void cleanup() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        if constexpr (k_persistentMapping) {
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
+            glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        }
         // TODO
     }
 
@@ -508,15 +535,15 @@ namespace rld {
         s_constants.sliceZ = s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize;
         s_mutables.geoCount = 0;
         s_mutables.airCount[s_swap] = 0;
-        //uploadConstants();
-        //uploadMutables();
+        uploadConstants();
+        uploadMutables();
 
         renderGeometry(); // Render geometry to fbo
-        //computeProspect(); // Scan fbo and generate geo pixels
-        //clearFlagTex();
-        //computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
-        //computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
-        //computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
+        computeProspect(); // Scan fbo and generate geo pixels
+        clearFlagTex();
+        computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
+        computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
+        computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
 
         downloadMutables();
         vec3 lift(s_mutables.lift);
