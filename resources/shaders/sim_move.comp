@@ -28,7 +28,8 @@ struct AirGeoMapElement {
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
 const float k_maxSearchDist = 0.2f; // In wind space
-const float k_turbulenceDist = 0.0225f;
+const float k_dragThreshold = 0.005f; // max distance for drag // TODO: should depend on wind speed?
+const float k_liftThreshold = 0.025f; // max distance for lift // TODO: should depend on wind speed?
 
 const bool k_doLineSearch = true;
 
@@ -95,6 +96,20 @@ void accumulate() {
         barrier();
         if (workI < n) accumulationArray[workI] += accumulationArray[workI + n];
     }
+}
+
+float dragFunc(float dist) {
+    float v = (dist - k_dragThreshold) / k_dragThreshold;
+    v = clamp(v, 0.0f, 1.0f);
+    v = 1.0f - v;
+    return v * v;
+}
+
+float liftFunc(float dist) {
+    float v = (dist - k_dragThreshold) / (k_liftThreshold - k_dragThreshold);
+    v = clamp(v, 0.0f, 1.0f);
+    float v2 = v * v;
+    return 16.0f * v2 * (v2 - 2.0f * v + 1.0f);
 }
 
 void main() {
@@ -177,27 +192,12 @@ void main() {
             }
         }
 
-        // Color active air pixels more brightly
-        if (bool(u_debug) && k_distinguishActivePixels && geoCount > 0) {
-            ivec2 texCoord = ivec2(windToScreen(airWindPos));
-            vec4 color = imageLoad(u_fboImg, texCoord);
-            color.g = 1.0f;
-            //color.b = turbulence;
-            imageStore(u_fboImg, texCoord, color);
-
-            if (!k_ignoreEdges || abs(airWindPos.x) <= 0.5f) {
-                ivec2 sideTexCoord = ivec2(windToScreen(vec2(u_sliceZ, airWindPos.y)));
-                color = imageLoad(u_sideImg, sideTexCoord);
-                color.g = 1.0f;
-                //color.b = turbulence;
-                imageStore(u_sideImg, sideTexCoord, color);
-            }
-        }
-
         vec2 backforce = vec2(0.0f);
         vec3 lift = vec3(0.0f);
         vec3 drag = vec3(0.0f);
         vec3 torque = vec3(0.0f);
+        float dragFactor = 0.0f;
+        float liftFactor = 0.0f;
 
         // For each associated geo pixel, update backforce, lift, and drag
         for (int mapI = 0; mapI < geoCount; ++mapI) {
@@ -207,20 +207,30 @@ void main() {
             vec3 r = vec3(airWindPos - geoWindPos, 0.0f);
             float dist = length(r);
 
+            dragFactor = dragFunc(dist);
+            liftFactor = liftFunc(dist);
+
             // Calculate backforce
-            vec2 thisBackforce = normalize(-geoNormal.xy) * dist * dist  * 500.0f; // TODO: magic number
+            vec2 thisBackforce = normalize(-geoNormal.xy) * dist * dist;
+            thisBackforce *= 500.0f; // TODO: magic number;
             backforce += thisBackforce;
 
             // Calculate lift
-            vec3 thisLift = vec3(-thisBackforce, 0.0f) * 0.0001f; // TODO: magic number
+            vec3 thisLift = vec3(-thisBackforce, 0.0f);
+            //thisLift *= liftFactor;
+            thisLift *= 0.0001f; // TODO: magic number
             lift += thisLift;
 
             // Calculate drag
-            vec3 thisDrag = -geoNormal * (0.5f * massDensity * dragC * area * -dot(geoNormal, airVelocity) * 2000.0f); // TODO: magic number // TODO: should do that dot? // TODO: should use flow velocity or unnormalized air velocity?
+            vec3 thisDrag = -geoNormal * (0.5f * massDensity * dragC * area * -dot(geoNormal, airVelocity)); // TODO: should do that dot? // TODO: should use flow velocity or unnormalized air velocity?
+            //thisDrag *= dragFactor;
+            thisDrag *= 2000.0f; // TODO: magic number
             drag += thisDrag;
 
             // Calculate torque
-            torque += u_momentOfInertia * cross(r, thisLift + thisDrag) * 50.0f; // TODO: is this right // TODO: magic number
+            vec3 thisTorque = u_momentOfInertia * cross(r, thisLift + thisDrag); // TODO: is this right
+            thisTorque *= 50.0f; // TODO: magic number
+            torque += thisTorque;
         }
         // Average
         if (geoCount > 0) {
@@ -234,6 +244,25 @@ void main() {
         totalLift += lift;
         totalDrag += drag;
         totalTorque += torque;
+
+        // Color active air pixels more brightly
+        if (bool(u_debug) && k_distinguishActivePixels && geoCount > 0) {
+            ivec2 texCoord = ivec2(windToScreen(airWindPos));
+            vec4 color = imageLoad(u_fboImg, texCoord);
+            color.g = 1.0f;
+            if (dragFactor >= 0.01f) color.b = dragFactor * 0.5f;
+            else if (liftFactor >= 0.01f) color.b = liftFactor * 0.5f + 0.5f;
+            imageStore(u_fboImg, texCoord, color);
+
+            if (!k_ignoreEdges || abs(airWindPos.x) <= 0.5f) {
+                ivec2 sideTexCoord = ivec2(windToScreen(vec2(u_sliceZ, airWindPos.y)));
+                color = imageLoad(u_sideImg, sideTexCoord);
+                color.g = 1.0f;
+                if (dragFactor >= 0.01f) color.b = dragFactor * 0.5f;
+                else if (liftFactor >= 0.01f) color.b = liftFactor * 0.5f + 0.5f;
+                imageStore(u_sideImg, sideTexCoord, color);
+            }
+        }
 
         // Update velocity
         airVelocity.xy += backforce;
