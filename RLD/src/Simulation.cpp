@@ -101,6 +101,7 @@ namespace rld {
     static uint s_geoPixelsSSBO;
     static uint s_airPixelsSSBO;
     static uint s_airGeoMapSSBO;
+    static Mutables * s_mutablesMappedPtr;
 
     static uint s_fbo;
     static uint s_fboTex;
@@ -333,17 +334,12 @@ namespace rld {
     }
 
     static void uploadMutables() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), &s_mutables);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        *s_mutablesMappedPtr = s_mutables;
     }
 
     static void downloadMutables() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-        void * p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-        std::memcpy(&s_mutables, p, sizeof(Mutables));
-        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        glFinish();
+        s_mutables = *s_mutablesMappedPtr;
     }
 
     static void resetConstants() {
@@ -405,31 +401,32 @@ namespace rld {
         // Setup constants UBO
         glGenBuffers(1, &s_constantsUBO);
         glBindBuffer(GL_UNIFORM_BUFFER, s_constantsUBO);
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(Constants), nullptr, GL_DYNAMIC_DRAW);
+        glBufferStorage(GL_UNIFORM_BUFFER, sizeof(Constants), nullptr, GL_DYNAMIC_STORAGE_BIT);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
         // Setup mutables SSBO
         glGenBuffers(1, &s_mutablesSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Mutables), nullptr, GL_DYNAMIC_COPY);
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(Mutables), nullptr, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+        s_mutablesMappedPtr = reinterpret_cast<Mutables *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT));
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup geometry pixels SSBO
         glGenBuffers(1, &s_geoPixelsSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_geoPixelsSSBO);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxGeoPixels * sizeof(GeoPixel), nullptr, GL_DYNAMIC_COPY);
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, k_maxGeoPixels * sizeof(GeoPixel), nullptr, GL_DYNAMIC_STORAGE_BIT);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup air pixels SSBO
         glGenBuffers(1, &s_airPixelsSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * 2 * sizeof(AirPixel), nullptr, GL_DYNAMIC_COPY);
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * 2 * sizeof(AirPixel), nullptr, GL_DYNAMIC_STORAGE_BIT);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup air geo map SSBO
         glGenBuffers(1, &s_airGeoMapSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airGeoMapSSBO);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * sizeof(AirGeoMapElement), nullptr, GL_DYNAMIC_COPY);
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * sizeof(AirGeoMapElement), nullptr, GL_DYNAMIC_STORAGE_BIT);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup flag texture
@@ -458,6 +455,8 @@ namespace rld {
     }
 
     void cleanup() {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
         // TODO
     }
 
@@ -509,15 +508,15 @@ namespace rld {
         s_constants.sliceZ = s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize;
         s_mutables.geoCount = 0;
         s_mutables.airCount[s_swap] = 0;
-        uploadConstants();
-        uploadMutables();
+        //uploadConstants();
+        //uploadMutables();
 
         renderGeometry(); // Render geometry to fbo
-        computeProspect(); // Scan fbo and generate geo pixels
-        clearFlagTex();
-        computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
-        computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
-        computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
+        //computeProspect(); // Scan fbo and generate geo pixels
+        //clearFlagTex();
+        //computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
+        //computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
+        //computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
 
         downloadMutables();
         vec3 lift(s_mutables.lift);

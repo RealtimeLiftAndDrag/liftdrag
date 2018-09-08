@@ -207,9 +207,16 @@ static void doFastSweep(float angleOfAttack, bool submitSlices) {
 static void doAllAngles() {
     Results::clearSlices();
 
+    double then(glfwGetTime());
+
+    int count(0);
     for (float angle(k_minAngleOfAttack); angle <= k_maxAngleOfAttack; angle += k_angleOfAttackIncrement) {
         doFastSweep(angle, false);
+        ++count;
     }
+
+    double dt(glfwGetTime() - then);
+    std::cout << "Average SPS: " << (double(count) / dt) << std::endl;
 }
 
 void MainUIC::keyEvent(int key, int action, int mods) {
