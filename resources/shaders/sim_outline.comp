@@ -32,7 +32,7 @@ struct AirGeoMapElement {
 // Constants -------------------------------------------------------------------
 
 const float k_maxSearchDist = 0.2f; // In wind space
-const float k_turbulenceDist = 0.1f;
+const float k_turbulenceDist = 0.025f;
 
 const float k_minNormalZ = 1.0f / 1000000.0f;
 const float k_maxNormalZ = 1.0f - k_minNormalZ;
@@ -46,9 +46,10 @@ const bool k_ignoreEdges = false;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 0, rgba8) uniform image2D u_fboImg;
-layout (binding = 3, r32i) uniform iimage2D u_flagImg;
-layout (binding = 4, rgba8) uniform image2D u_sideImg;
+layout (binding = 0, rgba8) uniform  image2D u_fboImg;
+layout (binding = 1, rgba8) uniform  image2D u_turbImg;
+layout (binding = 3,  r32i) uniform iimage2D u_flagImg;
+layout (binding = 4, rgba8) uniform  image2D u_sideImg;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -97,7 +98,7 @@ vec2 windToScreen(vec2 wind) {
 float screenToWindDist(float screenDist) {
     return screenDist / float(u_screenSize) * u_windframeSize;
 }
-
+extern int g;
 void main() {
     int workI = int(gl_LocalInvocationID.x);
 
@@ -160,7 +161,15 @@ void main() {
                     if (mapI >= MAX_GEO_PER_AIR) {
                         break;
                     }
-                    u_airGeoMap[airI].geoIndices[mapI] = geoI;
+                    u_airGeoMap[airI].geoIndices[mapI] = geoI;                    
+
+                    if (totalDist > k_turbulenceDist) {
+                        vec2 airWindPos = u_airPixels[airI + u_swap * u_maxAirPixels].windPos;
+                        ivec2 p1 = ivec2(windToScreen(airWindPos) * 0.25f);
+                        ivec2 p2 = ivec2(windToScreen((airWindPos + geoWindPos) * 0.5f) * 0.25f);
+                        imageStore(u_turbImg, p1, vec4(0.0f, 0.0f, 1.0f, 1.0f));
+                        imageStore(u_turbImg, p2, vec4(0.0f, 0.0f, 1.0f, 1.0f));
+                    }
 
                     shouldSpawn = false;   
                     break;

@@ -43,9 +43,10 @@ const bool k_ignoreEdges = false;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 0, rgba8) uniform image2D u_fboImg;
-layout (binding = 3, r32i) uniform iimage2D u_flagImg;
-layout (binding = 4, rgba8) uniform image2D u_sideImg;
+layout (binding = 0, rgba8) uniform  image2D u_fboImg;
+layout (binding = 1,    r8) uniform  image2D u_turbImg;
+layout (binding = 3,  r32i) uniform iimage2D u_flagImg;
+layout (binding = 4, rgba8) uniform  image2D u_sideImg;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -207,14 +208,16 @@ void main() {
         vec3 torq = vec3(0.0f);
         float dragFactor = 0.0f;
         float liftFactor = 0.0f;
+        
+        ivec2 turbCoord = ivec2(windToScreen(airWindPos) * 0.25f);
+        bool turbulence = imageLoad(u_turbImg, turbCoord).b > 0.0f;
 
         // For each associated geo pixel, update backforce, lift, and drag
         for (int mapI = 0; mapI < geoCount; ++mapI) {
             int geoI = u_airGeoMap[airI].geoIndices[mapI];
             vec2 geoWindPos = u_geoPixels[geoI].windPos;
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-            vec3 r = vec3(airWindPos - geoWindPos, 0.0f);
-            float dist = length(r);
+            float dist = distance(airWindPos, geoWindPos);
 
             dragFactor = dragFunc(dist);
             liftFactor = liftFunc(dist);
@@ -228,6 +231,7 @@ void main() {
             vec3 thisLift = vec3(-thisBackforce, 0.0f);
             //thisLift *= liftFactor;
             thisLift *= 0.0001f; // TODO: magic number
+            if (turbulence) thisLift = vec3(0.0f);
             lift += thisLift;
 
             // Calculate drag
@@ -237,7 +241,7 @@ void main() {
             drag += thisDrag;
 
             // Calculate torque
-            vec3 thisTorq = u_momentOfInertia * cross(r, thisLift + thisDrag); // TODO: is this right
+            vec3 thisTorq = u_momentOfInertia * cross(vec3(geoWindPos, u_sliceZ), thisLift + thisDrag); // TODO: is this right
             thisTorq *= 50.0f; // TODO: magic number
             torq += thisTorq;
         }
@@ -259,8 +263,8 @@ void main() {
             ivec2 texCoord = ivec2(windToScreen(airWindPos));
             vec4 color = imageLoad(u_fboImg, texCoord);
             color.g = 1.0f;
-            if (dragFactor >= 0.01f) color.b = dragFactor * 0.5f;
-            else if (liftFactor >= 0.01f) color.b = liftFactor * 0.5f + 0.5f;
+            //if (dragFactor >= 0.01f) color.b = dragFactor * 0.5f;
+            //else if (liftFactor >= 0.01f) color.b = liftFactor * 0.5f + 0.5f;
             imageStore(u_fboImg, texCoord, color);
 
             if (!k_ignoreEdges || abs(airWindPos.x) <= 0.5f) {

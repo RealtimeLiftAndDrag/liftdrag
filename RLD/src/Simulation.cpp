@@ -117,6 +117,7 @@ namespace rld {
 
     static uint s_fbo;
     static uint s_fboTex;
+    static uint s_turbTex;
     static uint s_fboNormTex;
     static uint s_flagTex;
     static uint s_sideTex;
@@ -226,6 +227,17 @@ namespace rld {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, k_size, k_size);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Turbulence texture
+        glGenTextures(1, &s_turbTex);
+        glBindTexture(GL_TEXTURE_2D, s_turbTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, k_size / 4, k_size / 4);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         //sideview texture
@@ -414,6 +426,11 @@ namespace rld {
         s_mutables.airCount[1] = 0;
     }
 
+    static void clearTurbTex() {
+        u32 clearVal(0);
+        glClearTexImage(s_turbTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearVal);
+    }
+
     static void clearFlagTex() {
         int clearVal(0);
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearVal);
@@ -432,10 +449,11 @@ namespace rld {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
 
-        glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,       GL_RGBA8);
+        glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
+        glBindImageTexture(1,    s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
         glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
-        glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_R32I);
-        glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,       GL_RGBA8);    
+        glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,         GL_R32I);
+        glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);    
     }
 
 
@@ -553,6 +571,7 @@ namespace rld {
         if (s_currentSlice == 0) {
             resetConstants();
             resetMutables();
+            clearTurbTex();
             if (s_debug) clearSideTex();
             s_lift = vec3();
             s_drag = vec3();
@@ -638,6 +657,10 @@ namespace rld {
 
     uint sideTex() {
         return s_sideTex;
+    }
+
+    uint turbulenceTex() {
+        return s_turbTex;
     }
 
     int size() {

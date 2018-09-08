@@ -106,7 +106,7 @@ static bool s_shouldSweep(true);
 static bool s_shouldAutoProgress(false);
 
 static shr<MainUIC> s_mainUIC;
-static shr<TexViewer> s_frontTexViewer, s_sideTexViewer;
+static shr<TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
 static shr<Text> s_angleText, s_angleLiftText, s_angleDragText, s_angleTorqueText;
 static shr<Text> s_rudderText, s_elevatorText, s_aileronText;
 
@@ -376,10 +376,12 @@ static bool setup() {
     }
 
     s_frontTexViewer.reset(new TexViewer(rld::frontTex(), ivec2(rld::size()), ivec2(128)));
+    s_turbTexViewer.reset(new TexViewer(rld::turbulenceTex(), ivec2(rld::size()) / 4, ivec2(128)));
     s_sideTexViewer.reset(new TexViewer(rld::sideTex(), ivec2(rld::size()), ivec2(128)));
 
     shr<UI::HorizontalGroup> displayGroup(new UI::HorizontalGroup());
     displayGroup->add(s_frontTexViewer);
+    displayGroup->add(s_turbTexViewer);
     displayGroup->add(s_sideTexViewer);
 
     shr<Graph> angleGraph(Results::angleGraph());

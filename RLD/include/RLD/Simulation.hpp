@@ -50,6 +50,7 @@ namespace rld {
 
     uint frontTex();
     uint sideTex();
+    uint turbulenceTex();
 
     int size();
 
