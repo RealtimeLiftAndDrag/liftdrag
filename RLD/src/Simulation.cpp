@@ -449,6 +449,9 @@ namespace rld {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
 
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, s_turbTex);
+
         glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
         glBindImageTexture(1,    s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
         glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);

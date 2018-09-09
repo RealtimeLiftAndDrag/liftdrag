@@ -21,7 +21,7 @@ struct GeoPixel {
 struct AirPixel {
     vec2 windPos;
     vec2 backforce;
-    vec4 velocity;
+    vec4 velocity; // fourth component is turbulence
 };
 
 struct AirGeoMapElement {
@@ -34,6 +34,9 @@ struct AirGeoMapElement {
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
 const float k_maxSearchDist = 0.2f; // In wind space
+const float k_turbulenceDist = 0.025f;
+const bool k_doTurbulence = false;
+
 const float k_dragThreshold = 0.005f; // max distance for drag // TODO: should depend on wind speed?
 const float k_liftThreshold = 0.025f; // max distance for lift // TODO: should depend on wind speed?
 
@@ -47,6 +50,8 @@ layout (binding = 0, rgba8) uniform  image2D u_fboImg;
 layout (binding = 1,    r8) uniform  image2D u_turbImg;
 layout (binding = 3,  r32i) uniform iimage2D u_flagImg;
 layout (binding = 4, rgba8) uniform  image2D u_sideImg;
+
+layout (binding = 0) uniform sampler2D u_turbTex;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -140,14 +145,20 @@ void main() {
 
         vec2 airWindPos = u_airPixels[airI + u_swap * u_maxAirPixels].windPos;
         vec3 airVelocity = u_airPixels[airI + u_swap * u_maxAirPixels].velocity.xyz;
-        //float turbulence = u_airPixels[airI + u_swap * k_maxAirPixels].windPos.w;
+        float airTurbulence = u_airPixels[airI + u_swap * u_maxAirPixels].velocity.w;
 
         int geoCount = u_airGeoMap[airI].geoCount;
-        
-        // If no geo found for this air, search for geo
-        if (geoCount == 0) {
+
+        // If turbulent air pixel, mark turbulence
+        if (airTurbulence > 0.0f) {
+            // Mark turbulence at air
+            // TODO
+        }
+        // If not turbulent and no geo found for this air, search for geo
+        else if (geoCount == 0) {
             vec2 screenPos = windToScreen(airWindPos);
             ivec2 pixel = ivec2(screenPos);
+
             vec2 searchDir = u_airPixels[airI + u_swap * u_maxAirPixels].backforce.xy;
             if (searchDir != vec2(0.0f)) {                
                 vec2 screenDir = normalize(searchDir);
@@ -186,6 +197,21 @@ void main() {
                         //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
                     }
 
+                    // If find turbulence, stop looking and mark turbulence
+                    if (k_doTurbulence) {
+                        float turbulence = texture2D(u_turbTex, vec2(pixel) / vec2(u_screenSize)).r;
+                        if (turbulence > 0.0f) {
+                            // Mark air as turbulent
+                            airTurbulence = 1.0f;
+                            u_airPixels[airI + u_swap * u_maxAirPixels].velocity.w = 1.0f;
+                            // Write turbulence at air
+                            // TODO
+                            // Write turbulence pixel half way between found turbulence and air
+                            // TODO
+                            break;
+                        }
+                    }
+
                     if (color.r != 0.0f) { // we found an geo pixel
                         int geoI = imageLoad(u_flagImg, pixel).x;
                         if (geoI != 0) { // TODO: this should not be necessary, just here for sanity
@@ -193,7 +219,26 @@ void main() {
 
                             ++geoCount;
                             ++u_airGeoMap[airI].geoCount;
-                            u_airGeoMap[airI].geoIndices[0] = geoI;                   
+                            u_airGeoMap[airI].geoIndices[0] = geoI;      
+
+                            if (k_doTurbulence) {
+                                if (totalDist > k_turbulenceDist) {
+                                    // Set air pixel to be turbulent
+                                    airTurbulence = 1.0f;
+                                    u_airPixels[airI + u_swap * u_maxAirPixels].velocity.w = 1.0f;
+                                    // Write turbulence at air
+                                    // TODO
+                                    // Write turbulence pixel at air and half way between air and geometry
+                                    // TODO
+
+                                    // Old
+                                    //vec2 airWindPos = u_airPixels[airI + u_swap * u_maxAirPixels].windPos;
+                                    //ivec2 p1 = ivec2(windToScreen(airWindPos) * 0.25f);
+                                    //ivec2 p2 = ivec2(windToScreen((airWindPos + geoWindPos) * 0.5f) * 0.25f);
+                                    //imageStore(u_turbImg, p1, vec4(0.0f, 0.0f, 1.0f, 1.0f));
+                                    //imageStore(u_turbImg, p2, vec4(0.0f, 0.0f, 1.0f, 1.0f));
+                                }
+                            }             
  
                             break;
                         }
@@ -263,8 +308,8 @@ void main() {
             ivec2 texCoord = ivec2(windToScreen(airWindPos));
             vec4 color = imageLoad(u_fboImg, texCoord);
             color.g = 1.0f;
-            //if (dragFactor >= 0.01f) color.b = dragFactor * 0.5f;
-            //else if (liftFactor >= 0.01f) color.b = liftFactor * 0.5f + 0.5f;
+            if (dragFactor >= 0.01f) color.b = dragFactor * 0.5f;
+            else if (liftFactor >= 0.01f) color.b = liftFactor * 0.5f + 0.5f;
             imageStore(u_fboImg, texCoord, color);
 
             if (!k_ignoreEdges || abs(airWindPos.x) <= 0.5f) {

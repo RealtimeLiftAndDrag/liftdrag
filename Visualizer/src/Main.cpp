@@ -15,7 +15,7 @@ extern "C" {
 // TODO: world space, air space, and simulation space
 // TODO: how far away should turbulence start? linear or squared air speed?
 // TODO: torque porportional to angle
-// TODO: UBO for shader constants
+// TODO: eliminate swap by using multiple buffers and changing binding client side
 
 
 
@@ -381,7 +381,7 @@ static bool setup() {
 
     shr<UI::HorizontalGroup> displayGroup(new UI::HorizontalGroup());
     displayGroup->add(s_frontTexViewer);
-    displayGroup->add(s_turbTexViewer);
+    //displayGroup->add(s_turbTexViewer);
     displayGroup->add(s_sideTexViewer);
 
     shr<Graph> angleGraph(Results::angleGraph());

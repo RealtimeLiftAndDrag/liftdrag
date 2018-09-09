@@ -21,7 +21,7 @@ struct GeoPixel {
 struct AirPixel {
     vec2 windPos;
     vec2 backforce;
-    vec4 velocity;
+    vec4 velocity; // fourth component is turbulence
 };
 
 struct AirGeoMapElement {
