@@ -27,7 +27,7 @@ void main() {
     // Diffuse calculation
     //float diffuseFactor = max(dot(lightDir, normal), 0); // Clamp to prevent color from reaching back side
     float diffuseFactor = (dot(lightDir, normal) + 1) / 2; // Normalize so the color bleeds onto the back side
-    vec3 diffuseColor = vec3(0.8, 0.2, 0.5) * diffuseFactor;
+    vec3 diffuseColor = vec3(0.5, 0.5, 0.5) * diffuseFactor;
     
     // Specular calculation
     float specularStrength = 0.5f;
@@ -38,4 +38,5 @@ void main() {
 
     //output color
     out_color = vec4(ambientColor + diffuseColor + specularColor, 1);
+    //out_color = vec4(normal, 1);
 }
