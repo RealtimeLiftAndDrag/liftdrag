@@ -19,6 +19,7 @@ extern "C" {
 #include "GLFW/glfw3.h"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/constants.hpp"
+#include "glm/gtx/string_cast.hpp"
 
 
 #include "Common/Global.hpp"
@@ -42,6 +43,9 @@ public:
 static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
+
+static const float k_timeScale(0.01f);
+
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
 static shr<Program> s_phongProg;
@@ -148,6 +152,9 @@ static bool setupModel(const std::string &resourceDir) {
 
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
 
+    //send first rotation matrix and model to the rld
+    rld::set(*s_model, s_modelMat, s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
+
     //setup simObject
     s_simObject = std::make_unique<SimObject>();
     if (!s_simObject) {
@@ -156,6 +163,7 @@ static bool setupModel(const std::string &resourceDir) {
     }
     s_simObject->setMass(16769); //gross weight in kg pulled from wiki
     s_simObject->setGravityOn(false);
+    s_simObject->setTimeScale(k_timeScale);
 
     return true;
 }
@@ -226,6 +234,12 @@ static bool setup() {
         return false;
     }
 
+    //setup rld
+    if (!rld::setup(k_resourceDir)) {
+        std::cerr << "Failed to setup RLD" << std::endl;
+        return false;
+    }
+
     return true;
 }
 
@@ -264,9 +278,23 @@ static void render() {
     glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
-
+    vec3 wind;
+    rld::set(*s_model, s_modelMat, s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
+    //rld::sweep(); //this mess ups the modelmat right now
+    vec3 combinedForce = vec3(0, 0.5, 0);//rld::lift();// +rld::drag();
+    vec3 torque = vec3(0.05, 0, 0);//rld::torque();
+    std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
+    std::cout << "torque: " << glm::to_string(torque) << std::endl;
+    std::cout << "time scale: " << k_timeScale << std::endl;
+    std::cout << "curPos: " << glm::to_string(s_simObject->pos) << std::endl;
+    std::cout << "curAngle: " << glm::to_string(s_simObject->a_pos) << std::endl;
+    std::cout << std::endl;
+    s_simObject->addTranslationalForce(combinedForce);
+    s_simObject->addAngularForce(torque);
     s_simObject->update();
-    //s_simObject->pos = vec3(0, 5, 0);
+    wind = -s_simObject->vel; //wind is equivalent to opposite direction/speed of velocity
+    
+    
 
     mat4 modelMat, normalMat, simTransformMat;
     mat4 projMat, viewMat;

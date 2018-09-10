@@ -3,9 +3,7 @@
 #include "Common/Global.hpp"
 
 class SimObject {
-    vec3 vel;
     vec3 acc;
-    vec3 a_pos;
     vec3 a_vel;
     vec3 a_acc;
     float mass;
@@ -13,6 +11,8 @@ class SimObject {
     float timeScale;
 public:
     vec3 pos;
+    vec3 vel;
+    vec3 a_pos;
 
     SimObject();
     mat4 getTransform();
@@ -21,4 +21,5 @@ public:
     void update();
     void setGravityOn(bool _gravityOn);
     void setMass(float _mass);
+    void setTimeScale(float _timeScale);
 };

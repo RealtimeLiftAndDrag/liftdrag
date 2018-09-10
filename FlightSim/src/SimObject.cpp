@@ -30,7 +30,7 @@ mat4 SimObject::getTransform() {
 }
 
 void SimObject::addTranslationalForce(vec3 force) {
-    acc += (force / mass) / timeScale;
+    acc += (force / mass) * timeScale;
 }
 
 void SimObject::addAngularForce(vec3 force) {
@@ -57,4 +57,9 @@ void SimObject::setGravityOn(bool _gravityOn) {
 
 void SimObject::setMass(float _mass) {
     mass = _mass;
+}
+
+void SimObject::setTimeScale(float _timeScale)
+{
+    timeScale = _timeScale;
 }
