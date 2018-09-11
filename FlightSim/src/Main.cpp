@@ -215,6 +215,8 @@ static bool setup() {
     }
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glViewport(0, 0, k_windowSize.x, k_windowSize.y);
+
 
     // Setup simulation
     if (!rld::setup(k_resourceDir)) {
@@ -281,6 +283,8 @@ static void render() {
     vec3 wind;
     rld::set(*s_model, s_modelMat, s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
     //rld::sweep(); //this mess ups the modelmat right now
+    glViewport(0, 0, k_windowSize.x, k_windowSize.y);
+
     vec3 combinedForce = vec3(0, 0.5, 0);//rld::lift();// +rld::drag();
     vec3 torque = vec3(0.05, 0, 0);//rld::torque();
     std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
