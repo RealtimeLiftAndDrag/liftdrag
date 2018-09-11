@@ -15,7 +15,7 @@ struct GLFWwindow;
 
 namespace rld {
 
-    bool setup(const std::string & resourceDir);
+    bool setup(const std::string & resourceDir, int texSize, int sliceCount, float liftC, float dragC);
 
     void cleanup();
 
@@ -68,6 +68,6 @@ namespace rld {
     uint sideTex();
     uint turbulenceTex();
 
-    int size();
+    int texSize();
 
 }

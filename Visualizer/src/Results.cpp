@@ -25,7 +25,6 @@ namespace Results {
     static const ivec2 k_maxAngleGraphSize(0, 300);
     static const std::string k_angleGraphTitleString("Lift and Drag Force (N) by Angle of Attack (\u00B0)");
     
-    static constexpr int k_sliceCount(100); // should be changed in accordance with the simulation setting
     static constexpr float k_initSliceGraphRangeMin(-1.5f), k_initSliceGraphRangeMax(1.5f);
     static constexpr float k_sliceGraphExcessFactor(k_angleGraphExcessFactor);
     static const ivec2 k_minSliceGraphSize(k_minAngleGraphSize);
@@ -33,6 +32,7 @@ namespace Results {
     static const std::string k_sliceGraphTitleString("Lift and Drag Force (N) by Slice");
 
 
+    static int s_sliceCount;
 
     static std::map<float, Entry> s_angleRecord; // map of results where key is angle and value is lift/drag pair
     static bool s_isAngleRecordChange;
@@ -44,7 +44,9 @@ namespace Results {
 
 
 
-    bool setup(const std::string & resourcesDir) {
+    bool setup(const std::string & resourcesDir, int sliceCount) {
+        s_sliceCount = sliceCount;
+
         // Angle graph
 
         vec2 min(k_initAngleGraphDomainMin, k_initAngleGraphRangeMin);
@@ -71,7 +73,7 @@ namespace Results {
         // Slice graph
 
         min = vec2(0.0f, k_initSliceGraphRangeMin);
-        max = vec2(k_sliceCount, k_initSliceGraphRangeMax);
+        max = vec2(s_sliceCount, k_initSliceGraphRangeMax);
         size = vec2(max - min);
         center = vec2((min + max) * 0.5f);
         size *= k_sliceGraphExcessFactor;
@@ -87,9 +89,9 @@ namespace Results {
             k_minSliceGraphSize,
             k_maxSliceGraphSize
         ));
-        s_sliceGraph->addCurve("Lift", vec3(0.0f, 1.0f, 0.0f), k_sliceCount);
-        s_sliceGraph->addCurve("Drag", vec3(1.0f, 0.0f, 0.0f), k_sliceCount);
-        s_sliceGraph->addCurve("Torque", vec3(0.0f, 0.0f, 1.0f), k_sliceCount);
+        s_sliceGraph->addCurve("Lift", vec3(0.0f, 1.0f, 0.0f), s_sliceCount);
+        s_sliceGraph->addCurve("Drag", vec3(1.0f, 0.0f, 0.0f), s_sliceCount);
+        s_sliceGraph->addCurve("Torque", vec3(0.0f, 0.0f, 1.0f), s_sliceCount);
 
         return true;
     }
@@ -188,7 +190,7 @@ namespace Results {
         );
         s_sliceGraph->setView(
             vec2(0, k_initSliceGraphRangeMin),
-            vec2(k_sliceCount, k_initSliceGraphRangeMax)
+            vec2(s_sliceCount, k_initSliceGraphRangeMax)
         );
     }
 

@@ -60,6 +60,8 @@ layout (binding = 0, std140) uniform Constants {
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
+    float u_liftC;
+    float u_dragC;
     float u_windframeSize;
     float u_sliceSize;
     float u_windSpeed;
@@ -286,19 +288,18 @@ void main() {
             // Calculate lift
             float liftFactor = 0.5f * k_airDensity * windSpeed2 * area;
             liftFactor *= liftFunc(dist);
-            liftFactor *= 0.2f; // TODO: magic number
+            liftFactor *= u_liftC; // TODO: magic number
             if (turbulence) liftFactor = 0.0f;
             vec3 thisLift = geoNormal * liftFactor;
 
             // Calculate drag
             float dragFactor = 0.5f * k_airDensity * windSpeed2 * max(-dot(geoNormal, vec3(0.0f, 0.0f, -1.0f)), 0.0f) * area; // TODO: issue with air velocity
             dragFactor *= dragFunc(dist);
-            dragFactor *= 0.8f; // TODO: magic number
+            dragFactor *= u_dragC; // TODO: magic number
             vec3 thisDrag = -geoNormal * dragFactor;
 
             // Calculate torque
             vec3 thisTorq = cross(vec3(geoWindPos, u_sliceZ), thisLift + thisDrag); // TODO: is this right
-            thisTorq *= 4.0f; // TODO: magic number
 
             lift += thisLift;
             drag += thisDrag;

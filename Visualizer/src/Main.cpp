@@ -56,8 +56,12 @@ enum class SimModel { airfoil, f18, sphere };
 
 static constexpr SimModel k_simModel(SimModel::airfoil);
 
-static const std::string k_defResourceDir("../resources");
+static constexpr int k_simTexSize = 720;
+static constexpr int k_simSliceCount = 100;
+static constexpr float k_simLiftC = 0.2f;
+static constexpr float k_simDragC = 0.8f;
 
+static const std::string k_defResourceDir("../resources");
 static const ivec2 k_defWindowSize(1280, 720);
 
 static constexpr float k_minAngleOfAttack(-90.0f), k_maxAngleOfAttack(90.0f);
@@ -361,19 +365,19 @@ static bool setup() {
     }
 
     // Setup simulation
-    if (!rld::setup(s_resourceDir)) {
+    if (!rld::setup(s_resourceDir, k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
 
-    if (!Results::setup(s_resourceDir)) {
+    if (!Results::setup(s_resourceDir, k_simSliceCount)) {
         std::cerr << "Failed to setup results" << std::endl;
         return false;
     }
 
-    s_frontTexViewer.reset(new TexViewer(rld::frontTex(), ivec2(rld::size()), ivec2(128)));
-    s_turbTexViewer.reset(new TexViewer(rld::turbulenceTex(), ivec2(rld::size()) / 4, ivec2(128)));
-    s_sideTexViewer.reset(new TexViewer(rld::sideTex(), ivec2(rld::size()), ivec2(128)));
+    s_frontTexViewer.reset(new TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(128)));
+    s_turbTexViewer.reset(new TexViewer(rld::turbulenceTex(), ivec2(rld::texSize()) / 4, ivec2(128)));
+    s_sideTexViewer.reset(new TexViewer(rld::sideTex(), ivec2(rld::texSize()), ivec2(128)));
 
     shr<UI::HorizontalGroup> displayGroup(new UI::HorizontalGroup());
     displayGroup->add(s_frontTexViewer);
