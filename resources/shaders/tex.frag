@@ -16,6 +16,15 @@ void main() {
 
     vec3 inColor = texture(u_tex, in_texCoord).rgb;
 
+    if (false) {
+        if (inColor.b > 0.5f) inColor = vec3(0.0f, (inColor.b - 0.5f) * 2.0f, 0.0f);
+        else if (inColor.b > 0.0f) inColor = vec3(inColor.b * 2.0f, 0.0f, 0.0f);
+        else inColor = vec3(0.25f * max(inColor.r, inColor.g));
+    }
+    else {
+        inColor.b = 0.0f;
+    }
+
     ivec2 grid = (ivec2(gl_FragCoord.xy) & 0xF) >> 3;
     vec3 outColor = vec3(mix(0.1f, 0.2f, float(grid.x ^ grid.y)));
 
