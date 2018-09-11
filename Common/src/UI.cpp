@@ -326,7 +326,6 @@ namespace UI {
         }
     
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glEnable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
         glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);        

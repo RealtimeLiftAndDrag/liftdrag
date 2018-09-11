@@ -14,8 +14,7 @@ extern "C" {
 // TODO: lift should be independent of the number of slices
 // TODO: world space, air space, and simulation space
 // TODO: how far away should turbulence start? linear or squared air speed?
-// TODO: torque porportional to angle
-// TODO: eliminate swap by using multiple buffers and changing binding client side
+// TODO: issue with using air velocity for drag
 
 
 
@@ -91,7 +90,6 @@ static std::string s_resourceDir(k_defResourceDir);
 static unq<Model> s_model;
 static mat4 s_modelMat;
 static mat3 s_normalMat;
-static float s_momentOfInertia;
 static float s_windframeWidth, s_windframeDepth;
 static float s_windSpeed;
 
@@ -177,7 +175,7 @@ static void changeElevatorAngle(float deltaAngle) {
 static void setSimulation(float angleOfAttack, bool debug) {
     mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
 
-    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
+    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
 }
 
 static void submitResults(float angleOfAttack) {
@@ -322,7 +320,6 @@ static bool setupModel() {
     switch (k_simModel) {
         case SimModel::airfoil:
             s_modelMat = glm::scale(mat4(), vec3(0.5f, 1.0f, 1.0f)) * s_modelMat;
-            s_momentOfInertia = 1.0f;
             s_windframeWidth = 1.25f;
             s_windframeDepth = 1.5f;
             s_windSpeed = 10.0f;
@@ -330,14 +327,12 @@ static bool setupModel() {
 
         case SimModel::f18:
             s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
-            s_momentOfInertia = 1.0f;
             s_windframeWidth = 14.5f;
             s_windframeDepth = 22.0f;
             s_windSpeed = 10.0f;
             break;
 
         case SimModel::sphere:
-            s_momentOfInertia = 1.0f;
             s_windframeWidth = 2.5f;
             s_windframeDepth = 2.5f;
             s_windSpeed = 10.0f;
@@ -355,7 +350,8 @@ static bool setup() {
         std::cerr << "Failed to setup UI" << std::endl;
         return false;
     }
-
+    
+    glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND); // need blending for ui but don't want it for simulation
 
     // Setup model
@@ -543,8 +539,10 @@ int main(int argc, char ** argv) {
 
         update();
         
+        glDisable(GL_DEPTH_TEST); // don't want depth test for UI
         glEnable(GL_BLEND); // need blending for ui but don't want it for simulation
         UI::render();
+        glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
 
         ++fps;

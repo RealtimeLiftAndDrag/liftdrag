@@ -56,7 +56,6 @@ layout (binding = 0) uniform sampler2D u_turbTex;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
-    int u_swap;
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
@@ -64,32 +63,41 @@ layout (binding = 0, std140) uniform Constants {
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
-    float u_momentOfInertia;
     int u_slice;
     float u_sliceZ;
     uint u_debug;
 };
 
-layout (binding = 0, std430) restrict buffer Mutables {
-    int u_padding0;
+layout (binding = 0, std430) restrict buffer GeoPixels {
     int u_geoCount;
-    coherent int u_airCount[2];
-};
-
-layout (binding = 4, std430) restrict buffer Results {
-    Result u_results[];
-};
-
-layout (binding = 1, std430) restrict buffer GeoPixels {
+    int u_GeoPixels_pad0;
+    int u_GeoPixels_pad1;
+    int u_GeoPixels_pad2;
     GeoPixel u_geoPixels[];
 };
 
-layout (binding = 2, std430) restrict buffer AirPixels {
+layout (binding = 1, std430) restrict buffer AirPixels {
+    int u_airCount;
+    int u_AirPixels_pad0;
+    int u_AirPixels_pad1;
+    int u_AirPixels_pad2;
     AirPixel u_airPixels[];
+};
+
+layout (binding = 2, std430) restrict buffer PrevAirPixels {
+    int u_prevAirCount;
+    int u_PrevAirPixels_pad0;
+    int u_PrevAirPixels_pad1;
+    int u_PrevAirPixels_pad2;
+    AirPixel u_prevAirPixels[];
 };
 
 layout (binding = 3, std430) restrict buffer AirGeoMap {
     coherent AirGeoMapElement u_airGeoMap[];
+};
+
+layout (binding = 4, std430) restrict buffer Results {
+    Result u_results[];
 };
 
 // Functions -------------------------------------------------------------------
@@ -175,13 +183,13 @@ void main() {
                     if (k_doTurbulence) {
                         if (totalDist > k_turbulenceDist) {
                             // Set air pixel to be turbulent
-                            u_airPixels[airI + u_swap * u_maxAirPixels].velocity.w = 1.0f;
+                            u_airPixels[airI].velocity.w = 1.0f;
                             // Don't need to write turbulence at air because it happens in move shader
                             // Write turbulence pixel at air and half way between air and geometry
                             // TODO
 
                             // Old
-                            //vec2 airWindPos = u_airPixels[airI + u_swap * u_maxAirPixels].windPos;
+                            //vec2 airWindPos = u_airPixels[airI].windPos;
                             //ivec2 p1 = ivec2(windToScreen(airWindPos) * 0.25f);
                             //ivec2 p2 = ivec2(windToScreen((airWindPos + geoWindPos) * 0.5f) * 0.25f);
                             //imageStore(u_turbImg, p1, vec4(0.0f, 0.0f, 1.0f, 1.0f));
@@ -209,7 +217,7 @@ void main() {
     
         // Make a new air pixel
         if (shouldSpawn) {
-            int airI = atomicAdd(u_airCount[u_swap], 1);
+            int airI = atomicAdd(u_airCount, 1);
             if (airI >= u_maxAirPixels) {
                 continue;
             }
@@ -221,9 +229,9 @@ void main() {
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
             vec3 airVelocity = refl * u_windSpeed;
 
-            u_airPixels[airI + u_swap * u_maxAirPixels].windPos = airWindPos;
-            u_airPixels[airI + u_swap * u_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
-            u_airPixels[airI + u_swap * u_maxAirPixels].backforce = vec2(0.0f);
+            u_airPixels[airI].windPos = airWindPos;
+            u_airPixels[airI].velocity = vec4(airVelocity, 0.0f);
+            u_airPixels[airI].backforce = vec2(0.0f);
 
             // Draw to fbo to avoid another draw later, only necessary for seeing the results immediately
             if (bool(u_debug)) {

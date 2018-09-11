@@ -31,6 +31,8 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
+float k_airDensity = 1.0f;
+
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
 const float k_maxSearchDist = 0.2f; // In wind space
@@ -55,7 +57,6 @@ layout (binding = 0) uniform sampler2D u_turbTex;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
-    int u_swap;
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
@@ -63,32 +64,41 @@ layout (binding = 0, std140) uniform Constants {
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
-    float u_momentOfInertia;
     int u_slice;
     float u_sliceZ;
     uint u_debug;
 };
 
-layout (binding = 0, std430) restrict buffer Mutables {
-    int u_padding0;
+layout (binding = 0, std430) restrict buffer GeoPixels {
     int u_geoCount;
-    coherent int u_airCount[2];
-};
-
-layout (binding = 4, std430) restrict buffer Results {
-    Result u_results[];
-};
-
-layout (binding = 1, std430) restrict buffer GeoPixels {
+    int u_GeoPixels_pad0;
+    int u_GeoPixels_pad1;
+    int u_GeoPixels_pad2;
     GeoPixel u_geoPixels[];
 };
 
-layout (binding = 2, std430) restrict buffer AirPixels {
+layout (binding = 1, std430) restrict buffer AirPixels {
+    int u_airCount;
+    int u_AirPixels_pad0;
+    int u_AirPixels_pad1;
+    int u_AirPixels_pad2;
     AirPixel u_airPixels[];
+};
+
+layout (binding = 2, std430) restrict buffer PrevAirPixels {
+    int u_prevAirCount;
+    int u_PrevAirPixels_pad0;
+    int u_PrevAirPixels_pad1;
+    int u_PrevAirPixels_pad2;
+    AirPixel u_prevAirPixels[];
 };
 
 layout (binding = 3, std430) restrict buffer AirGeoMap {
     AirGeoMapElement u_airGeoMap[];
+};
+
+layout (binding = 4, std430) restrict buffer Results {
+    Result u_results[];
 };
 
 // Shared ----------------------------------------------------------------------
@@ -114,17 +124,19 @@ void accumulate() {
 }
 
 float dragFunc(float dist) {
-    float v = (dist - k_dragThreshold) / k_dragThreshold;
-    v = clamp(v, 0.0f, 1.0f);
-    v = 1.0f - v;
-    return v * v;
+    //float v = (dist - k_dragThreshold) / k_dragThreshold;
+    //v = clamp(v, 0.0f, 1.0f);
+    //v = 1.0f - v;
+    //return v * v;
+    return step(dist, k_dragThreshold);
 }
 
 float liftFunc(float dist) {
     float v = (dist - k_dragThreshold) / (k_liftThreshold - k_dragThreshold);
-    v = clamp(v, 0.0f, 1.0f);
-    float v2 = v * v;
-    return 16.0f * v2 * (v2 - 2.0f * v + 1.0f);
+    //v = clamp(v, 0.0f, 1.0f);
+    //float v2 = v * v;
+    //return 16.0f * v2 * (v2 - 2.0f * v + 1.0f);
+    return v;
 }
 
 void main() {
@@ -138,14 +150,14 @@ void main() {
     float massDensity = 1.0f;
     float flowVelocity = u_windSpeed; // TODO: is this correct?
     float dragC = 1.0f;
-    float area = screenToWindDist(1.0f);
-    area = area * area * u_sliceSize; // TODO: is this correct?
+    float pixelSize = screenToWindDist(1.0f);
+    float windSpeed2 = u_windSpeed * u_windSpeed;
 
-    for (int airI = workI; airI < u_airCount[u_swap]; airI += int(gl_WorkGroupSize.x)) {
+    for (int airI = workI; airI < u_airCount; airI += int(gl_WorkGroupSize.x)) {
 
-        vec2 airWindPos = u_airPixels[airI + u_swap * u_maxAirPixels].windPos;
-        vec3 airVelocity = u_airPixels[airI + u_swap * u_maxAirPixels].velocity.xyz;
-        float airTurbulence = u_airPixels[airI + u_swap * u_maxAirPixels].velocity.w;
+        vec2 airWindPos = u_airPixels[airI].windPos;
+        vec3 airVelocity = u_airPixels[airI].velocity.xyz;
+        float airTurbulence = u_airPixels[airI].velocity.w;
 
         int geoCount = u_airGeoMap[airI].geoCount;
 
@@ -159,7 +171,7 @@ void main() {
             vec2 screenPos = windToScreen(airWindPos);
             ivec2 pixel = ivec2(screenPos);
 
-            vec2 searchDir = u_airPixels[airI + u_swap * u_maxAirPixels].backforce.xy;
+            vec2 searchDir = u_airPixels[airI].backforce.xy;
             if (searchDir != vec2(0.0f)) {                
                 vec2 screenDir = normalize(searchDir);
                 vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
@@ -203,7 +215,7 @@ void main() {
                         if (turbulence > 0.0f) {
                             // Mark air as turbulent
                             airTurbulence = 1.0f;
-                            u_airPixels[airI + u_swap * u_maxAirPixels].velocity.w = 1.0f;
+                            u_airPixels[airI].velocity.w = 1.0f;
                             // Write turbulence at air
                             // TODO
                             // Write turbulence pixel half way between found turbulence and air
@@ -225,14 +237,14 @@ void main() {
                                 if (totalDist > k_turbulenceDist) {
                                     // Set air pixel to be turbulent
                                     airTurbulence = 1.0f;
-                                    u_airPixels[airI + u_swap * u_maxAirPixels].velocity.w = 1.0f;
+                                    u_airPixels[airI].velocity.w = 1.0f;
                                     // Write turbulence at air
                                     // TODO
                                     // Write turbulence pixel at air and half way between air and geometry
                                     // TODO
 
                                     // Old
-                                    //vec2 airWindPos = u_airPixels[airI + u_swap * u_maxAirPixels].windPos;
+                                    //vec2 airWindPos = u_airPixels[airI].windPos;
                                     //ivec2 p1 = ivec2(windToScreen(airWindPos) * 0.25f);
                                     //ivec2 p2 = ivec2(windToScreen((airWindPos + geoWindPos) * 0.5f) * 0.25f);
                                     //imageStore(u_turbImg, p1, vec4(0.0f, 0.0f, 1.0f, 1.0f));
@@ -264,30 +276,32 @@ void main() {
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
             float dist = distance(airWindPos, geoWindPos);
 
-            dragFactor = dragFunc(dist);
-            liftFactor = liftFunc(dist);
+            float area = pixelSize * u_sliceSize / sqrt(1.0f - geoNormal.z * geoNormal.z);
 
             // Calculate backforce
-            vec2 thisBackforce = normalize(-geoNormal.xy) * dist * dist;
+            vec2 thisBackforce = normalize(-geoNormal.xy) * dist * dist;// = dist*dist*a + dist*b + c;
             thisBackforce *= 500.0f; // TODO: magic number;
             backforce += thisBackforce;
 
             // Calculate lift
-            vec3 thisLift = vec3(-thisBackforce, 0.0f);
-            //thisLift *= liftFactor;
-            thisLift *= 0.0001f; // TODO: magic number
-            if (turbulence) thisLift = vec3(0.0f);
-            lift += thisLift;
+            float liftFactor = 0.5f * k_airDensity * windSpeed2 * area;
+            liftFactor *= liftFunc(dist);
+            liftFactor *= 0.2f; // TODO: magic number
+            if (turbulence) liftFactor = 0.0f;
+            vec3 thisLift = geoNormal * liftFactor;
 
             // Calculate drag
-            vec3 thisDrag = -geoNormal * (0.5f * massDensity * dragC * area * -dot(geoNormal, airVelocity)); // TODO: should do that dot? // TODO: should use flow velocity or unnormalized air velocity?
-            //thisDrag *= dragFactor;
-            thisDrag *= 2000.0f; // TODO: magic number
-            drag += thisDrag;
+            float dragFactor = 0.5f * k_airDensity * windSpeed2 * max(-dot(geoNormal, vec3(0.0f, 0.0f, -1.0f)), 0.0f) * area; // TODO: issue with air velocity
+            dragFactor *= dragFunc(dist);
+            dragFactor *= 0.8f; // TODO: magic number
+            vec3 thisDrag = -geoNormal * dragFactor;
 
             // Calculate torque
-            vec3 thisTorq = u_momentOfInertia * cross(vec3(geoWindPos, u_sliceZ), thisLift + thisDrag); // TODO: is this right
-            thisTorq *= 50.0f; // TODO: magic number
+            vec3 thisTorq = cross(vec3(geoWindPos, u_sliceZ), thisLift + thisDrag); // TODO: is this right
+            thisTorq *= 4.0f; // TODO: magic number
+
+            lift += thisLift;
+            drag += thisDrag;
             torq += thisTorq;
         }
         // Average
@@ -330,9 +344,9 @@ void main() {
         // Update location
         airWindPos.xy += airVelocity.xy * u_dt;
 
-        u_airPixels[airI + u_swap * u_maxAirPixels].windPos = airWindPos;//, turbulence);
-        u_airPixels[airI + u_swap * u_maxAirPixels].velocity = vec4(airVelocity, 0.0f);
-        u_airPixels[airI + u_swap * u_maxAirPixels].backforce = backforce;
+        u_airPixels[airI].windPos = airWindPos;//, turbulence);
+        u_airPixels[airI].velocity = vec4(airVelocity, 0.0f);
+        u_airPixels[airI].backforce = backforce;
     }
 
     // Accumulate lift

@@ -15,7 +15,7 @@
 namespace rld {
 
     static const int k_size(720); // Width and height of the textures, which are square
-    static constexpr int k_sliceCount(100); // Should also change in `Results.cpp`
+    static constexpr int k_sliceCount(50); // Should also change in `Results.cpp`
 
     static constexpr int k_maxPixelsDivisor(16); // max dense pixels is the total pixels divided by this
     static const int k_maxGeoPixels(k_size * k_size / k_maxPixelsDivisor);
@@ -49,7 +49,6 @@ namespace rld {
     
     // Mirrors GPU struct
     struct Constants {
-        s32 swap;
         s32 maxGeoPixels;
         s32 maxAirPixels;
         s32 screenSize;
@@ -57,17 +56,11 @@ namespace rld {
         float sliceSize;
         float windSpeed;
         float dt;
-        float momentOfInertia;
         s32 slice;
         float sliceZ;
         u32 debug;
-    };
-    
-    // Mirrors GPU struct
-    struct Mutables {
-        int padding0;
-        int geoCount;
-        int airCount[2];
+        u32 padding0;
+        u32 padding1;
     };
 
     // Mirrors GPU struct
@@ -75,6 +68,24 @@ namespace rld {
         vec4 lift;
         vec4 drag;
         vec4 torq;
+    };
+
+    // Mirrors GPU struct
+    struct GeoPixels {
+        s32 geoCount;
+        s32 padding0;
+        s32 padding1;
+        s32 padding2;
+        GeoPixel geoPixels[k_maxGeoPixels];
+    };
+
+    // Mirrors GPU struct
+    struct AirPixels {
+        s32 airCount;
+        s32 padding0;
+        s32 padding1;
+        s32 padding2;
+        AirPixel airPixels[k_maxAirPixels];
     };
 
 
@@ -87,7 +98,6 @@ namespace rld {
     static float s_sliceSize; // Distance between slices in wind space
     static float s_windSpeed;
     static float s_dt; // The time it would take to travel `s_sliceSize` at `s_windSpeed`
-    static float s_momentOfInertia;
     static bool s_debug; // Whether to enable non essentials like side view or active pixel highlighting
 
     static int s_currentSlice(0); // slice index [0, k_nSlices)
@@ -106,13 +116,11 @@ namespace rld {
     static shr<Program> s_foilProg;
 
     static Constants s_constants;
-    static Mutables s_mutables;
 
     static uint s_constantsUBO;
-    static uint s_mutablesSSBO;
     static uint s_resultsSSBO;
     static uint s_geoPixelsSSBO;
-    static uint s_airPixelsSSBO;
+    static uint s_airPixelsSSBO[2];
     static uint s_airGeoMapSSBO;
 
     static uint s_fbo;
@@ -359,17 +367,18 @@ namespace rld {
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
-    static void uploadMutables() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), &s_mutables);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    }
-
-    static void downloadMutables() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-        Mutables * p(reinterpret_cast<Mutables *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), GL_MAP_READ_BIT)));
-        s_mutables = *p;
-        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    static void resetCounters(bool both) {
+        s32 zero(0);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_geoPixelsSSBO);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(s32), &zero);
+        if (s_swap == 0 || both) {
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO[0]);
+            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(s32), &zero);
+        }
+        if (s_swap == 1 || both) {
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO[1]);
+            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(s32), &zero);
+        }
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
@@ -406,7 +415,6 @@ namespace rld {
     }
 
     static void resetConstants() {
-        s_constants.swap = 0;
         s_constants.maxGeoPixels = k_maxGeoPixels;
         s_constants.maxAirPixels = k_maxAirPixels;
         s_constants.screenSize = k_size;
@@ -414,16 +422,9 @@ namespace rld {
         s_constants.sliceSize = s_sliceSize;
         s_constants.windSpeed = s_windSpeed;
         s_constants.dt = s_dt;
-        s_constants.momentOfInertia = s_momentOfInertia;
         s_constants.slice = 0;
         s_constants.sliceZ = s_windframeDepth * -0.5f;
         s_constants.debug = s_debug;
-    }
-
-    static void resetMutables() {
-        s_mutables.geoCount = 0;
-        s_mutables.airCount[0] = 0;
-        s_mutables.airCount[1] = 0;
     }
 
     static void clearTurbTex() {
@@ -443,9 +444,9 @@ namespace rld {
 
     static void setBindings() {
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, s_constantsUBO);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_mutablesSSBO);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_geoPixelsSSBO);
+        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO[s_swap]);
+        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
 
@@ -474,12 +475,6 @@ namespace rld {
         glBufferStorage(GL_UNIFORM_BUFFER, sizeof(Constants), nullptr, GL_DYNAMIC_STORAGE_BIT);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-        // Setup mutables SSBO
-        glGenBuffers(1, &s_mutablesSSBO);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
-        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(Mutables), nullptr, GL_DYNAMIC_STORAGE_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
         // Setup results SSBO
         glGenBuffers(1, &s_resultsSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
@@ -495,13 +490,15 @@ namespace rld {
         // Setup geometry pixels SSBO
         glGenBuffers(1, &s_geoPixelsSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_geoPixelsSSBO);
-        glBufferStorage(GL_SHADER_STORAGE_BUFFER, k_maxGeoPixels * sizeof(GeoPixel), nullptr, GL_DYNAMIC_STORAGE_BIT);
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(GeoPixels), nullptr, GL_DYNAMIC_STORAGE_BIT);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup air pixels SSBO
-        glGenBuffers(1, &s_airPixelsSSBO);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO);
-        glBufferStorage(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * 2 * sizeof(AirPixel), nullptr, GL_DYNAMIC_STORAGE_BIT);
+        glGenBuffers(2, s_airPixelsSSBO);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO[0]);
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(AirPixels), nullptr, GL_DYNAMIC_STORAGE_BIT);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO[1]);
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(AirPixels), nullptr, GL_DYNAMIC_STORAGE_BIT);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup air geo map SSBO
@@ -547,7 +544,6 @@ namespace rld {
         const Model & model,
         const mat4 & modelMat,
         const mat3 & normalMat,
-        float momentOfInertia,
         float windframeWidth,
         float windframeDepth,
         float windSpeed,
@@ -561,19 +557,14 @@ namespace rld {
         s_sliceSize = s_windframeDepth / k_sliceCount;
         s_windSpeed = windSpeed;
         s_dt = s_sliceSize / s_windSpeed;
-        s_momentOfInertia = momentOfInertia;
         s_debug = debug;
     }
 
     bool step(bool isExternalCall) {
-        if (isExternalCall) {
-            setBindings();
-        }
-
         // Reset for new sweep
         if (s_currentSlice == 0) {
             resetConstants();
-            resetMutables();
+            resetCounters(true);
             clearTurbTex();
             if (s_debug) clearSideTex();
             s_lift = vec3();
@@ -584,13 +575,16 @@ namespace rld {
         
         s_swap = 1 - s_swap;
 
-        s_constants.swap = s_swap;
         s_constants.slice = s_currentSlice;
         s_constants.sliceZ = s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize;
-        s_mutables.geoCount = 0;
-        s_mutables.airCount[s_swap] = 0;
         uploadConstants();
-        uploadMutables();
+        resetCounters(false);
+
+        if (isExternalCall) { // TODO
+            setBindings();
+        }        
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO[s_swap]);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);
 
         renderGeometry(); // Render geometry to fbo
         computeProspect(); // Scan fbo and generate geo pixels
@@ -598,10 +592,6 @@ namespace rld {
         computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
         computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
-
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        downloadMutables(); // TOP TODO: WHY THE HELL IS THIS NECESSARY
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         ++s_currentSlice;
 
