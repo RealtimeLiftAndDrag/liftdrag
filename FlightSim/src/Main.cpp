@@ -44,7 +44,7 @@ static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
 
-static const float k_timeScale(0.01f);
+static const float k_timeScale(1.f);
 
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
@@ -264,7 +264,7 @@ static mat4 getPerspectiveMatrix() {
 }
 
 static mat4 getViewMatrix() {
-    vec3 camPos = vec3(0, 4, -17.5);
+    vec3 camPos = vec3(0, 0, -17.5);
     vec3 lookPos = s_simObject->pos;
     vec3 viewVec = lookPos - camPos;
     vec3 right = glm::cross(viewVec, vec3(0, 1, 0));
@@ -276,39 +276,66 @@ static mat4 getViewMatrix() {
     );
 }
 
+static mat4 getWindViewMatrix(vec3 wind) {
+    vec3 up = glm::cross(wind, vec3(1, 0, 0));
+    return glm::lookAt(
+        vec3(0, 0, 0), //camPos
+        wind, //looking in the direction of the wind
+        up //don't care about roll so just determined above by cross product of wind and left vector
+    );
+}
+
+static std::string matrixToString(mat4 m) {
+    std::string mString = "";
+    for (int i = 0; i < 4; i++) {
+        mString += "[" + std::to_string(m[0][i]) + ", " + std::to_string(m[1][i]) + ", " + std::to_string(m[2][i]) + ", " + std::to_string(m[3][i]) + "]\n";
+    }
+    return mString;
+}
+
 static void render() {
     glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
-    vec3 wind;
-    rld::set(*s_model, s_modelMat, s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
-    //rld::sweep(); //this mess ups the modelmat right now
-    glViewport(0, 0, k_windowSize.x, k_windowSize.y);
-
-    vec3 combinedForce = vec3(0, 0.5, 0);//rld::lift();// +rld::drag();
+    
+    vec3 combinedForce = vec3(0, 0, 0.5f);//rld::lift();// +rld::drag();
     vec3 torque = vec3(0.05, 0, 0);//rld::torque();
+    s_simObject->addTranslationalForce(combinedForce);
+    s_simObject->addAngularForce(torque);
+    s_simObject->update();
+
+    vec3 wind = -s_simObject->vel; //wind is equivalent to opposite direction/speed of velocity
+    mat4 windViewMatrix = getWindViewMatrix(-wind); //not sure why this needs to be negative. Works but still trying to figure out why
+    mat4 simRotateMat = s_simObject->getRotate();
+    mat4 simTranslateMat = s_simObject->getTranslate();
+
     std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
     std::cout << "torque: " << glm::to_string(torque) << std::endl;
     std::cout << "time scale: " << k_timeScale << std::endl;
     std::cout << "curPos: " << glm::to_string(s_simObject->pos) << std::endl;
     std::cout << "curAngle: " << glm::to_string(s_simObject->a_pos) << std::endl;
+    std::cout << "Wind vector" << glm::to_string(wind) << std::endl;
+    std::cout << "sim rotate mat\n" << matrixToString(simRotateMat) << std::endl << std::endl;
+    std::cout << "wind view matrix\n" << matrixToString(windViewMatrix) << std::endl << std::endl;
+    std::cout << "s_model matrix\n" << matrixToString(s_modelMat) << std::endl << std::endl;
+    std::cout << "Final modelMat\n" << matrixToString(windViewMatrix * simRotateMat * s_modelMat) << std::endl << std::endl;
+    //std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(1, 0, 0))) << std::endl << std::endl;
     std::cout << std::endl;
-    s_simObject->addTranslationalForce(combinedForce);
-    s_simObject->addAngularForce(torque);
-    s_simObject->update();
-    wind = -s_simObject->vel; //wind is equivalent to opposite direction/speed of velocity
     
-    
+    rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
+    //rld::sweep(); //this mess ups the modelmat right now
+    glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 
-    mat4 modelMat, normalMat, simTransformMat;
+    
+    mat4 modelMat, normalMat;
     mat4 projMat, viewMat;
 
     modelMat = s_modelMat;
     normalMat = s_normalMat;
 
-    simTransformMat = s_simObject->getTransform();
 
-    modelMat = simTransformMat * modelMat;
+    //modelMat = windViewMatrix * simRotateMat * modelMat; //what the wind sees (use for debugging)
+    modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
 
     projMat = getPerspectiveMatrix();
     viewMat = getViewMatrix();

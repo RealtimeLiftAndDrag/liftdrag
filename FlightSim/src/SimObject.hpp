@@ -22,4 +22,7 @@ public:
     void setGravityOn(bool _gravityOn);
     void setMass(float _mass);
     void setTimeScale(float _timeScale);
+    mat4 getTranslate();
+    mat4 getRotate();
+    mat4 getTransformRelativeTo(vec3 dir);
 };
