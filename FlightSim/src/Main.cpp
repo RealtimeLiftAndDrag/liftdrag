@@ -268,8 +268,7 @@ static mat4 getPerspectiveMatrix() {
     return glm::perspective(fov, aspect, 0.01f, 1000.f);
 }
 
-static mat4 getViewMatrix() {
-    vec3 camPos = vec3(0, 0, -17.5);
+static mat4 getViewMatrix(vec3 camPos) {
     vec3 lookPos = s_simObject->pos;
     vec3 viewVec = lookPos - camPos;
     vec3 right = glm::cross(viewVec, vec3(0, 1, 0));
@@ -343,7 +342,8 @@ static void render() {
     modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
 
     projMat = getPerspectiveMatrix();
-    viewMat = getViewMatrix();
+    vec3 camPos = vec3(0, 0, -17.5);
+    viewMat = getViewMatrix(camPos);
 
     s_phongProg->bind();
     glUniformMatrix4fv(s_phongProg->getUniform("u_projMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&projMat));
@@ -351,6 +351,8 @@ static void render() {
     s_model->draw(modelMat, normalMat, s_phongProg->getUniform("u_modelMat"), s_phongProg->getUniform("u_normalMat"));
 
     s_phongProg->unbind();
+
+    ProgTerrain::render(viewMat, projMat, camPos);
 
     //reset gl variables set to not mess up rld sim
     glClearColor(0.f, 0.f, 0.f, 0.f);

@@ -10,7 +10,7 @@ namespace ProgTerrain {
     // Our shader program
     std::shared_ptr<Program> heightshader, progSky, progWater;
 
-    std::shared_ptr<Model> skySphere;
+    unq<Model> skySphere;
     static const bool k_drawLines(false);
     static const bool k_drawGrey(false);
 
@@ -422,20 +422,7 @@ namespace ProgTerrain {
         progWater->addAttribute("vertTex");
     }
 
-    void glVariablesSet() {
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        // Set background color.
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        // Enable z-buffer test.
-        glEnable(GL_DEPTH_TEST);
-    }
 
-    void glVariablesUnset() {
-        glDisable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
-        glClearColor(0.f, 0.f, 0.f, 0.f);
-    }
 
     void init_geom(const std::string & resourceDir)
     {
@@ -444,16 +431,29 @@ namespace ProgTerrain {
         init_mesh();
         init_water();
 
-        skySphere = shr<Model>();
-        skySphere->load(resourceDir + "/models/sphere.obj");
+        skySphere = Model::load(resourceDir + "/models/sphere.obj");
 
         init_textures(resourceDir + "/textures");
-
+        assign_textures();
 
     }
 
-    void render(mat4 M, const mat4 &V, const mat4 &P, const vec3 &camPos) {
-        M *= glm::scale(mat4(), vec3(3.f, 3.f, 3.f));
+    void render(const mat4 &V, const mat4 &P, const vec3 &camPos) {
+        float sangle = 3.1415926 / 2.;
+
+        mat4 RotateX = glm::rotate(glm::mat4(1.0f), sangle, glm::vec3(1.0f, 0.0f, 0.0f));
+        vec3 camp = -camPos;
+        mat4 TransXYZ = glm::translate(glm::mat4(1.0f), camp);
+        mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, 3.0f));
+
+        mat4 M = TransXYZ * RotateX * S;
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        // Set background color.
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+
+        M *= glm::scale(mat4(), vec3(3.f));
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         progSky->bind();
         glUniformMatrix4fv(progSky->getUniform("P"), 1, GL_FALSE, &P[0][0]);
@@ -470,8 +470,9 @@ namespace ProgTerrain {
         skySphere->draw();
 
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
 
         progSky->unbind();
+        glDisable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
     }
 }
