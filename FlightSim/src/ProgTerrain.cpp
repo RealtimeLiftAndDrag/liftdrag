@@ -28,7 +28,7 @@ namespace ProgTerrain {
     GLuint GrassNormal, SnowNormal, SandNormal, CliffNormal;
     float time = 1.0;
     namespace {
-        
+
         static const int k_meshSize(300);
         static const float k_meshRes(2.f); // Higher value = less verticies per unit of measurement
         void init_mesh() {
@@ -438,23 +438,17 @@ namespace ProgTerrain {
 
     }
 
-    void render(const mat4 &V, const mat4 &P, const vec3 &camPos) {
+    void drawSkyBox(const mat4 &V, const mat4 &P, const vec3 &camPos) {
         float sangle = 3.1415926 / 2.;
 
         mat4 RotateX = glm::rotate(glm::mat4(1.0f), sangle, glm::vec3(1.0f, 0.0f, 0.0f));
         vec3 camp = -camPos;
-        mat4 TransXYZ = glm::translate(glm::mat4(1.0f), camp);
+        mat4 TransXYZ = glm::translate(glm::mat4(1.0f), camPos);
         mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, 3.0f));
 
-        mat4 M = TransXYZ * RotateX * S;
+        mat4 M = TransXYZ * S;
 
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        // Set background color.
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-        M *= glm::scale(mat4(), vec3(3.f));
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         progSky->bind();
         glUniformMatrix4fv(progSky->getUniform("P"), 1, GL_FALSE, &P[0][0]);
         glUniformMatrix4fv(progSky->getUniform("V"), 1, GL_FALSE, &V[0][0]);
@@ -466,12 +460,96 @@ namespace ProgTerrain {
         glBindTexture(GL_TEXTURE_2D, SkyTexture);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, NightTexture);
-        glDisable(GL_DEPTH_TEST);
         skySphere->draw();
 
-        glEnable(GL_DEPTH_TEST);
-
         progSky->unbind();
+    }
+
+    void drawWater(const mat4 &V, const mat4 &P, const vec3 &camPos, const float &centerOffset, const vec3 &offset) {
+        // Draw the Water -----------------------------------------------------------------
+
+        progWater->bind();
+        //glPolygonMode(GL_FRONT_AND_BACK, GL_LINES);
+        mat4 M = glm::translate(glm::mat4(1.0f), glm::vec3(centerOffset, 2.0f, centerOffset));
+
+        glUniformMatrix4fv(progWater->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+        glUniformMatrix4fv(progWater->getUniform("P"), 1, GL_FALSE, &P[0][0]);
+        glUniformMatrix4fv(progWater->getUniform("V"), 1, GL_FALSE, &V[0][0]);
+
+        glUniform3fv(progWater->getUniform("camoff"), 1, &offset[0]);
+        glUniform3fv(progWater->getUniform("campos"), 1, &camPos[0]);
+        glUniform1f(progWater->getUniform("time"), time);
+        glBindVertexArray(WaterVertexArrayID);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, WaterIndexBufferIDBox);
+        //glDisable(GL_DEPTH_TEST);
+        // Must use gl_patches w/ tessalation
+        //glPatchParameteri(GL_PATCH_VERTICES, 3.0f);
+        glDrawElements(GL_TRIANGLES, k_meshSize*k_meshSize * 6, GL_UNSIGNED_INT, (void*)0);
+        //glEnable(GL_DEPTH_TEST);
+        progWater->unbind();
+    }
+
+    void drawTerrain(const mat4 &V, const mat4 &P, const vec3 &camPos, const float &centerOffset, const vec3 &offset) {
+        // Draw the terrain -----------------------------------------------------------------
+        heightshader->bind();
+        mat4 M = glm::translate(glm::mat4(1.0f), glm::vec3(centerOffset, 0.0f, centerOffset));
+        glUniformMatrix4fv(heightshader->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+        glUniformMatrix4fv(heightshader->getUniform("P"), 1, GL_FALSE, &P[0][0]);
+        glUniformMatrix4fv(heightshader->getUniform("V"), 1, GL_FALSE, &V[0][0]);
+
+
+
+        glUniform3fv(heightshader->getUniform("camoff"), 1, &offset[0]);
+        glUniform3fv(heightshader->getUniform("campos"), 1, &camPos[0]);
+        glUniform1f(heightshader->getUniform("time"), time);
+        glUniform1i(heightshader->getUniform("meshsize"), k_meshSize);
+        glUniform1f(heightshader->getUniform("resolution"), k_meshRes);
+        glUniform1i(heightshader->getUniform("drawGrey"), k_drawGrey);
+        glBindVertexArray(TerrainVertexArrayID);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferIDBox);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, GrassTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, SnowTexture);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, SandTexture);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, CliffTexture);
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, CliffNormal);
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_2D, SnowNormal);
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_2D, GrassNormal);
+        glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_2D, SandNormal);
+
+        glPatchParameteri(GL_PATCH_VERTICES, 3.0f);
+        glDrawElements(GL_PATCHES, k_meshSize*k_meshSize * 6, GL_UNSIGNED_INT, (void*)0);
+
+
+        heightshader->unbind();
+
+    }
+
+    void render(const mat4 &V, const mat4 &P, const vec3 &camPos) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_DEPTH_TEST);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        drawSkyBox(V, P, camPos);
+        glEnable(GL_DEPTH_TEST);
+        float centerOffset = -k_meshSize * k_meshRes / 2.0f;
+        vec3 offset = camPos;
+        offset.y = 0;
+        offset.x = ((int)(offset.x / k_meshRes)) * k_meshRes;
+        offset.z = ((int)(offset.z / k_meshRes)) * k_meshRes;
+
+        if (!k_drawGrey || !k_drawLines) {
+            drawWater(V, P, camPos, centerOffset, offset);
+        }
+        drawTerrain(V, P, camPos, centerOffset, offset);
+        glBindVertexArray(0);
         glDisable(GL_BLEND);
         glDisable(GL_DEPTH_TEST);
     }

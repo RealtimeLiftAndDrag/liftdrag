@@ -300,12 +300,12 @@ static std::string matrixToString(mat4 m) {
 static void render() {
     glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
+
     
-    vec3 combinedForce = vec3(0, 0, 0.5f);//rld::lift();// +rld::drag();
+    vec3 combinedForce = vec3(0, 3.f, 0.5f);//rld::lift();// +rld::drag();
     vec3 torque = vec3(0.05, 0, 0);//rld::torque();
     s_simObject->addTranslationalForce(combinedForce);
-    s_simObject->addAngularForce(torque);
+    //s_simObject->addAngularForce(torque);
     s_simObject->update();
 
     vec3 wind = -s_simObject->vel; //wind is equivalent to opposite direction/speed of velocity
@@ -342,8 +342,10 @@ static void render() {
     modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
 
     projMat = getPerspectiveMatrix();
-    vec3 camPos = vec3(0, 0, -17.5);
+    vec3 camPos = s_simObject->pos + vec3(0, 0, -17.5);
     viewMat = getViewMatrix(camPos);
+    ProgTerrain::render(viewMat, projMat, camPos);
+    glEnable(GL_DEPTH_TEST);
 
     s_phongProg->bind();
     glUniformMatrix4fv(s_phongProg->getUniform("u_projMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&projMat));
@@ -352,7 +354,6 @@ static void render() {
 
     s_phongProg->unbind();
 
-    ProgTerrain::render(viewMat, projMat, camPos);
 
     //reset gl variables set to not mess up rld sim
     glClearColor(0.f, 0.f, 0.f, 0.f);
