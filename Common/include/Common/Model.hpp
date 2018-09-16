@@ -103,6 +103,7 @@ class Model {
     Model(Model && other);
 
     void draw(const mat4 & modelMat, const mat3 & normalMat, uint modelMatUniformBinding, uint normalMatUniformBinding) const;
+    void draw() const;
 
     size_t subModelCount() const { return m_subModels.size(); }
 

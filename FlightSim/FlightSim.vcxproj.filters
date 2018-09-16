@@ -16,6 +16,9 @@
     <ClCompile Include="src\SimObject.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\ProgTerrain.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\resources\shaders\phong.frag">
@@ -27,6 +30,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\SimObject.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ProgTerrain.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\stb_image.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

@@ -21,7 +21,9 @@ public:
 	bool isVerbose() const { return verbose; }
 
 	void setShaderNames(const std::string &v, const std::string &f);
-	virtual bool init();
+    void setShaderNames(const std::string &v, const std::string &f, const std::string &tc, const std::string &te);
+
+    virtual bool init();
 	virtual void bind();
 	virtual void unbind();
 
@@ -35,12 +37,17 @@ protected:
 	std::string vShaderName;
 	std::string fShaderName;
 
+    std::string teShaderName;
+    std::string tcShaderName;
+
 private:
 
 	
 	std::map<std::string, GLint> attributes;
 	std::map<std::string, GLint> uniforms;
 	bool verbose = true;
+    bool usingTess;
+
 
 };
 

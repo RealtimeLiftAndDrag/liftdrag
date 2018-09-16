@@ -23,8 +23,19 @@ std::string readFileAsString(const std::string &fileName)
 
 void Program::setShaderNames(const std::string &v, const std::string &f)
 {
+    usingTess = false;
 	vShaderName = v;
 	fShaderName = f;
+}
+
+// This overload will initialize tessellation shaders, and link your vertex shader to the tessellation control shader
+void Program::setShaderNames(const std::string &v, const std::string &f, const std::string &tc, const std::string &te)
+{
+    usingTess = true;
+    vShaderName = v;
+    fShaderName = f;
+    teShaderName = te;
+    tcShaderName = tc;
 }
 
 bool Program::init()
@@ -35,6 +46,12 @@ bool Program::init()
     GLuint VS = glCreateShader(GL_VERTEX_SHADER);
     GLuint FS = glCreateShader(GL_FRAGMENT_SHADER);
 
+    GLuint TC, TE;
+    if (usingTess) {
+        TC = glCreateShader(GL_TESS_CONTROL_SHADER);
+        TE = glCreateShader(GL_TESS_EVALUATION_SHADER);
+    }
+
 	// Read shader sources
 	std::string vShaderString = readFileAsString(vShaderName);
 	std::string fShaderString = readFileAsString(fShaderName);
@@ -42,6 +59,16 @@ bool Program::init()
 	const char *fshader = fShaderString.c_str();
 	CHECKED_GL_CALL(glShaderSource(VS, 1, &vshader, NULL));
 	CHECKED_GL_CALL(glShaderSource(FS, 1, &fshader, NULL));
+
+    if (usingTess) {
+        std::string teShaderString = readFileAsString(teShaderName);
+        std::string tcShaderString = readFileAsString(tcShaderName);
+        const char *teshader = teShaderString.c_str();
+        const char *tcshader = tcShaderString.c_str();
+
+        CHECKED_GL_CALL(glShaderSource(TE, 1, &teshader, NULL));
+        CHECKED_GL_CALL(glShaderSource(TC, 1, &tcshader, NULL));
+    }
 
 	// Compile vertex shader
 	CHECKED_GL_CALL(glCompileShader(VS));
@@ -55,6 +82,37 @@ bool Program::init()
 		}
 		return false;
 	}
+
+    // TESS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    // Compile TE
+    if (usingTess) {
+        CHECKED_GL_CALL(glCompileShader(TE));
+        CHECKED_GL_CALL(glGetShaderiv(TE, GL_COMPILE_STATUS, &rc));
+        if (!rc)
+        {
+            if (isVerbose())
+            {
+                GLSL::printShaderInfoLog(TE);
+                std::cout << "Error compiling TE shader " << teShaderName << std::endl;
+            }
+            return false;
+        }
+
+        // Compile TC
+        CHECKED_GL_CALL(glCompileShader(TC));
+        CHECKED_GL_CALL(glGetShaderiv(TC, GL_COMPILE_STATUS, &rc));
+        if (!rc)
+        {
+            if (isVerbose())
+            {
+                GLSL::printShaderInfoLog(TC);
+                std::cout << "Error compiling TC shader " << tcShaderName << std::endl;
+            }
+            return false;
+        }
+    }
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
 	// Compile fragment shader
 	CHECKED_GL_CALL(glCompileShader(FS));
@@ -73,6 +131,14 @@ bool Program::init()
 	pid = glCreateProgram();
 	CHECKED_GL_CALL(glAttachShader(pid, VS));
 	CHECKED_GL_CALL(glAttachShader(pid, FS));
+
+    // TESS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    if (usingTess) {
+        CHECKED_GL_CALL(glAttachShader(pid, TC));
+        CHECKED_GL_CALL(glAttachShader(pid, TE));
+    }
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 	CHECKED_GL_CALL(glLinkProgram(pid));
 	CHECKED_GL_CALL(glGetProgramiv(pid, GL_LINK_STATUS, &rc));
 	if (!rc)

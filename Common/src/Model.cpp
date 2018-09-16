@@ -232,6 +232,12 @@ Model::Model(Model && other) :
     m_spanMax = other.m_spanMax;
 }
 
+void Model::draw() const {
+    for (const SubModel & subModel : m_subModels) {
+        subModel.m_mesh.draw();
+    }
+}
+
 void Model::draw(const mat4 & modelMat, const mat3 & normalMat, uint modelMatUniformBinding, uint normalMatUniformBinding) const {
     for (const SubModel & subModel : m_subModels) {
         glm::mat4 combModelMat(modelMat * subModel.m_modelMat);
@@ -241,6 +247,7 @@ void Model::draw(const mat4 & modelMat, const mat3 & normalMat, uint modelMatUni
         subModel.m_mesh.draw();
     }
 }
+
 
 SubModel * Model::subModel(const std::string & name) {
     auto it(m_nameMap.find(name));

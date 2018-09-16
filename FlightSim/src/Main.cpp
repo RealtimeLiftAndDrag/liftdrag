@@ -31,6 +31,7 @@ extern "C" {
 
 
 #include "SimObject.hpp"
+#include "ProgTerrain.hpp"
 
 class MainUIC : public UI::VerticalGroup {
 
@@ -241,6 +242,10 @@ static bool setup() {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
+
+    //setup progterrain
+    ProgTerrain::init_shaders(k_resourceDir);
+    ProgTerrain::init_geom(k_resourceDir);
 
     return true;
 }
