@@ -14,7 +14,8 @@ extern "C" {
 // TODO: lift should be independent of the number of slices
 // TODO: world space, air space, and simulation space
 // TODO: how far away should turbulence start? linear or squared air speed?
-// TODO: issue with using air velocity for drag
+// TODO: torque porportional to angle
+// TODO: UBO for shader constants
 
 
 
@@ -56,12 +57,8 @@ enum class SimModel { airfoil, f18, sphere };
 
 static constexpr SimModel k_simModel(SimModel::airfoil);
 
-static constexpr int k_simTexSize = 720;
-static constexpr int k_simSliceCount = 100;
-static constexpr float k_simLiftC = 0.2f;
-static constexpr float k_simDragC = 0.8f;
-
 static const std::string k_defResourceDir("../resources");
+
 static const ivec2 k_defWindowSize(1280, 720);
 
 static constexpr float k_minAngleOfAttack(-90.0f), k_maxAngleOfAttack(90.0f);
@@ -94,6 +91,7 @@ static std::string s_resourceDir(k_defResourceDir);
 static unq<Model> s_model;
 static mat4 s_modelMat;
 static mat3 s_normalMat;
+static float s_momentOfInertia;
 static float s_windframeWidth, s_windframeDepth;
 static float s_windSpeed;
 
@@ -108,8 +106,9 @@ static bool s_shouldSweep(true);
 static bool s_shouldAutoProgress(false);
 
 static shr<MainUIC> s_mainUIC;
-static shr<TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
-static shr<Text> s_angleText, s_angleLiftText, s_angleDragText, s_angleTorqueText;
+static shr<TexViewer> s_frontTexViewer, s_sideTexViewer;
+static shr<Text> s_angleText, s_angleLiftText, s_angleDragText;
+static shr<Text> s_sliceText, s_sliceLiftText, s_sliceDragText;
 static shr<Text> s_rudderText, s_elevatorText, s_aileronText;
 
 static bool s_isInfoChange(true);
@@ -179,46 +178,38 @@ static void changeElevatorAngle(float deltaAngle) {
 static void setSimulation(float angleOfAttack, bool debug) {
     mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
 
-    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
+    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
 }
 
-static void submitResults(float angleOfAttack) {
-    Results::submitAngle(angleOfAttack, { rld::lift(), rld::drag(), rld::torque() });
-    const vec3 * lifts(rld::lifts());
-    const vec3 * drags(rld::drags());
-    const vec3 * torqs(rld::torques());
-    for (int i(0); i < rld::sliceCount(); ++i) {
-        Results::submitSlice(i, { lifts[i], drags[i], torqs[i] });
-    }
-
-    Results::update();
-}
-
-static void doFastSweep(float angleOfAttack) {
+static void doFastSweep(float angleOfAttack, bool submitSlices) {
     setSimulation(angleOfAttack, false);
 
     double then(glfwGetTime());
     rld::sweep();
     double dt(glfwGetTime() - then);
 
-    submitResults(angleOfAttack);
+    vec3 lift(rld::lift());
+    vec3 drag(rld::drag());
+    vec3 torque(rld::torque());
+    Results::submitAngle(angleOfAttack, { lift, drag, torque });
 
-    std::cout << "Angle: " << angleOfAttack << ", Lift: " << rld::lift().y << ", Drag: " << glm::length(rld::drag()) << ", Torque: " << rld::torque().x << ", SPS: " << (1.0 / dt) << std::endl;
+    if (submitSlices) {
+        for (int i(0); i < rld::sliceCount(); ++i) {
+            Results::submitSlice(i, { rld::lift(i), rld::drag(i), rld::torque(i) });
+        }
+    }
+
+    Results::update();
+
+    std::cout << "Angle: " << angleOfAttack << ", Lift: " << lift.y << ", Drag: " << drag.x << ", SPS: " << (1.0 / dt) << std::endl;
 }
 
 static void doAllAngles() {
     Results::clearSlices();
 
-    double then(glfwGetTime());
-
-    int count(0);
     for (float angle(k_minAngleOfAttack); angle <= k_maxAngleOfAttack; angle += k_angleOfAttackIncrement) {
-        doFastSweep(angle);
-        ++count;
+        doFastSweep(angle, false);
     }
-
-    double dt(glfwGetTime() - then);
-    std::cout << "Average SPS: " << (double(count) / dt) << std::endl;
 }
 
 void MainUIC::keyEvent(int key, int action, int mods) {
@@ -241,7 +232,7 @@ void MainUIC::keyEvent(int key, int action, int mods) {
     // If F is pressed, do fast sweep
     else if (key == GLFW_KEY_F && (action == GLFW_PRESS) && !mods) {
         if (rld::slice() == 0 && !s_shouldAutoProgress) {
-            doFastSweep(s_angleOfAttack);
+            doFastSweep(s_angleOfAttack, true);
         }
     }
     // If Shift-F is pressed, do fast sweep of all angles
@@ -324,6 +315,7 @@ static bool setupModel() {
     switch (k_simModel) {
         case SimModel::airfoil:
             s_modelMat = glm::scale(mat4(), vec3(0.5f, 1.0f, 1.0f)) * s_modelMat;
+            s_momentOfInertia = 1.0f;
             s_windframeWidth = 1.25f;
             s_windframeDepth = 1.5f;
             s_windSpeed = 10.0f;
@@ -331,12 +323,14 @@ static bool setupModel() {
 
         case SimModel::f18:
             s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
+            s_momentOfInertia = 1.0f;
             s_windframeWidth = 14.5f;
             s_windframeDepth = 22.0f;
             s_windSpeed = 10.0f;
             break;
 
         case SimModel::sphere:
+            s_momentOfInertia = 1.0f;
             s_windframeWidth = 2.5f;
             s_windframeDepth = 2.5f;
             s_windSpeed = 10.0f;
@@ -354,8 +348,7 @@ static bool setup() {
         std::cerr << "Failed to setup UI" << std::endl;
         return false;
     }
-    
-    glEnable(GL_DEPTH_TEST);
+
     glDisable(GL_BLEND); // need blending for ui but don't want it for simulation
 
     // Setup model
@@ -365,23 +358,21 @@ static bool setup() {
     }
 
     // Setup simulation
-    if (!rld::setup(s_resourceDir, k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
+    if (!rld::setup(s_resourceDir)) {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
 
-    if (!Results::setup(s_resourceDir, k_simSliceCount)) {
+    if (!Results::setup(s_resourceDir)) {
         std::cerr << "Failed to setup results" << std::endl;
         return false;
     }
 
-    s_frontTexViewer.reset(new TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(128)));
-    s_turbTexViewer.reset(new TexViewer(rld::turbulenceTex(), ivec2(rld::texSize()) / 4, ivec2(128)));
-    s_sideTexViewer.reset(new TexViewer(rld::sideTex(), ivec2(rld::texSize()), ivec2(128)));
+    s_frontTexViewer.reset(new TexViewer(rld::frontTex(), ivec2(rld::size()), ivec2(128)));
+    s_sideTexViewer.reset(new TexViewer(rld::sideTex(), ivec2(rld::size()), ivec2(128)));
 
     shr<UI::HorizontalGroup> displayGroup(new UI::HorizontalGroup());
     displayGroup->add(s_frontTexViewer);
-    //displayGroup->add(s_turbTexViewer);
     displayGroup->add(s_sideTexViewer);
 
     shr<Graph> angleGraph(Results::angleGraph());
@@ -389,13 +380,25 @@ static bool setup() {
     shr<Graph> sliceGraph(Results::sliceGraph());
 
     const int k_infoWidth(16);
-    s_angleText      .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_angleLiftText  .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_angleDragText  .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_angleTorqueText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_rudderText     .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_elevatorText   .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_aileronText    .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_angleText    .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_angleLiftText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_angleDragText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_sliceText    .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_sliceLiftText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_sliceDragText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_rudderText   .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_elevatorText .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    s_aileronText  .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+
+    shr<UI::HorizontalGroup> angleInfo(new UI::HorizontalGroup());
+    angleInfo->add(s_angleText);
+    angleInfo->add(s_angleLiftText);
+    angleInfo->add(s_angleDragText);
+
+    shr<UI::HorizontalGroup> sliceInfo(new UI::HorizontalGroup());
+    sliceInfo->add(s_sliceText);
+    sliceInfo->add(s_sliceLiftText);
+    sliceInfo->add(s_sliceDragText);
 
     shr<UI::HorizontalGroup> f18Info(new UI::HorizontalGroup());
     f18Info->add(s_rudderText);
@@ -408,10 +411,8 @@ static bool setup() {
     shr<UI::VerticalGroup> infoGroup(new UI::VerticalGroup());
     infoGroup->add(controlsText);
     infoGroup->add(f18Info);
-    infoGroup->add(s_angleTorqueText);
-    infoGroup->add(s_angleDragText);
-    infoGroup->add(s_angleLiftText);
-    infoGroup->add(s_angleText);
+    infoGroup->add(sliceInfo);
+    infoGroup->add(angleInfo);
 
     shr<UI::HorizontalGroup> bottomGroup(new UI::HorizontalGroup());
     bottomGroup->add(angleGraph);
@@ -440,18 +441,30 @@ static void updateInfoText() {
 
     ss.str(std::string());
 
-    ss << "Lift: " << Util::vectorString(rld::lift(), 3);
+    ss << "Lift: " << Util::numberString(rld::lift().y, 3);
     s_angleLiftText->string(ss.str());
 
     ss.str(std::string());
 
-    ss << "Drag: " << Util::vectorString(rld::drag(), 3);
+    ss << "Drag: " << Util::numberString(glm::length(rld::drag()), 3);
     s_angleDragText->string(ss.str());
 
     ss.str(std::string());
+    
+    int slice(rld::slice() - 1);
 
-    ss << "Torq: " << Util::vectorString(rld::torque(), 3);
-    s_angleTorqueText->string(ss.str());
+    ss << "Slice: " << slice;
+    s_sliceText->string(ss.str());
+
+    ss.str(std::string());
+
+    ss << "Lift: " << Util::numberString(slice >= 0 ? rld::lift(slice).y : 0.0f, 3);
+    s_sliceLiftText->string(ss.str());
+
+    ss.str(std::string());
+
+    ss << "Drag: " << Util::numberString(slice >= 0 ? glm::length(rld::drag(slice)) : 0.0f, 3);
+    s_sliceDragText->string(ss.str());
 }
 
 static void updateF18InfoText() {
@@ -484,9 +497,10 @@ static void update() {
             s_shouldSweep = false;
             vec3 lift(rld::lift());
             vec3 drag(rld::drag());
-            vec3 torq(rld::torque());
+            vec3 torque(rld::torque());
 
-            submitResults(s_angleOfAttack);
+            Results::submitAngle(s_angleOfAttack, { lift, drag, torque });
+            Results::update();
 
             if (s_shouldAutoProgress) {
                 s_angleOfAttack += k_autoAngleIncrement;
@@ -496,6 +510,10 @@ static void update() {
         }
 
         s_isInfoChange = true;
+
+        Results::submitSlice(slice, { rld::lift(slice), rld::drag(slice), rld::torque(slice) });
+        Results::update();
+
         s_shouldStep = false;
     }
 
@@ -543,10 +561,8 @@ int main(int argc, char ** argv) {
 
         update();
         
-        glDisable(GL_DEPTH_TEST); // don't want depth test for UI
         glEnable(GL_BLEND); // need blending for ui but don't want it for simulation
         UI::render();
-        glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
 
         ++fps;

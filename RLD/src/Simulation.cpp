@@ -13,81 +13,60 @@
 
 
 namespace rld {
-    
+
+    static const int k_size(720); // Width and height of the textures, which are square
+    static constexpr int k_sliceCount(100); // Should also change in `Results.cpp`
+
     static constexpr int k_maxPixelsDivisor(16); // max dense pixels is the total pixels divided by this
+    static const int k_maxGeoPixels(k_size * k_size / k_maxPixelsDivisor);
+    static const int k_maxAirPixels(k_maxGeoPixels);
+
     static constexpr int k_maxGeoPerAir(3); // Maximum number of different geo pixels that an air pixel can be associated with
 
-    static constexpr bool k_persistentMapping(false); // Should use persistent mapping for mutables ssbo // TODO: test performance
 
 
-    
-    // Mirrors GPU struct
     struct GeoPixel {
         vec2 windPos;
         ivec2 texCoord;
         vec4 normal;
     };
-    
-    // Mirrors GPU struct
+
     struct AirPixel {
         vec2 windPos;
         vec2 backforce;
         vec4 velocity;
     };
-    
-    // Mirrors GPU struct
+
     struct AirGeoMapElement {
         s32 geoCount;
         s32 geoIndices[k_maxGeoPerAir];
     };
-    
-    // Mirrors GPU struct
+
     struct Constants {
+        s32 swap;
         s32 maxGeoPixels;
         s32 maxAirPixels;
         s32 screenSize;
-        float liftC;
-        float dragC;
         float windframeSize;
         float sliceSize;
         float windSpeed;
         float dt;
+        float momentOfInertia;
         s32 slice;
         float sliceZ;
         u32 debug;
     };
 
-    // Mirrors GPU struct
-    struct Result {
+    struct Mutables {
+        int padding0;
+        int geoCount;
+        int airCount[2];
         vec4 lift;
         vec4 drag;
-        vec4 torq;
-    };
-
-    // Mirrors GPU struct
-    struct GeoPixelsPrefix {
-        s32 geoCount;
-        s32 padding0;
-        s32 padding1;
-        s32 padding2;
-    };
-
-    // Mirrors GPU struct
-    struct AirPixelsPrefix {
-        s32 airCount;
-        s32 padding0;
-        s32 padding1;
-        s32 padding2;
+        vec4 torque;
     };
 
 
-
-    static int s_texSize; // Width and height of the textures, which are square
-    static int s_maxGeoPixels;
-    static int s_maxAirPixels;
-    static int s_sliceCount;
-    static float s_liftC;
-    static float s_dragC;
 
     static const Model * s_model;
     static mat4 s_modelMat;
@@ -97,6 +76,7 @@ namespace rld {
     static float s_sliceSize; // Distance between slices in wind space
     static float s_windSpeed;
     static float s_dt; // The time it would take to travel `s_sliceSize` at `s_windSpeed`
+    static float s_momentOfInertia;
     static bool s_debug; // Whether to enable non essentials like side view or active pixel highlighting
 
     static int s_currentSlice(0); // slice index [0, k_nSlices)
@@ -104,27 +84,26 @@ namespace rld {
     static float s_rudderAngle(0.0f); // IN DEGREES
     static float s_elevatorAngle(0.0f); // IN DEGREES
     static float s_aileronAngle(0.0f); // IN DEGREES
-    static vec3 s_lift; // Total lift for entire sweep
-    static vec3 s_drag; // Total drag for entire sweep
-    static vec3 s_torq; // Total torque for entire sweep
-    static std::vector<vec3> s_lifts; // Lifts for each slice
-    static std::vector<vec3> s_drags; // Drags for each slice
-    static std::vector<vec3> s_torqs; // Torqs for each slice
+    static vec3 s_sweepLift; // accumulating lift force for entire sweep
+    static vec3 s_sweepDrag; // accumulating drag force for entire sweep
+    static vec3 s_sweepTorque; // accumulating torque for entire sweep
+    static std::vector<vec3> s_sliceLifts; // Lift for each slice
+    static std::vector<vec3> s_sliceDrags; // Drag for each slice
+    static std::vector<vec3> s_sliceTorques; // Torque for each slice
     static int s_swap;
 
     static shr<Program> s_foilProg;
 
     static Constants s_constants;
-
+    static Mutables s_mutables;
     static uint s_constantsUBO;
-    static uint s_resultsSSBO;
+    static uint s_mutablesSSBO;
     static uint s_geoPixelsSSBO;
-    static uint s_airPixelsSSBO[2];
+    static uint s_airPixelsSSBO;
     static uint s_airGeoMapSSBO;
 
     static uint s_fbo;
     static uint s_fboTex;
-    static uint s_turbTex;
     static uint s_fboNormTex;
     static uint s_flagTex;
     static uint s_sideTex;
@@ -133,8 +112,6 @@ namespace rld {
     static uint s_outlineProg;
     static uint s_moveProg;
     static uint s_drawProg;
-
-    static Result * s_resultsMappedPtr; // used for persistent mapping
 
 
 
@@ -233,18 +210,7 @@ namespace rld {
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, s_texSize, s_texSize);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        // Turbulence texture
-        glGenTextures(1, &s_turbTex);
-        glBindTexture(GL_TEXTURE_2D, s_turbTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, s_texSize / 4, s_texSize / 4);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, k_size, k_size);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         //sideview texture
@@ -255,7 +221,7 @@ namespace rld {
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, s_texSize, s_texSize);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, k_size, k_size);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Normal texture
@@ -266,13 +232,13 @@ namespace rld {
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16_SNORM, s_texSize, s_texSize);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16_SNORM, k_size, k_size);
 
         // Depth render buffer
         uint fboDepthRB(0);
         glGenRenderbuffers(1, &fboDepthRB);
         glBindRenderbuffer(GL_RENDERBUFFER, fboDepthRB);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, s_texSize, s_texSize);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, k_size, k_size);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Create FBO
@@ -302,7 +268,7 @@ namespace rld {
     static void computeProspect() {
         glUseProgram(s_prospectProg);
 
-        glDispatchCompute((s_texSize + 7) / 8, (s_texSize + 7) / 8, 1); // Must also tweak in shader
+        glDispatchCompute((k_size + 7) / 8, (k_size + 7) / 8, 1); // Must also tweak in shader
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all     
     }
 
@@ -329,7 +295,7 @@ namespace rld {
 
     static void renderGeometry() {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
-        glViewport(0, 0, s_texSize, s_texSize);
+        glViewport(0, 0, k_size, k_size);
 
         // Clear framebuffer.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -366,71 +332,42 @@ namespace rld {
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
-    static void resetCounters(bool both) {
-        s32 zero(0);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_geoPixelsSSBO);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(s32), &zero);
-        if (s_swap == 0 || both) {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO[0]);
-            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(s32), &zero);
-        }
-        if (s_swap == 1 || both) {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO[1]);
-            glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(s32), &zero);
-        }
+    static void uploadMutables() {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Mutables), &s_mutables);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
-    static void downloadResults() {
-        Result * p;
-        if (k_persistentMapping) {
-            glFinish();
-            p = s_resultsMappedPtr;
-        }
-        else {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
-            p = reinterpret_cast<Result *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, s_sliceCount * sizeof(Result), GL_MAP_READ_BIT));         
-        }
-
-        s_lifts.clear();
-        s_drags.clear();
-        s_torqs.clear();
-        s_lift = vec3();
-        s_drag = vec3();
-        s_torq = vec3();
-        for (int i(0); i < s_sliceCount; ++i) {
-            s_lifts.push_back(p[i].lift);
-            s_drags.push_back(p[i].drag);
-            s_torqs.push_back(p[i].torq);
-            s_lift += s_lifts.back();
-            s_drag += s_drags.back();
-            s_torq += s_torqs.back();
-        }
-
-        if (!k_persistentMapping) {
-            glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-        }
+    static void downloadMutables() {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
+        void * p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+        std::memcpy(&s_mutables, p, sizeof(Mutables));
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
     static void resetConstants() {
-        s_constants.maxGeoPixels = s_maxGeoPixels;
-        s_constants.maxAirPixels = s_maxAirPixels;
-        s_constants.screenSize = s_texSize;
-        s_constants.liftC = s_liftC;
-        s_constants.dragC = s_dragC;
+        s_constants.swap = 0;
+        s_constants.maxGeoPixels = k_maxGeoPixels;
+        s_constants.maxAirPixels = k_maxAirPixels;
+        s_constants.screenSize = k_size;
         s_constants.windframeSize = s_windframeWidth;
         s_constants.sliceSize = s_sliceSize;
         s_constants.windSpeed = s_windSpeed;
         s_constants.dt = s_dt;
+        s_constants.momentOfInertia = s_momentOfInertia;
         s_constants.slice = 0;
         s_constants.sliceZ = s_windframeDepth * -0.5f;
         s_constants.debug = s_debug;
     }
 
-    static void clearTurbTex() {
-        u32 clearVal(0);
-        glClearTexImage(s_turbTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearVal);
+    static void resetMutables() {
+        s_mutables.geoCount = 0;
+        s_mutables.airCount[0] = 0;
+        s_mutables.airCount[1] = 0;
+        s_mutables.lift = vec4();
+        s_mutables.drag = vec4();
+        s_mutables.torque = vec4();
     }
 
     static void clearFlagTex() {
@@ -445,33 +382,20 @@ namespace rld {
 
     static void setBindings() {
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, s_constantsUBO);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_geoPixelsSSBO);
-        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO[s_swap]);
-        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_mutablesSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_geoPixelsSSBO);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, s_turbTex);
-
-        glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
-        glBindImageTexture(1,    s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
+        glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,       GL_RGBA8);
         glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
-        glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,         GL_R32I);
-        glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);    
+        glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_R32I);
+        glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,       GL_RGBA8);    
     }
 
 
 
-    bool setup(const std::string & resourceDir, const int texSize, int sliceCount, float liftC, float dragC) {
-        s_texSize = texSize;
-        s_maxGeoPixels = s_texSize * s_texSize / k_maxPixelsDivisor;
-        s_maxAirPixels = s_maxGeoPixels;
-        s_sliceCount = sliceCount;
-        s_liftC = liftC;
-        s_dragC = dragC;
-
-
+    bool setup(const std::string & resourceDir) {
         // Setup shaders
         if (!setupShaders(resourceDir)) {
             std::cerr << "Failed to setup shaders" << std::endl;
@@ -481,39 +405,31 @@ namespace rld {
         // Setup constants UBO
         glGenBuffers(1, &s_constantsUBO);
         glBindBuffer(GL_UNIFORM_BUFFER, s_constantsUBO);
-        glBufferStorage(GL_UNIFORM_BUFFER, sizeof(Constants), nullptr, GL_DYNAMIC_STORAGE_BIT);
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(Constants), nullptr, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-        // Setup results SSBO
-        glGenBuffers(1, &s_resultsSSBO);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
-        if (k_persistentMapping) {
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-            s_resultsMappedPtr = reinterpret_cast<Result *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, s_sliceCount * sizeof(Result), GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT));
-        }
-        else {
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT);        
-        }
+        // Setup mutables SSBO
+        glGenBuffers(1, &s_mutablesSSBO);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_mutablesSSBO);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Mutables), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup geometry pixels SSBO
         glGenBuffers(1, &s_geoPixelsSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_geoPixelsSSBO);
-        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(GeoPixelsPrefix) + s_maxGeoPixels * sizeof(GeoPixel), nullptr, GL_DYNAMIC_STORAGE_BIT);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxGeoPixels * sizeof(GeoPixel), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup air pixels SSBO
-        glGenBuffers(2, s_airPixelsSSBO);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO[0]);
-        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(AirPixelsPrefix) + s_maxAirPixels * sizeof(AirPixel), nullptr, GL_DYNAMIC_STORAGE_BIT);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO[1]);
-        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(AirPixelsPrefix) + s_maxAirPixels * sizeof(AirPixel), nullptr, GL_DYNAMIC_STORAGE_BIT);
+        glGenBuffers(1, &s_airPixelsSSBO);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * 2 * sizeof(AirPixel), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup air geo map SSBO
         glGenBuffers(1, &s_airGeoMapSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airGeoMapSSBO);
-        glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_maxAirPixels * sizeof(AirGeoMapElement), nullptr, GL_DYNAMIC_STORAGE_BIT);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, k_maxAirPixels * sizeof(AirGeoMapElement), nullptr, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup flag texture
@@ -523,7 +439,7 @@ namespace rld {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, s_texSize, s_texSize);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, k_size, k_size);
         uint clearcolor = 0;
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearcolor);
 
@@ -542,10 +458,6 @@ namespace rld {
     }
 
     void cleanup() {
-        if (k_persistentMapping) {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
-            glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-        }
         // TODO
     }
 
@@ -553,6 +465,7 @@ namespace rld {
         const Model & model,
         const mat4 & modelMat,
         const mat3 & normalMat,
+        float momentOfInertia,
         float windframeWidth,
         float windframeDepth,
         float windSpeed,
@@ -563,35 +476,41 @@ namespace rld {
         s_normalMat = normalMat;
         s_windframeWidth = windframeWidth;
         s_windframeDepth = windframeDepth;
-        s_sliceSize = s_windframeDepth / s_sliceCount;
+        s_sliceSize = s_windframeDepth / k_sliceCount;
         s_windSpeed = windSpeed;
         s_dt = s_sliceSize / s_windSpeed;
+        s_momentOfInertia = momentOfInertia;
         s_debug = debug;
     }
 
     bool step(bool isExternalCall) {
+        if (isExternalCall) {
+            setBindings();
+        }
+
         // Reset for new sweep
         if (s_currentSlice == 0) {
             resetConstants();
-            resetCounters(true);
-            clearTurbTex();
+            resetMutables();
             if (s_debug) clearSideTex();
-            s_lift = vec3();
-            s_drag = vec3();
-            s_torq = vec3();
+            s_sweepLift = vec3();
+            s_sweepDrag = vec3();
+            s_sweepTorque = vec3();
+            s_sliceLifts.clear();
+            s_sliceDrags.clear();
+            s_sliceTorques.clear();
             s_swap = 1;
         }
         
         s_swap = 1 - s_swap;
 
+        s_constants.swap = s_swap;
         s_constants.slice = s_currentSlice;
         s_constants.sliceZ = s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize;
+        s_mutables.geoCount = 0;
+        s_mutables.airCount[s_swap] = 0;
         uploadConstants();
-        resetCounters(false);
-
-        if (isExternalCall) setBindings();        
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO[s_swap]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);
+        uploadMutables();
 
         renderGeometry(); // Render geometry to fbo
         computeProspect(); // Scan fbo and generate geo pixels
@@ -600,12 +519,18 @@ namespace rld {
         computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
 
-        ++s_currentSlice;
+        downloadMutables();
+        vec3 lift(s_mutables.lift);
+        vec3 drag(s_mutables.drag);
+        vec3 torque(s_mutables.torque);
+        s_sweepLift += lift;
+        s_sweepDrag += drag;
+        s_sweepTorque += torque;
+        s_sliceLifts.push_back(lift);
+        s_sliceDrags.push_back(drag);
+        s_sliceTorques.push_back(torque);
 
-        // Was last slice
-        if (s_currentSlice >= s_sliceCount) {
-            downloadResults();
-
+        if (++s_currentSlice >= k_sliceCount) {
             s_currentSlice = 0;
             return true;
         }
@@ -624,31 +549,31 @@ namespace rld {
     }
 
     int sliceCount() {
-        return s_sliceCount;
+        return k_sliceCount;
     }
 
     const vec3 & lift() {
-        return s_lift;
+        return s_sweepLift;
     }
 
-    const vec3 * lifts() {
-        return s_lifts.data();
+    const vec3 & lift(int slice) {
+        return s_sliceLifts[slice];
     }
 
     const vec3 & drag() {
-        return s_drag;
+        return s_sweepDrag;
     }
 
-    const vec3 * drags() {
-        return s_drags.data();
+    const vec3 & drag(int slice) {
+        return s_sliceDrags[slice];
     }
 
     const vec3 & torque() {
-        return s_torq;
+        return s_sweepTorque;
     }
 
-    const vec3 * torques() {
-        return s_torqs.data();
+    const vec3 & torque(int slice) {
+        return s_sliceTorques[slice];
     }
 
     uint frontTex() {
@@ -659,12 +584,8 @@ namespace rld {
         return s_sideTex;
     }
 
-    uint turbulenceTex() {
-        return s_turbTex;
-    }
-
-    int texSize() {
-        return s_texSize;
+    int size() {
+        return k_size;
     }
 
 
