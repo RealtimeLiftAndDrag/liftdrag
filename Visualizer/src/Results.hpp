@@ -10,9 +10,9 @@ struct GLFWwindow;
 
 namespace Results {
 
-    struct Entry { vec3 lift, drag, torque; };
+    struct Entry { vec3 lift, drag, torq; };
 
-    bool setup(const std::string & resourcesDir);
+    bool setup(const std::string & resourcesDir, int sliceCount);
 
     void update();
 

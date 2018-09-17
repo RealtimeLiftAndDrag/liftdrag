@@ -68,6 +68,14 @@ namespace Util {
         return ss.str();
     }
 
+    // Formats the given vector into a string
+    static std::string vectorString(const vec3 & v, int precision) {
+        std::stringstream ss;
+        ss.precision(precision);
+        ss << "<" << v.x << " " << v.y << " " << v.z << ">";
+        return ss.str();
+    }
+
 
 
 }
