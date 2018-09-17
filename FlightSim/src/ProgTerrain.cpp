@@ -441,12 +441,12 @@ namespace ProgTerrain {
     void drawSkyBox(const mat4 &V, const mat4 &P, const vec3 &camPos) {
         float sangle = 3.1415926 / 2.;
 
-        mat4 RotateX = glm::rotate(glm::mat4(1.0f), sangle, glm::vec3(1.0f, 0.0f, 0.0f));
         vec3 camp = -camPos;
         mat4 TransXYZ = glm::translate(glm::mat4(1.0f), camp);
+        TransXYZ = glm::translate(TransXYZ, vec3(0, -0.2, 0));
         mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, 3.0f));
 
-        mat4 M = TransXYZ  * S;
+        mat4 M = TransXYZ * S;
 
 
         progSky->bind();
