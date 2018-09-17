@@ -39,7 +39,6 @@ const bool k_ignoreEdges = false;
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform  image2D u_fboImg;
-layout (binding = 1,    r8) uniform  image2D u_turbImg;
 layout (binding = 3,  r32i) uniform iimage2D u_flagImg;
 layout (binding = 4, rgba8) uniform  image2D u_sideImg;
 

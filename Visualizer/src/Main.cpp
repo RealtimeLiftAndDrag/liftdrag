@@ -58,7 +58,7 @@ static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static constexpr int k_simTexSize = 720;
 static constexpr int k_simSliceCount = 100;
-static constexpr float k_simLiftC = 0.2f;
+static constexpr float k_simLiftC = 1.0f;
 static constexpr float k_simDragC = 0.8f;
 
 static const std::string k_defResourceDir("../resources");

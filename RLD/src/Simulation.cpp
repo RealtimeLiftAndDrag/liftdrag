@@ -125,6 +125,7 @@ namespace rld {
     static uint s_fbo;
     static uint s_fboTex;
     static uint s_turbTex;
+    static uint s_prevTurbTex;
     static uint s_fboNormTex;
     static uint s_flagTex;
     static uint s_sideTex;
@@ -133,6 +134,7 @@ namespace rld {
     static uint s_outlineProg;
     static uint s_moveProg;
     static uint s_drawProg;
+    static uint s_drawTurbProg;
 
     static Result * s_resultsMappedPtr; // used for persistent mapping
 
@@ -218,6 +220,12 @@ namespace rld {
             std::cerr << "Failed to load draw shader" << std::endl;
             return false;
         }
+    
+        // Draw Turbulence Compute Shader
+        if (!(s_drawTurbProg = loadShader(shadersDir + "/sim_drawTurb.comp"))) {
+            std::cerr << "Failed to load draw turbulence shader" << std::endl;
+            return false;
+        }
 
         return true;
     }
@@ -231,7 +239,7 @@ namespace rld {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, s_texSize, s_texSize);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -244,16 +252,27 @@ namespace rld {
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, s_texSize / 4, s_texSize / 4);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, s_texSize / 4, s_texSize / 4);
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        //sideview texture
+        // New turbulence texture
+        glGenTextures(1, &s_prevTurbTex);
+        glBindTexture(GL_TEXTURE_2D, s_prevTurbTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, s_texSize / 4, s_texSize / 4);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Side texture
         glGenTextures(1, &s_sideTex);
         glBindTexture(GL_TEXTURE_2D, s_sideTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, s_texSize, s_texSize);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -264,7 +283,7 @@ namespace rld {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16_SNORM, s_texSize, s_texSize);
 
@@ -273,7 +292,7 @@ namespace rld {
         glGenRenderbuffers(1, &fboDepthRB);
         glBindRenderbuffer(GL_RENDERBUFFER, fboDepthRB);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, s_texSize, s_texSize);
-        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
         // Create FBO
         glGenFramebuffers(1, &s_fbo);
@@ -324,6 +343,13 @@ namespace rld {
         glUseProgram(s_drawProg);
     
         glDispatchCompute(1, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+    }
+
+    static void computeDrawTurb() {
+        glUseProgram(s_drawTurbProg);
+    
+        glDispatchCompute(1, 1, 1); // Must also tweak in shader
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
@@ -430,7 +456,7 @@ namespace rld {
 
     static void clearTurbTex() {
         u32 clearVal(0);
-        glClearTexImage(s_turbTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearVal);
+        glClearTexImage(s_turbTex, 0, GL_RED, GL_UNSIGNED_BYTE, &clearVal);
     }
 
     static void clearFlagTex() {
@@ -452,13 +478,14 @@ namespace rld {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, s_turbTex);
+        glBindTexture(GL_TEXTURE_2D, s_prevTurbTex);
 
-        glBindImageTexture(0,     s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
-        glBindImageTexture(1,    s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
-        glBindImageTexture(2, s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
-        glBindImageTexture(3,    s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,         GL_R32I);
-        glBindImageTexture(4,    s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);    
+        glBindImageTexture(0,      s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
+        glBindImageTexture(1,     s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(2,  s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
+        glBindImageTexture(3,     s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,         GL_R32I);
+        glBindImageTexture(4,     s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
+        glBindImageTexture(5, s_prevTurbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
     }
 
 
@@ -599,6 +626,7 @@ namespace rld {
         computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
         computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
+        if (s_debug) computeDrawTurb(); // visualize turbulence
 
         ++s_currentSlice;
 
