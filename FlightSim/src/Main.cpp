@@ -46,6 +46,7 @@ static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
 
 static const float k_timeScale(1.f);
+static const float k_thrust(.5f);
 
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
@@ -165,6 +166,7 @@ static bool setupModel(const std::string &resourceDir) {
     s_simObject->setMass(16769); //gross weight in kg pulled from wiki
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
+    s_simObject->setThrust(k_thrust);
 
     return true;
 }
@@ -302,14 +304,15 @@ static void render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     
-    vec3 combinedForce = vec3(0, 3.f, 0.5f);//rld::lift();// +rld::drag();
-    vec3 torque = vec3(0.05, 0, 0);//rld::torque();
-    s_simObject->addTranslationalForce(combinedForce);
+    vec3 combinedForce = vec3(0, 7.f, 0.5f);//rld::lift();// +rld::drag();
+    vec3 torque = vec3(0, 0.2, 0);//rld::torque();
+    //s_simObject->addTranslationalForce(combinedForce);
     //s_simObject->addAngularForce(torque);
     s_simObject->update();
+    s_simObject->pos.y = 20;
 
-    vec3 wind = -s_simObject->vel; //wind is equivalent to opposite direction/speed of velocity
-    mat4 windViewMatrix = getWindViewMatrix(-wind); //not sure why this needs to be negative. Works but still trying to figure out why
+    vec3 wind = -(s_simObject->vel + s_simObject->thrust_vel); //wind is equivalent to opposite direction/speed of velocity
+    mat4 windViewMatrix = getWindViewMatrix(-wind); //todo not sure why this needs to be negative. Works but still trying to figure out why
     mat4 simRotateMat = s_simObject->getRotate();
     mat4 simTranslateMat = s_simObject->getTranslate();
 
@@ -322,7 +325,7 @@ static void render() {
     std::cout << "sim rotate mat\n" << matrixToString(simRotateMat) << std::endl << std::endl;
     std::cout << "wind view matrix\n" << matrixToString(windViewMatrix) << std::endl << std::endl;
     std::cout << "s_model matrix\n" << matrixToString(s_modelMat) << std::endl << std::endl;
-    std::cout << "Final modelMat\n" << matrixToString(windViewMatrix * simRotateMat * s_modelMat) << std::endl << std::endl;
+    std::cout << "Final rld modelMat\n" << matrixToString(windViewMatrix * simRotateMat * s_modelMat) << std::endl << std::endl;
     //std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(1, 0, 0))) << std::endl << std::endl;
     std::cout << std::endl;
     
@@ -342,9 +345,10 @@ static void render() {
     modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
 
     projMat = getPerspectiveMatrix();
-    vec3 camPos = s_simObject->pos + vec3(0, 0, -17.5);
+    vec3 camOffset = vec3(vec4(0, 0, -17.5, 1) * glm::inverse(s_simObject->getRotate())); //todo not sure why i have to inverse this
+    vec3 camPos = s_simObject->pos + camOffset;
     viewMat = getViewMatrix(camPos);
-    ProgTerrain::render(viewMat, projMat, camPos);
+    ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
     glEnable(GL_DEPTH_TEST);
 
     s_phongProg->bind();

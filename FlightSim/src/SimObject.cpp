@@ -10,6 +10,8 @@ SimObject::SimObject() {
     vel = vec3(0);
     acc = vec3(0);
 
+    thrust_vel = vec3(0);
+
     a_pos = vec3(0);
     a_vel = vec3(0);
     a_acc = vec3(0);
@@ -35,6 +37,11 @@ void SimObject::update() {
     a_vel += a_acc;
     a_pos += a_vel;
 
+    if (thrust) {
+        thrust_vel = vec3(vec4(0, 0, thrust, 1) * getRotate());
+        pos += thrust_vel;
+    }
+
     acc = vec3(0);
     a_acc = vec3(0);
 
@@ -53,6 +60,11 @@ void SimObject::setMass(float _mass) {
 void SimObject::setTimeScale(float _timeScale)
 {
     timeScale = _timeScale;
+}
+
+void SimObject::setThrust(float _thrust)
+{
+    thrust = _thrust;
 }
 
 mat4 SimObject::getTranslate()
