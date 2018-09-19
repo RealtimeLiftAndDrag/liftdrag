@@ -27,7 +27,7 @@ void SimObject::addTranslationalForce(vec3 force) {
 }
 
 void SimObject::addAngularForce(vec3 force) {
-    a_acc += force / mass;
+    a_acc += force / 200000.f;
 }
 
 void SimObject::update() {

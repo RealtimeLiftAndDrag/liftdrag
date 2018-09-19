@@ -45,6 +45,11 @@ static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
 
+static constexpr int k_simTexSize = 720;
+static constexpr int k_simSliceCount = 100;
+static constexpr float k_simLiftC = 0.2f;
+static constexpr float k_simDragC = 0.8f;
+
 static const float k_timeScale(1.f);
 static const float k_thrust(.5f);
 
@@ -155,7 +160,7 @@ static bool setupModel(const std::string &resourceDir) {
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
 
     //send first rotation matrix and model to the rld
-    rld::set(*s_model, s_modelMat, s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
+    rld::set(*s_model, s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
 
     //setup simObject
     s_simObject = std::make_unique<SimObject>();
@@ -222,7 +227,7 @@ static bool setup() {
 
 
     // Setup simulation
-    if (!rld::setup(k_resourceDir)) {
+    if (!rld::setup(k_resourceDir, k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
@@ -239,11 +244,6 @@ static bool setup() {
         return false;
     }
 
-    //setup rld
-    if (!rld::setup(k_resourceDir)) {
-        std::cerr << "Failed to setup RLD" << std::endl;
-        return false;
-    }
 
     //setup progterrain
     ProgTerrain::init_shaders(k_resourceDir);
@@ -304,33 +304,33 @@ static void render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     
-    vec3 combinedForce = vec3(0, 7.f, 0.5f);//rld::lift();// +rld::drag();
-    vec3 torque = vec3(0, 0.2, 0);//rld::torque();
-    //s_simObject->addTranslationalForce(combinedForce);
-    //s_simObject->addAngularForce(torque);
-    s_simObject->update();
-    s_simObject->pos.y = 20;
-
+    
     vec3 wind = -(s_simObject->vel + s_simObject->thrust_vel); //wind is equivalent to opposite direction/speed of velocity
     mat4 windViewMatrix = getWindViewMatrix(-wind); //todo not sure why this needs to be negative. Works but still trying to figure out why
     mat4 simRotateMat = s_simObject->getRotate();
     mat4 simTranslateMat = s_simObject->getTranslate();
 
-    std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
-    std::cout << "torque: " << glm::to_string(torque) << std::endl;
-    std::cout << "time scale: " << k_timeScale << std::endl;
-    std::cout << "curPos: " << glm::to_string(s_simObject->pos) << std::endl;
-    std::cout << "curAngle: " << glm::to_string(s_simObject->a_pos) << std::endl;
-    std::cout << "Wind vector" << glm::to_string(wind) << std::endl;
-    std::cout << "sim rotate mat\n" << matrixToString(simRotateMat) << std::endl << std::endl;
-    std::cout << "wind view matrix\n" << matrixToString(windViewMatrix) << std::endl << std::endl;
-    std::cout << "s_model matrix\n" << matrixToString(s_modelMat) << std::endl << std::endl;
-    std::cout << "Final rld modelMat\n" << matrixToString(windViewMatrix * simRotateMat * s_modelMat) << std::endl << std::endl;
-    //std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(1, 0, 0))) << std::endl << std::endl;
-    std::cout << std::endl;
-    
-    rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_momentOfInertia, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
-    //rld::sweep(); //this mess ups the modelmat right now
+    //std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
+    //std::cout << "torque: " << glm::to_string(torque) << std::endl;
+    //std::cout << "time scale: " << k_timeScale << std::endl;
+    //std::cout << "curPos: " << glm::to_string(s_simObject->pos) << std::endl;
+    //std::cout << "curAngle: " << glm::to_string(s_simObject->a_pos) << std::endl;
+    //std::cout << "Wind vector" << glm::to_string(wind) << std::endl;
+    //std::cout << "sim rotate mat\n" << matrixToString(simRotateMat) << std::endl << std::endl;
+    //std::cout << "wind view matrix\n" << matrixToString(windViewMatrix) << std::endl << std::endl;
+    //std::cout << "s_model matrix\n" << matrixToString(s_modelMat) << std::endl << std::endl;
+    //std::cout << "Final rld modelMat\n" << matrixToString(windViewMatrix * simRotateMat * s_modelMat) << std::endl << std::endl;
+    ////std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(1, 0, 0))) << std::endl << std::endl;
+    //std::cout << std::endl;
+    //
+    rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
+    rld::sweep();
+    vec3 combinedForce = rld::lift()+rld::drag();
+    vec3 torque = rld::torque();
+    //s_simObject->addTranslationalForce(combinedForce);
+    //s_simObject->addAngularForce(torque);
+    s_simObject->update();
+    s_simObject->pos.y = 20;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 
     
