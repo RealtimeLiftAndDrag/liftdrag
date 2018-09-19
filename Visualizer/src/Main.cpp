@@ -12,9 +12,11 @@ extern "C" {
 
 // TODO: should average backforce when multiple geo pixels, or simply sum?
 // TODO: lift should be independent of the number of slices
-// TODO: world space, air space, and simulation space
+// TODO: world space, wind space, and simulation space
 // TODO: how far away should turbulence start? linear or squared air speed?
 // TODO: issue with using air velocity for drag
+
+// TODO: do copy texture function and implement distance for turbulence
 
 
 
@@ -54,9 +56,9 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::f18);
 
-static constexpr int k_simTexSize = 720;
+static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
 static constexpr float k_simLiftC = 1.0f;
 static constexpr float k_simDragC = 0.8f;
