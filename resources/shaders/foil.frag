@@ -24,15 +24,15 @@ layout (binding = 4, rgba8) uniform image2D u_sideImg;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
-    int u_swap;
     int u_maxGeoPixels;
     int u_maxAirPixels;
     int u_screenSize;
+    float u_liftC;
+    float u_dragC;
     float u_windframeSize;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
-    float u_momentOfInertia;
     int u_slice;
     float u_sliceZ;
     uint u_debug;
