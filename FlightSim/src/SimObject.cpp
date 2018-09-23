@@ -81,14 +81,3 @@ mat4 SimObject::getRotate()
     return R;
 }
 
-mat4 SimObject::getTransformRelativeTo(vec3 dir)
-{
-    
-    // 2. Calculate cameraDirection
-    glm::vec3 zaxis = glm::normalize(vec3(0, 0, 0) - dir);
-    // 3. Get positive right axis vector
-    glm::vec3 xaxis = vec3(1, 0, 0);
-    // 4. Calculate camera up vector
-    glm::vec3 yaxis = glm::cross(zaxis, xaxis);
-    return mat4();
-}

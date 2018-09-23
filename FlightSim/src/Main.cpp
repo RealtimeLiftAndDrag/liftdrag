@@ -41,6 +41,7 @@ public:
 
 };
 
+static const bool k_windDebug(true);
 static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
@@ -52,6 +53,7 @@ static constexpr float k_simDragC = 0.8f;
 
 static const float k_timeScale(1.f);
 static const float k_thrust(.5f);
+static const float k_thrustIncrease(.1f);
 
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
@@ -67,6 +69,7 @@ static float s_windSpeed;
 static float s_aileronAngle(0.0f);
 static float s_rudderAngle(0.0f);
 static float s_elevatorAngle(0.0f);
+static bool s_increaseThrust(false);
 
 static constexpr float k_minRudderAngle(-90.0f), k_maxRudderAngle(90.0f);
 static constexpr float k_minAileronAngle(-90.0f), k_maxAileronAngle(90.0f);
@@ -140,6 +143,10 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
     // If Q key is pressed, decrease aileron angle (i.e. roll ccw)
     else if (key == GLFW_KEY_Q && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         changeAileronAngle(-k_manualAngleIncrement);
+    }
+    //if space key is pressed, increase thrust
+    else if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+        s_increaseThrust = true;
     }
 }
 
@@ -310,6 +317,8 @@ static void render() {
     mat4 simRotateMat = s_simObject->getRotate();
     mat4 simTranslateMat = s_simObject->getTranslate();
 
+    vec3 camOffset = vec3(vec4(0, 0, -17.5, 1) * glm::inverse(s_simObject->getRotate())); //todo not sure why i have to inverse this
+    vec3 camPos = s_simObject->pos + camOffset;
     //std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
     //std::cout << "torque: " << glm::to_string(torque) << std::endl;
     //std::cout << "time scale: " << k_timeScale << std::endl;
@@ -325,10 +334,16 @@ static void render() {
     //
     rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
     rld::sweep();
-    vec3 combinedForce = rld::lift()+rld::drag();
+    vec3 lift = rld::lift();
+    vec3 drag = rld::drag();
+    vec3 combinedForce = lift+drag;
     vec3 torque = rld::torque();
     //s_simObject->addTranslationalForce(combinedForce);
-    //s_simObject->addAngularForce(torque);
+    s_simObject->addAngularForce(torque * 0.001f);
+    if (s_increaseThrust) {
+        s_simObject->setThrust(s_simObject->thrust + k_thrustIncrease);
+        s_increaseThrust = false;
+    }
     s_simObject->update();
     s_simObject->pos.y = 20;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
@@ -341,13 +356,17 @@ static void render() {
     normalMat = s_normalMat;
 
 
-    //modelMat = windViewMatrix * simRotateMat * modelMat; //what the wind sees (use for debugging)
-    modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
+    if (k_windDebug) {
+        modelMat = windViewMatrix * simRotateMat * modelMat; //what the wind sees (use for debugging)
+        viewMat = getViewMatrix(vec3(0, 0, -17.5));
+    }
+    else {
+        modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
+        viewMat = getViewMatrix(camPos);
+    }
 
     projMat = getPerspectiveMatrix();
-    vec3 camOffset = vec3(vec4(0, 0, -17.5, 1) * glm::inverse(s_simObject->getRotate())); //todo not sure why i have to inverse this
-    vec3 camPos = s_simObject->pos + camOffset;
-    viewMat = getViewMatrix(camPos);
+    
     ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
     glEnable(GL_DEPTH_TEST);
 
