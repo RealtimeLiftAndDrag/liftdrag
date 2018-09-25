@@ -278,7 +278,7 @@ void main() {
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
             float dist = distance(airWindPos, geoWindPos);
 
-            float area = pixelSize * u_sliceSize / sqrt(1.0f - geoNormal.z * geoNormal.z);
+            float area = pixelSize * u_sliceSize / max(sqrt(1.0f - geoNormal.z * geoNormal.z), 0.000001f); // TODO: fix this for horizontal normals
 
             // Calculate backforce
             vec2 thisBackforce = normalize(-geoNormal.xy) * dist * dist;// = dist*dist*a + dist*b + c;

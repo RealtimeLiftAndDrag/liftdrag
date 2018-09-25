@@ -57,7 +57,7 @@ static const std::string k_resourceDir("../resources");
 static constexpr int k_simTexSize = 720;
 static constexpr int k_simSliceCount = 100;
 static constexpr float k_simLiftC = 0.2f;
-static constexpr float k_simDragC = 0.8f;
+static constexpr float k_simDragC = 0.1f;
 
 static const float k_timeScale(1.f);
 static const float k_thrust(.5f);
@@ -187,6 +187,7 @@ static bool setupModel(const std::string &resourceDir) {
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
     s_simObject->setThrust(k_thrust);
+    s_simObject->pos.y = 30.f;
 
     return true;
 }
@@ -300,7 +301,7 @@ static mat4 getViewMatrix(vec3 camPos) {
 }
 
 static mat4 getWindViewMatrix(vec3 wind) {
-    vec3 up = glm::cross(wind, vec3(1, 0, 0));
+    vec3 up = vec3(0, 1, 0);//glm::cross(wind, vec3(1, 0, 0));
     return glm::lookAt(
         vec3(0, 0, 0), //camPos
         wind, //looking in the direction of the wind
@@ -317,13 +318,13 @@ static std::string matrixToString(mat4 m) {
 }
 
 static void render() {
-    glClearColor(0.1f, 0.1f, 0.1f, 1.f);
+    //glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
 
     vec3 wind = -(s_simObject->vel + s_simObject->thrust_vel); //wind is equivalent to opposite direction/speed of velocity
-    mat4 windViewMatrix = getWindViewMatrix(-wind); //todo not sure why this needs to be negative. Works but still trying to figure out why
+    mat4 windViewMatrix = getWindViewMatrix(wind); //todo not sure why this needs to be negative. Works but still trying to figure out why
     mat4 simRotateMat = s_simObject->getRotate();
     mat4 simTranslateMat = s_simObject->getTranslate();
 
@@ -343,19 +344,24 @@ static void render() {
     //std::cout << std::endl;
     //
     rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
     rld::sweep();
     vec3 lift = rld::lift();
     vec3 drag = rld::drag();
     vec3 combinedForce = lift + drag;
     vec3 torque = rld::torque();
-    //s_simObject->addTranslationalForce(combinedForce);
-    s_simObject->addAngularForce(torque * 0.001f);
+    std::cout << "lift: " << glm::to_string(lift) << std::endl;
+    std::cout << "drag: " << glm::to_string(drag) << std::endl;
+    std::cout << "torque: " << glm::to_string(torque) << std::endl << std::endl;
+    //s_simObject->addTranslationalForce(drag);
+    s_simObject->addAngularForce(torque * 0.01f);
     if (s_increaseThrust) {
         s_simObject->setThrust(s_simObject->thrust + k_thrustIncrease);
         s_increaseThrust = false;
     }
     s_simObject->update();
-    s_simObject->pos.y = 20;
+    //s_simObject->pos.y = 20;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 
 
@@ -368,16 +374,16 @@ static void render() {
 
     if (k_windDebug) {
         modelMat = windViewMatrix * simRotateMat * modelMat; //what the wind sees (use for debugging)
-        viewMat = getViewMatrix(vec3(0, 0, -17.5));
+        viewMat = glm::translate(mat4(), vec3(0, 0, -17.5));
     }
     else {
         modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
         viewMat = getViewMatrix(camPos);
+        projMat = getPerspectiveMatrix();
+        ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
     }
 
-    projMat = getPerspectiveMatrix();
 
-    ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
     glEnable(GL_DEPTH_TEST);
 
     s_phongProg->bind();
@@ -389,7 +395,6 @@ static void render() {
 
 
     //reset gl variables set to not mess up rld sim
-    glClearColor(0.f, 0.f, 0.f, 0.f);
     glDisable(GL_DEPTH_TEST);
 
 }
