@@ -110,12 +110,11 @@ class Graph : public UI::VerticalGroup {
     vec2 m_gridSize;
     bool m_isFocusX;
     float m_focusX;
-    bvec2 m_isLocked;
     shr<InnerComp> m_innerComp;
 
     public:
 
-    Graph(const std::string & title, const std::string & xLabel, const vec2 & viewMin, const vec2 & viewMax, const bvec2 & isLocked, const ivec2 & minPlotSize, const ivec2 & maxPlotSize);
+    Graph(const std::string & title, const std::string & xLabel, const vec2 & viewMin, const vec2 & viewMax, const ivec2 & minPlotSize, const ivec2 & maxPlotSize);
 
     void addCurve(const std::string & label, const vec3 & color, int maxNPoints);
 
@@ -128,7 +127,7 @@ class Graph : public UI::VerticalGroup {
 
     void setView(const vec2 & min, const vec2 & max);
 
-    void zoomView(float factor);
+    void zoomView(const vec2 & factor);
 
     void moveView(const vec2 & delta);
 

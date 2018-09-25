@@ -5,6 +5,7 @@
 
 #include "glad/glad.h"
 #include "GLSL.h"
+#include "GLFW/glfw3.h"
 #include "Program.h"
 #include "Util.hpp"
 
@@ -263,7 +264,10 @@ void Graph::PlotComp::render() const {
 void Graph::PlotComp::cursorPositionEvent(const ivec2 & pos, const ivec2 & delta) {
     if (UI::isMouseButtonPressed(0)) {
         vec2 factor((m_graph.m_viewMax - m_graph.m_viewMin) / vec2(m_size));
-        m_graph.moveView(-factor * vec2(delta));
+        m_graph.moveView(-factor * vec2(
+            UI::isKeyPressed(GLFW_KEY_LEFT_SHIFT) ? 0.0f : delta.x,
+            UI::isKeyPressed(GLFW_KEY_LEFT_CONTROL) ? 0.0f : delta.y
+        ));
     }
 
     float x(float(pos.x - m_position.x));
@@ -288,8 +292,10 @@ void Graph::PlotComp::scrollEvent(const ivec2 & delta) {
     vec2 a0(vec2(UI::cursorPosition() - (m_position + m_size / 2)) / vec2(m_size));
     vec2 prevViewSize(m_graph.m_viewMax - m_graph.m_viewMin);
 
-    if (delta.y < 0) m_graph.zoomView(k_zoomFactor);
-    else if (delta.y > 0) m_graph.zoomView(k_invZoomFactor);
+    vec2 factor(delta.y < 0 ? k_zoomFactor : delta.y > 0 ? k_invZoomFactor : 0.0f);
+    if (UI::isKeyPressed(GLFW_KEY_LEFT_SHIFT)) factor.x = 1.0f;
+    if (UI::isKeyPressed(GLFW_KEY_LEFT_CONTROL)) factor.y = 1.0f;
+    m_graph.zoomView(factor);
 
     vec2 viewSize(m_graph.m_viewMax - m_graph.m_viewMin);
     vec2 a1(a0 * viewSize / prevViewSize);
@@ -390,13 +396,12 @@ void Graph::InnerComp::updateGridText() {
 
 
 
-Graph::Graph(const std::string & title, const std::string & xLabel, const vec2 & viewMin, const vec2 & viewMax, const bvec2 & isLocked, const ivec2 & minPlotSize, const ivec2 & maxPlotSize) :
+Graph::Graph(const std::string & title, const std::string & xLabel, const vec2 & viewMin, const vec2 & viewMax, const ivec2 & minPlotSize, const ivec2 & maxPlotSize) :
     m_xLabel(xLabel),
     m_viewMin(viewMin), m_viewMax(viewMax),
     m_gridSize(detGridSize(m_viewMax.x - m_viewMin.x), detGridSize(m_viewMax.y - m_viewMin.y)),
     m_isFocusX(false),
     m_focusX(),
-    m_isLocked(isLocked),
     m_innerComp(new InnerComp(*this, minPlotSize, maxPlotSize))
 {
     add(m_innerComp);
@@ -434,20 +439,13 @@ void Graph::setView(const vec2 & min, const vec2 & max) {
     m_innerComp->m_isGridTextUpdateNeeded = true;
 }
 
-void Graph::zoomView(float factor) {
-    if (glm::all(m_isLocked)) {
-        return;
-    }
-
+void Graph::zoomView(const vec2 & factor) {
     vec2 viewSize(m_viewMax - m_viewMin);
     vec2 viewSizeDelta(viewSize * (factor - 1.0f));
-    if (m_isLocked.x) viewSizeDelta.x = 0.0f;
-    if (m_isLocked.y) viewSizeDelta.y = 0.0f;
     setView(m_viewMin - viewSizeDelta * 0.5f, m_viewMax + viewSizeDelta * 0.5f);
 }
 
-void Graph::moveView(const vec2 & delta_) {
-    vec2 delta(m_isLocked.x ? 0.0f : delta_.x, m_isLocked.y ? 0.0f : delta_.y);
+void Graph::moveView(const vec2 & delta) {
     setView(m_viewMin + delta, m_viewMax + delta);
 }
 
