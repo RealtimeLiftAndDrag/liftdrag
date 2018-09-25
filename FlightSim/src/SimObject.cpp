@@ -23,7 +23,7 @@ mat4 SimObject::getTransform() {
 }
 
 void SimObject::addTranslationalForce(vec3 force) {
-    acc += (force / mass) * timeScale;
+    acc += (force / mass);
 }
 
 void SimObject::addAngularForce(vec3 force) {
@@ -32,23 +32,18 @@ void SimObject::addAngularForce(vec3 force) {
     a_acc.z += force.z / 26696229.2;
 }
 
-void SimObject::update() {
-    vel += acc;
+void SimObject::update(float frametime) {
+    vel += acc * frametime;
     pos += vel;
 
-    a_vel += a_acc;
+    a_vel += a_acc * frametime;
     a_pos += a_vel;
-
-    if (thrust) {
-        thrust_vel = vec3(vec4(0, 0, thrust, 1) * getRotate());
-        pos += thrust_vel;
-    }
 
     acc = vec3(0);
     a_acc = vec3(0);
 
     if (gravityOn)
-        acc += vec3(0, -9.8, 0);
+        acc += vec3(0, -9.8, 0) * frametime;
 }
 
 void SimObject::setGravityOn(bool _gravityOn) {

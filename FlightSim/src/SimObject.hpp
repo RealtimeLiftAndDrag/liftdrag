@@ -20,7 +20,7 @@ public:
     mat4 getTransform();
     void addTranslationalForce(vec3 force);
     void addAngularForce(vec3 force);
-    void update();
+    void update(float time);
     void setGravityOn(bool _gravityOn);
     void setMass(float _mass);
     void setTimeScale(float _timeScale);

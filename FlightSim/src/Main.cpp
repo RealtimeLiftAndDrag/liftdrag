@@ -188,6 +188,7 @@ static bool setupModel(const std::string &resourceDir) {
     s_simObject->setTimeScale(k_timeScale);
     s_simObject->setThrust(k_thrust);
     s_simObject->pos.y = 30.f;
+    s_simObject->vel.z = 20.f;
 
     return true;
 }
@@ -317,7 +318,7 @@ static std::string matrixToString(mat4 m) {
     return mString;
 }
 
-static void render() {
+static void render(float frametime) {
     //glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -360,7 +361,7 @@ static void render() {
         s_simObject->setThrust(s_simObject->thrust + k_thrustIncrease);
         s_increaseThrust = false;
     }
-    s_simObject->update();
+    s_simObject->update(frametime);
     //s_simObject->pos.y = 20;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 
@@ -488,7 +489,7 @@ int main(int argc, char ** argv) {
         glfwPollEvents();
 
         // TODO
-        render();
+        render(frametime);
         glfwSwapBuffers(s_window);
         process_stick(frametime);
     }
