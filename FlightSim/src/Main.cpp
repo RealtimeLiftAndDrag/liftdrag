@@ -33,6 +33,14 @@ extern "C" {
 #include "SimObject.hpp"
 #include "ProgTerrain.hpp"
 
+#include "xboxcontroller.h"
+
+#define PI 3.1415926
+#define PIH 3.1415926/2.
+#define PIQ 3.1415926/4.
+
+CXBOXController XBOXController(1);
+
 class MainUIC : public UI::VerticalGroup {
 
 public:
@@ -41,7 +49,7 @@ public:
 
 };
 
-static const bool k_windDebug(true);
+static const bool k_windDebug(false);
 static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
@@ -204,6 +212,8 @@ static bool setupShader(const std::string & resourcesDir) {
 
 
 static bool setup() {
+    if (XBOXController.IsConnected())
+        std::cout << "xbos controller connected" << std::endl;
     // Setup window
     glfwSetErrorCallback(errorCallback);
     if (!glfwInit()) {
@@ -310,8 +320,8 @@ static void render() {
     glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    
-    
+
+
     vec3 wind = -(s_simObject->vel + s_simObject->thrust_vel); //wind is equivalent to opposite direction/speed of velocity
     mat4 windViewMatrix = getWindViewMatrix(-wind); //todo not sure why this needs to be negative. Works but still trying to figure out why
     mat4 simRotateMat = s_simObject->getRotate();
@@ -336,7 +346,7 @@ static void render() {
     rld::sweep();
     vec3 lift = rld::lift();
     vec3 drag = rld::drag();
-    vec3 combinedForce = lift+drag;
+    vec3 combinedForce = lift + drag;
     vec3 torque = rld::torque();
     //s_simObject->addTranslationalForce(combinedForce);
     s_simObject->addAngularForce(torque * 0.001f);
@@ -348,7 +358,7 @@ static void render() {
     s_simObject->pos.y = 20;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 
-    
+
     mat4 modelMat, normalMat;
     mat4 projMat, viewMat;
 
@@ -366,7 +376,7 @@ static void render() {
     }
 
     projMat = getPerspectiveMatrix();
-    
+
     ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
     glEnable(GL_DEPTH_TEST);
 
@@ -384,6 +394,82 @@ static void render() {
 
 }
 
+void process_stick(double frametime)
+{
+
+    float maxrudderspeed = 2 * frametime;
+
+    /*   s_aileronAngle(0.0f);
+    static float s_rudderAngle(0.0f);
+    static float s_elevatorAngle(0.0f);*/
+    SHORT lx = XBOXController.GetState().Gamepad.sThumbLX;
+    SHORT ly = XBOXController.GetState().Gamepad.sThumbLY;
+
+    SHORT rx = XBOXController.GetState().Gamepad.sThumbRX;
+
+
+    float angle_r = 0.0, angle_x = 0.0, angle_y = 0.0;
+    if (abs(ly) > 3000)
+    {
+        angle_x = ((float)ly / 32768.0) * PIQ;
+
+    }
+    if (abs(lx) > 3000)
+    {
+        angle_y = ((float)lx / 32768.0) * PIQ;
+    }
+    if (abs(rx) > 3000)
+    {
+        angle_r = ((float)rx / 32768.0) * PIQ;
+    }
+
+
+
+    float delta_r = angle_r - s_rudderAngle;
+    if (delta_r > maxrudderspeed)   delta_r = maxrudderspeed;
+    if (delta_r < (-maxrudderspeed)) delta_r = -maxrudderspeed;
+    float delta_x = angle_x - s_elevatorAngle;
+    if (delta_x > maxrudderspeed)   delta_x = maxrudderspeed;
+    if (delta_x < (-maxrudderspeed)) delta_x = -maxrudderspeed;
+    float delta_y = angle_y - s_aileronAngle;
+    if (delta_y > maxrudderspeed)   delta_y = maxrudderspeed;
+    if (delta_y < (-maxrudderspeed)) delta_y = -maxrudderspeed;
+
+
+
+    s_rudderAngle += delta_r;
+    mat4 modelMat(glm::rotate(mat4(), s_rudderAngle, vec3(0.0f, 1.0f, 0.0f)));
+    mat3 normalMat(modelMat);
+    s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
+    s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
+
+
+    s_elevatorAngle += delta_x;
+
+    modelMat = (glm::rotate(mat4(), s_elevatorAngle, vec3(1.0f, 0.0f, 0.0f)));
+    normalMat = (modelMat);
+    s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
+    s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
+
+    s_aileronAngle += delta_y;
+    modelMat = glm::rotate(mat4(), s_aileronAngle, vec3(1.0f, 0.0f, 0.0f));
+    normalMat = modelMat;
+    s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
+    modelMat = glm::rotate(mat4(), -s_aileronAngle, vec3(1.0f, 0.0f, 0.0f));
+    normalMat = modelMat;
+    s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
+
+}
+
+double get_last_elapsed_time()
+{
+    static double lasttime = glfwGetTime();
+    double actualtime = glfwGetTime();
+    double difference = actualtime - lasttime;
+    lasttime = actualtime;
+    return difference;
+}
+
 
 
 int main(int argc, char ** argv) {
@@ -393,11 +479,13 @@ int main(int argc, char ** argv) {
     }
 
     while (!glfwWindowShouldClose(s_window)) {
+        double frametime = get_last_elapsed_time();
         glfwPollEvents();
 
         // TODO
         render();
         glfwSwapBuffers(s_window);
+        process_stick(frametime);
     }
 
     cleanup();

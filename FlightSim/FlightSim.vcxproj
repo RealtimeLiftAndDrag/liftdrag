@@ -158,6 +158,7 @@
     <ClInclude Include="src\ProgTerrain.hpp" />
     <ClInclude Include="src\SimObject.hpp" />
     <ClInclude Include="src\stb_image.h" />
+    <ClInclude Include="src\xboxcontroller.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
