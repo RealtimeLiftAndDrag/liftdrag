@@ -10,12 +10,9 @@ SimObject::SimObject() {
     vel = vec3(0);
     acc = vec3(0);
 
-    thrust_vel = vec3(0);
-
     a_pos = vec3(0);
     a_vel = vec3(0);
     a_acc = vec3(0);
-
 }
 
 mat4 SimObject::getTransform() {
@@ -32,18 +29,30 @@ void SimObject::addAngularForce(vec3 force) {
     a_acc.z += force.z / 26696229.2;
 }
 
+void SimObject::applyThrust() {
+	if (thrust < 0.01) {
+		thrustVal = 0;
+		return;
+	}
+	thrustVal = thrust * maxThrust; //maxThrust is in Newtons
+	vec3 thrustForce = vec3(vec4(0, 0, thrustVal, 1) * getRotate());
+	addTranslationalForce(thrustForce);
+}
+
 void SimObject::update(float frametime) {
-    vel += acc * frametime;
-    pos += vel;
+	applyThrust();
+
+	vel += acc * frametime;
+    pos += vel * frametime;
 
     a_vel += a_acc * frametime;
-    a_pos += a_vel;
+    a_pos += a_vel * frametime;
 
     acc = vec3(0);
     a_acc = vec3(0);
 
     if (gravityOn)
-        acc += vec3(0, -9.8, 0) * frametime;
+        acc += vec3(0, -9.8, 0);
 }
 
 void SimObject::setGravityOn(bool _gravityOn) {
@@ -54,14 +63,14 @@ void SimObject::setMass(float _mass) {
     mass = _mass;
 }
 
+void SimObject::setMaxThrust(float _maxThrust)
+{
+	maxThrust = _maxThrust;
+}
+
 void SimObject::setTimeScale(float _timeScale)
 {
     timeScale = _timeScale;
-}
-
-void SimObject::setThrust(float _thrust)
-{
-    thrust = _thrust;
 }
 
 mat4 SimObject::getTranslate()
@@ -76,5 +85,10 @@ mat4 SimObject::getRotate()
     R = glm::rotate(R, a_pos.y, vec3(0, 1, 0));
     R = glm::rotate(R, a_pos.z, vec3(0, 0, 1));
     return R;
+}
+
+float SimObject::getThrustVal()
+{
+	return thrustVal;
 }
 

@@ -170,7 +170,6 @@ static bool setupModel(const std::string &resourceDir) {
     s_momentOfInertia = 1.0f;
     s_windframeWidth = 14.5f;
     s_windframeDepth = 22.0f;
-    s_windSpeed = 10.0f;
 
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
 
@@ -183,10 +182,10 @@ static bool setupModel(const std::string &resourceDir) {
         std::cerr << "Failed to create sim object" << std::endl;
         return false;
     }
-    s_simObject->setMass(16769); //gross weight in kg pulled from wiki
+	s_simObject->setMass(16769); //gross weight in kg pulled from wiki
+	s_simObject->setMaxThrust(62.3 * 1000.f * 2.f); //dry thrust from wiki without afterburner (62.3kN per enginer)
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
-    s_simObject->setThrust(k_thrust);
     s_simObject->pos.y = 30.f;
     s_simObject->vel.z = 20.f;
 
@@ -324,8 +323,9 @@ static void render(float frametime) {
 
 
 
-    vec3 wind = -(s_simObject->vel + s_simObject->thrust_vel); //wind is equivalent to opposite direction/speed of velocity
-    mat4 windViewMatrix = getWindViewMatrix(wind); //todo not sure why this needs to be negative. Works but still trying to figure out why
+    vec3 wind = -(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
+	s_windSpeed = length(s_simObject->vel);
+	mat4 windViewMatrix = getWindViewMatrix(wind); //todo not sure why this needs to be negative. Works but still trying to figure out why
     mat4 simRotateMat = s_simObject->getRotate();
     mat4 simTranslateMat = s_simObject->getTranslate();
 
@@ -354,15 +354,12 @@ static void render(float frametime) {
     vec3 torque = rld::torque();
     std::cout << "lift: " << glm::to_string(lift) << std::endl;
     std::cout << "drag: " << glm::to_string(drag) << std::endl;
-    std::cout << "torque: " << glm::to_string(torque) << std::endl << std::endl;
-    //s_simObject->addTranslationalForce(drag);
-    s_simObject->addAngularForce(torque * 0.01f);
-    if (s_increaseThrust) {
-        s_simObject->setThrust(s_simObject->thrust + k_thrustIncrease);
-        s_increaseThrust = false;
-    }
+	std::cout << "torque: " << glm::to_string(torque) << std::endl;
+	std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
+	std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
+    s_simObject->addTranslationalForce(combinedForce);
+    s_simObject->addAngularForce(torque);
     s_simObject->update(frametime);
-    //s_simObject->pos.y = 20;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 
 
@@ -412,7 +409,7 @@ void process_stick(double frametime)
     SHORT ly = XBOXController.GetState().Gamepad.sThumbLY;
 
     SHORT rx = XBOXController.GetState().Gamepad.sThumbRX;
-
+	SHORT rsh = XBOXController.GetState().Gamepad.bRightTrigger;
 
     float angle_r = 0.0, angle_x = 0.0, angle_y = 0.0;
     if (abs(ly) > 3000)
@@ -428,6 +425,9 @@ void process_stick(double frametime)
     {
         angle_r = ((float)rx / 32768.0) * PIQ;
     }
+
+	s_simObject->thrust = rsh / 255.f;
+	
 
 
 
