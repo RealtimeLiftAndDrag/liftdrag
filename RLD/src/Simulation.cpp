@@ -126,6 +126,7 @@ namespace rld {
     static uint s_fboTex;
     static uint s_turbTex;
     static uint s_prevTurbTex;
+    static uint s_shadTex;
     static uint s_fboNormTex;
     static uint s_flagTex;
     static uint s_sideTex;
@@ -134,7 +135,7 @@ namespace rld {
     static uint s_outlineProg;
     static uint s_moveProg;
     static uint s_drawProg;
-    static uint s_drawTurbProg;
+    static uint s_prettyProg;
 
     static Result * s_resultsMappedPtr; // used for persistent mapping
 
@@ -222,8 +223,8 @@ namespace rld {
         }
     
         // Draw Turbulence Compute Shader
-        if (!(s_drawTurbProg = loadShader(shadersDir + "/sim_drawTurb.comp"))) {
-            std::cerr << "Failed to load draw turbulence shader" << std::endl;
+        if (!(s_prettyProg = loadShader(shadersDir + "/sim_pretty.comp"))) {
+            std::cerr << "Failed to load pretty shader" << std::endl;
             return false;
         }
 
@@ -255,9 +256,20 @@ namespace rld {
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, s_texSize / 4, s_texSize / 4);
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        // New turbulence texture
+        // Previous turbulence texture
         glGenTextures(1, &s_prevTurbTex);
         glBindTexture(GL_TEXTURE_2D, s_prevTurbTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, s_texSize / 4, s_texSize / 4);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Wind shadow texture
+        glGenTextures(1, &s_shadTex);
+        glBindTexture(GL_TEXTURE_2D, s_shadTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
@@ -346,8 +358,8 @@ namespace rld {
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
-    static void computeDrawTurb() {
-        glUseProgram(s_drawTurbProg);
+    static void computePretty() {
+        glUseProgram(s_prettyProg);
     
         glDispatchCompute(1, 1, 1); // Must also tweak in shader
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
@@ -455,37 +467,47 @@ namespace rld {
     }
 
     static void clearTurbTex() {
-        u32 clearVal(0);
-        glClearTexImage(s_turbTex, 0, GL_RED, GL_UNSIGNED_BYTE, &clearVal);
+        u08 clearVal[4]{};
+        glClearTexImage(s_turbTex, 0, GL_RED, GL_UNSIGNED_BYTE, clearVal);
+    }
+
+    static void clearShadTex() {
+        u08 clearVal[4]{};
+        glClearTexImage(s_shadTex, 0, GL_RED, GL_UNSIGNED_BYTE, clearVal);
     }
 
     static void clearFlagTex() {
-        int clearVal(0);
+        s32 clearVal(0);
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearVal);
     }
 
     static void clearSideTex() {
         u08 clearVal[4]{};
-        glClearTexImage(s_sideTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearVal);
+        glClearTexImage(s_sideTex, 0, GL_RGBA, GL_UNSIGNED_BYTE, clearVal);
     }
 
     static void setBindings() {
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, s_constantsUBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_geoPixelsSSBO);
-        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO[s_swap]);
-        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);
+        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO[s_swap]);       // done in step
+        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);   // done in step
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, s_prevTurbTex);
-
         glBindImageTexture(0,      s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
-        glBindImageTexture(1,     s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
-        glBindImageTexture(2,  s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
-        glBindImageTexture(3,     s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,         GL_R32I);
-        glBindImageTexture(4,     s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
-        glBindImageTexture(5, s_prevTurbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(1,  s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
+        glBindImageTexture(2,     s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,         GL_R32I);
+        glBindImageTexture(3,     s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(4, s_prevTurbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(5,     s_shadTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(6,     s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, s_turbTex);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, s_prevTurbTex);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, s_shadTex);
     }
 
 
@@ -602,6 +624,7 @@ namespace rld {
             resetConstants();
             resetCounters(true);
             clearTurbTex();
+            clearShadTex();
             if (s_debug) clearSideTex();
             s_lift = vec3();
             s_drag = vec3();
@@ -626,7 +649,7 @@ namespace rld {
         computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
         computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
-        if (s_debug) computeDrawTurb(); // visualize turbulence
+        if (s_debug) computePretty(); // transforms the contents of the fbo, turb, and shad textures into a comprehensible front and side view
 
         ++s_currentSlice;
 

@@ -45,14 +45,15 @@ const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
 const bool k_ignoreEdges = false;
 
+float k_airDensity = 1.0f;
+
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform  image2D u_fboImg;
-layout (binding = 1,    r8) uniform  image2D u_turbImg;
-layout (binding = 3,  r32i) uniform iimage2D u_flagImg;
-layout (binding = 4, rgba8) uniform  image2D u_sideImg;
+layout (binding = 2,  r32i) uniform iimage2D u_flagImg;
+layout (binding = 3,    r8) uniform  image2D u_turbImg;
 
-layout (binding = 0) uniform sampler2D u_prevTurbTex;
+layout (binding = 1) uniform sampler2D u_prevTurbTex;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -102,6 +103,10 @@ layout (binding = 4, std430) restrict buffer Results {
     Result u_results[];
 };
 
+// Shared ----------------------------------------------------------------------
+
+shared vec3 accumulationArray[gl_WorkGroupSize.x];
+
 // Functions -------------------------------------------------------------------
 
 vec2 windToScreen(vec2 wind) {
@@ -121,15 +126,29 @@ bool isWindTurbulent(vec2 windPos) {
 }
 
 void setScreenTurbulent(vec2 screenPos) {
-    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(0.5f, 0.0f, 0.0f, 0.0f));    
+    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(1.0f, 0.0f, 0.0f, 0.0f));    
 }
 
 void setWindTurbulent(vec2 windPos) {
     setScreenTurbulent(windToScreen(windPos));
 }
 
+void accumulate() {
+    uint workI = gl_LocalInvocationID.x;
+    for (uint n = gl_WorkGroupSize.x / 2; n > 0; n /= 2) {
+        barrier();
+        if (workI < n) accumulationArray[workI] += accumulationArray[workI + n];
+    }
+}
+
 void main() {
     int workI = int(gl_LocalInvocationID.x);
+
+    float pixelArea = screenToWindDist(1.0f);
+    pixelArea *= pixelArea;
+
+    vec3 totalDrag = vec3(0.0f);
+    vec3 totalTorq = vec3(0.0f);
 
     for (int geoI = workI; geoI < u_geoCount; geoI += int(gl_WorkGroupSize.x)) {
 
@@ -259,6 +278,17 @@ void main() {
                 color.g = k_inactiveVal;
                 imageStore(u_fboImg, geoTexCoord, color);
             }
+
+            // Calculate drag
+            float dragFactor = 0.5f * k_airDensity * u_windSpeed * u_windSpeed * pixelArea; // the area "angle" and dot product cancel out
+            dragFactor *= u_dragC;
+            vec3 drag = -geoNormal * dragFactor;
+
+            // Calculate torque
+            vec3 torq = cross(vec3(geoWindPos, u_sliceZ), drag); // TODO: is this right
+
+            totalDrag += drag;
+            totalTorq += torq;
         }
 
         // Color active geo pixels more brightly
@@ -266,14 +296,23 @@ void main() {
             vec4 color = imageLoad(u_fboImg, geoTexCoord);
             color.r = 1.0f;
             imageStore(u_fboImg, geoTexCoord, color);
-
-            if (!k_ignoreEdges || abs(geoWindPos.x) <= 0.5f) {
-                ivec2 sideTexCoord = ivec2(windToScreen(vec2(u_sliceZ, geoWindPos.y)));
-                sideTexCoord.y = geoTexCoord.y;
-                color = imageLoad(u_sideImg, sideTexCoord);
-                color.r = 1.0f;
-                imageStore(u_sideImg, sideTexCoord, color);
-            }
         }
     }
+
+    // Zero results
+    if (workI == 0) {
+        u_results[u_slice].lift = vec4(0.0f);
+        u_results[u_slice].drag = vec4(0.0f);
+        u_results[u_slice].torq = vec4(0.0f);
+    }
+
+    // Accumulate drag
+    accumulationArray[workI] = totalDrag;
+    accumulate();
+    if (workI == 0) u_results[u_slice].drag.xyz += accumulationArray[0];
+    
+    // Accumulate torque
+    accumulationArray[workI] = totalTorq;
+    accumulate();
+    if (workI == 0) u_results[u_slice].torq.xyz += accumulationArray[0];
 }
