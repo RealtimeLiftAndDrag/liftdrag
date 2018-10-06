@@ -15,6 +15,8 @@ extern "C" {
 // TODO: how far away should turbulence start? linear or squared air speed?
 // TODO: front-facing drag only on outline??
 
+// TODO: do copy texture function and implement distance for turbulence
+
 
 
 #include <iostream>
@@ -53,7 +55,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::f18);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
