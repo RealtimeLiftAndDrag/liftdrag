@@ -20,7 +20,7 @@ layout (location = 1) out vec4 out_norm;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 4, rgba8) uniform image2D u_sideImg;
+layout (binding = 6, rgba8) uniform image2D u_sideImg;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -55,6 +55,6 @@ void main() {
     // Side View
     if (bool(u_debug)) {
         vec2 sideTexPos = windToScreen(vec2(-in_pos.z, in_pos.y));
-        imageStore(u_sideImg, ivec2(sideTexPos), vec4(k_inactiveVal, 0.0f, 0.0f, 0.0f));
+        imageStore(u_sideImg, ivec2(sideTexPos), vec4(vec3(k_inactiveVal * 0.5f), 0.0f));
     }
 }

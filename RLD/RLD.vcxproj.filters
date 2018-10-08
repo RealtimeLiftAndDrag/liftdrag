@@ -31,7 +31,7 @@
     <None Include="..\resources\shaders\sim_prospect.comp">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\resources\shaders\sim_drawTurb.comp">
+    <None Include="..\resources\shaders\sim_pretty.comp">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

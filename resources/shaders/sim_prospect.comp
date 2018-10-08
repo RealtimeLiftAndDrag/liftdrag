@@ -33,10 +33,11 @@ struct AirGeoMapElement {
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 0, rgba8) uniform image2D u_fboImg;
-layout (binding = 1,    r8) uniform image2D u_turbImg;
-layout (binding = 5,    r8) uniform image2D u_prevTurbImg;
-layout (binding = 2, rgba16_snorm) uniform image2D u_fboNormImg;
+layout (binding = 0,        rgba8) uniform image2D u_fboImg;
+layout (binding = 1, rgba16_snorm) uniform image2D u_fboNormImg;
+layout (binding = 3,           r8) uniform image2D u_turbImg;
+layout (binding = 4,           r8) uniform image2D u_prevTurbImg;
+layout (binding = 5,           r8) uniform image2D u_shadImg;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -124,6 +125,16 @@ void main() {
 
     vec2 geoWindPos = screenToWind(vec2(texCoord) + color.gb);
     vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
+
+    // TODO: race condition here that may or may not be a problem
+    // Set wind shadow
+    if (geoNormal.z < 0.0f) {
+        imageStore(u_shadImg, texCoord / 4, vec4(1.0f, 0.0f, 0.0f, 0.0f));
+    }
+    // Remove wind shadow
+    else {
+        imageStore(u_shadImg, texCoord / 4, vec4(0.0f, 0.0f, 0.0f, 0.0f));        
+    }
 
     ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
     vec4 nextColor = imageLoad(u_fboImg, nextTexCoord);
