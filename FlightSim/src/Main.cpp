@@ -52,10 +52,10 @@ static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
 
-static constexpr int k_simTexSize = 720;
-static constexpr int k_simSliceCount = 100;
-static constexpr float k_simLiftC = 0.2f;
-static constexpr float k_simDragC = 0.1f;
+static constexpr int k_simTexSize(720);
+static constexpr int k_simSliceCount(100);
+static constexpr float k_simLiftC(0.2f);
+static constexpr float k_simDragC(0.1f);
 
 static const float k_timeScale(1.0f);
 static const float k_thrust(0.5f);
@@ -99,7 +99,6 @@ static void changeRudderAngle(float deltaAngle) {
     mat3 normalMat(modelMat);
     s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
     s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
-
 }
 
 static void changeAileronAngle(float deltaAngle) {
