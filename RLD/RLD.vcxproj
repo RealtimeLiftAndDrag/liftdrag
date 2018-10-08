@@ -30,6 +30,7 @@
     <None Include="..\resources\shaders\sim_move.comp" />
     <None Include="..\resources\shaders\sim_outline.comp" />
     <None Include="..\resources\shaders\sim_prospect.comp" />
+    <None Include="..\resources\shaders\sim_pretty.comp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Simulation.cpp" />

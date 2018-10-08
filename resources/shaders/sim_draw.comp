@@ -39,9 +39,7 @@ const bool k_ignoreEdges = false;
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform  image2D u_fboImg;
-layout (binding = 1,    r8) uniform  image2D u_turbImg;
-layout (binding = 3,  r32i) uniform iimage2D u_flagImg;
-layout (binding = 4, rgba8) uniform  image2D u_sideImg;
+layout (binding = 2,  r32i) uniform iimage2D u_flagImg;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -103,7 +101,6 @@ void main() {
     for (int prevAirI = workI; prevAirI < u_prevAirCount; prevAirI += int(gl_WorkGroupSize.x)) {
 
         vec2 windPos = u_prevAirPixels[prevAirI].windPos;
-        //float turbulence = u_airPixels[prevAirI].windPos.w;
         
         ivec2 texCoord = ivec2(windToScreen(windPos.xy));
         ivec2 sideTexCoord;
@@ -134,15 +131,6 @@ void main() {
         
         // Draw to front view
         color.g = k_inactiveVal;
-        //color.b = turbulence;
         imageStore(u_fboImg, texCoord, color);
-
-        // Draw to side view
-        if (bool(u_debug) && (!k_ignoreEdges || abs(windPos.x) <= 0.5f)) {
-            color = imageLoad(u_sideImg, sideTexCoord);
-            color.g = k_inactiveVal;
-            //color.b = turbulence;
-            imageStore(u_sideImg, sideTexCoord, color);
-        }
     }        
 }
