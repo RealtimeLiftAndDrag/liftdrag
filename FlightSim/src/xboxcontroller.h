@@ -3,7 +3,9 @@
 #define _XBOX_CONTROLLER_H_
 
 // No MFC
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 
 // We need the Windows Header and the XInput Header
 #include <windows.h>
