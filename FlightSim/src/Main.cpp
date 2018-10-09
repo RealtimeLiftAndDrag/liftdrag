@@ -166,7 +166,8 @@ static bool setupModel(const std::string &resourceDir) {
         return false;
     }
 
-    s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f));
+    s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)); //upside down at first
+	s_modelMat = s_modelMat * glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)); //upside down at first
     s_momentOfInertia = 1.0f;
     s_windframeWidth = 14.5f;
     s_windframeDepth = 22.0f;
@@ -186,8 +187,9 @@ static bool setupModel(const std::string &resourceDir) {
 	s_simObject->setMaxThrust(62.3 * 1000.f * 2.f); //dry thrust from wiki without afterburner (62.3kN per enginer)
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
-    s_simObject->pos.y = 30.f;
-    s_simObject->vel.z = 20.f;
+	//todo
+    //s_simObject->pos.y = 30.f;
+    //s_simObject->vel.z = 30.f;
 
     return true;
 }
@@ -301,10 +303,10 @@ static mat4 getViewMatrix(vec3 camPos) {
 }
 
 static mat4 getWindViewMatrix(vec3 wind) {
-    vec3 up = vec3(0, 1, 0);//glm::cross(wind, vec3(1, 0, 0));
+    vec3 up = glm::cross(wind, vec3(-1, 0, 0));
     return glm::lookAt(
         vec3(0, 0, 0), //camPos
-        wind, //looking in the direction of the wind
+        -wind, //looking in the direction of the wind
         up //don't care about roll so just determined above by cross product of wind and left vector
     );
 }
@@ -323,44 +325,46 @@ static void render(float frametime) {
 
 
 
-    vec3 wind = -(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
+	vec3 wind = vec3(0, 0, -10.f);//(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
 	s_windSpeed = length(s_simObject->vel);
 	mat4 windViewMatrix = getWindViewMatrix(wind); //todo not sure why this needs to be negative. Works but still trying to figure out why
     mat4 simRotateMat = s_simObject->getRotate();
-    mat4 simTranslateMat = s_simObject->getTranslate();
+    //mat4 simTranslateMat = s_simObject->getTranslate();
 
-    vec3 camOffset = vec3(vec4(0, 0, -17.5, 1) * glm::inverse(s_simObject->getRotate())); //todo not sure why i have to inverse this
+    vec3 camOffset = vec3(vec4(0, 0, 17.5, 1) * glm::inverse(s_simObject->getRotate())); //todo not sure why i have to inverse this
     vec3 camPos = s_simObject->pos + camOffset;
     //std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
     //std::cout << "torque: " << glm::to_string(torque) << std::endl;
     //std::cout << "time scale: " << k_timeScale << std::endl;
     //std::cout << "curPos: " << glm::to_string(s_simObject->pos) << std::endl;
     //std::cout << "curAngle: " << glm::to_string(s_simObject->a_pos) << std::endl;
-    //std::cout << "Wind vector" << glm::to_string(wind) << std::endl;
+    std::cout << "Wind vector: " << glm::to_string(wind) << std::endl;
     //std::cout << "sim rotate mat\n" << matrixToString(simRotateMat) << std::endl << std::endl;
-    //std::cout << "wind view matrix\n" << matrixToString(windViewMatrix) << std::endl << std::endl;
-    //std::cout << "s_model matrix\n" << matrixToString(s_modelMat) << std::endl << std::endl;
+    std::cout << "wind view matrix\n" << matrixToString(windViewMatrix) << std::endl << std::endl;
+    std::cout << "s_model matrix\n" << matrixToString(s_modelMat) << std::endl << std::endl;
     //std::cout << "Final rld modelMat\n" << matrixToString(windViewMatrix * simRotateMat * s_modelMat) << std::endl << std::endl;
-    ////std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(1, 0, 0))) << std::endl << std::endl;
-    //std::cout << std::endl;
+    std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(0, 0, 1))) << std::endl << std::endl;
     //
-    rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
+    //rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
-    rld::sweep();
+    //rld::sweep();
     vec3 lift = rld::lift();
     vec3 drag = rld::drag();
     vec3 combinedForce = lift + drag;
     vec3 torque = rld::torque();
-    std::cout << "lift: " << glm::to_string(lift) << std::endl;
-    std::cout << "drag: " << glm::to_string(drag) << std::endl;
-	std::cout << "torque: " << glm::to_string(torque) << std::endl;
-	std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
-	std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
-    s_simObject->addTranslationalForce(combinedForce);
-    s_simObject->addAngularForce(torque);
+	//std::cout << "lift: " << glm::to_string(lift) << std::endl;
+	//std::cout << "drag: " << glm::to_string(drag) << std::endl;
+	//std::cout << "torque: " << glm::to_string(torque) << std::endl;
+	//std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
+	//std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
+    //s_simObject->addTranslationalForce(combinedForce * 10.f);
+    s_simObject->addAngularForce(vec3(10000.f, 0, 0));
     s_simObject->update(frametime);
+	std::cout << "angle " << glm::to_string(s_simObject->a_pos) << std::endl;
+	std::cout << "pos " << glm::to_string(s_simObject->pos) << std::endl;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
+	std::cout << std::endl;
 
 
     mat4 modelMat, normalMat;
@@ -369,15 +373,17 @@ static void render(float frametime) {
     modelMat = s_modelMat;
     normalMat = s_normalMat;
 
+	projMat = getPerspectiveMatrix();
+
+	//modelMat = mat4();
 
     if (k_windDebug) {
-        modelMat = windViewMatrix * simRotateMat * modelMat; //what the wind sees (use for debugging)
-        viewMat = glm::translate(mat4(), vec3(0, 0, -17.5));
+        modelMat = windViewMatrix /* simRotateMat */* modelMat; //what the wind sees (use for debugging)
+        viewMat = getViewMatrix(camPos);//glm::translate(mat4(), vec3(0, 0, 17.5));
     }
     else {
-        modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
+        modelMat = /*simTranslateMat*/ simRotateMat * modelMat; //what should be rendered
         viewMat = getViewMatrix(camPos);
-        projMat = getPerspectiveMatrix();
         ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
     }
 

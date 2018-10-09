@@ -35,7 +35,7 @@ void SimObject::applyThrust() {
 		return;
 	}
 	thrustVal = thrust * maxThrust; //maxThrust is in Newtons
-	vec3 thrustForce = vec3(vec4(0, 0, thrustVal, 1) * getRotate());
+	vec3 thrustForce = vec3(vec4(0, 0, -thrustVal, 1) * getRotate());
 	addTranslationalForce(thrustForce);
 }
 
