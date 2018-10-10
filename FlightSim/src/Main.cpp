@@ -49,7 +49,7 @@ public:
 
 };
 
-static const bool k_windDebug(false);
+static const bool k_windDebug(true);
 static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
@@ -303,11 +303,10 @@ static mat4 getViewMatrix(vec3 camPos) {
 }
 
 static mat4 getWindViewMatrix(vec3 wind) {
-    vec3 up = glm::cross(wind, vec3(-1, 0, 0));
     return glm::lookAt(
         vec3(0, 0, 0), //camPos
-        -wind, //looking in the direction of the wind
-        up //don't care about roll so just determined above by cross product of wind and left vector
+        wind, //looking in the direction of the wind
+        vec3(0, 1, 0) //don't care about roll so just always global up
     );
 }
 
@@ -325,7 +324,7 @@ static void render(float frametime) {
 
 
 
-	vec3 wind = vec3(0, 0, -10.f);//(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
+	vec3 wind = vec3(0, -10, 10.f);//(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
 	s_windSpeed = length(s_simObject->vel);
 	mat4 windViewMatrix = getWindViewMatrix(wind); //todo not sure why this needs to be negative. Works but still trying to figure out why
     mat4 simRotateMat = s_simObject->getRotate();
