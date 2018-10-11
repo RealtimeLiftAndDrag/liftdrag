@@ -187,8 +187,8 @@ static bool setupModel(const std::string &resourceDir) {
 	s_simObject->setMaxThrust(62.3 * 1000.f * 2.f); //dry thrust from wiki without afterburner (62.3kN per enginer)
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
-    s_simObject->pos.y = 30.f;
-	s_simObject->vel.z = -10.f;
+    s_simObject->pos.y = 30.f; //in meters
+	s_simObject->vel.z = -30.f; //in m/s
 
     return true;
 }
@@ -357,7 +357,7 @@ static void render(float frametime) {
 	//std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
 	//std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
     //s_simObject->addTranslationalForce(combinedForce * 10.f);
-    s_simObject->addAngularForce(vec3(0, torque.y, 0));
+    s_simObject->addAngularForce(vec3(torque.x, 0, 0));
     s_simObject->update(frametime);
 	std::cout << "angle " << glm::to_string(s_simObject->a_pos) << std::endl;
 	std::cout << "pos " << glm::to_string(s_simObject->pos) << std::endl;
