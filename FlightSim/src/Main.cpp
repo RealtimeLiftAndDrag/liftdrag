@@ -49,7 +49,7 @@ public:
 
 };
 
-static const bool k_windDebug(false);
+static const bool k_windDebug(true);
 static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
@@ -156,6 +156,14 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
     else if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         s_increaseThrust = true;
     }
+	
+	else if (key == GLFW_KEY_L && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		s_simObject->a_pos.y += 0.03125;
+	}
+	
+	else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		s_simObject->a_pos.y -= 0.03125;
+	}
 }
 
 
@@ -168,8 +176,9 @@ static bool setupModel(const std::string &resourceDir) {
 
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)); //upside down at first
 	s_modelMat = s_modelMat * glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)); //upside down at first
+	//s_modelMat = glm::translate(mat4(), vec3(0, 0, 1)) *  s_modelMat;
     s_momentOfInertia = 1.0f;
-    s_windframeWidth = 14.5f;
+    s_windframeWidth = 20.5f;
     s_windframeDepth = 22.0f;
 
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
@@ -188,7 +197,8 @@ static bool setupModel(const std::string &resourceDir) {
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
     s_simObject->pos.y = 30.f; //in meters
-	s_simObject->vel.z = -30.f; //in m/s
+	s_simObject->vel.z = -60.f; //in m/s
+	//s_simObject->a_pos.y = PIQ; //in m/s
 
     return true;
 }
@@ -289,6 +299,19 @@ static mat4 getPerspectiveMatrix() {
     return glm::perspective(fov, aspect, 0.01f, 1000.f);
 }
 
+static mat4 getOrthographicMatrix() {
+	float windframeRadius(s_windframeWidth * 0.5f);
+
+	return glm::ortho(
+		-windframeRadius, // left
+		windframeRadius,  // right
+		-windframeRadius, // bottom
+		windframeRadius,  // top
+		0.01f, // near
+		100.f // far
+	);
+}
+
 static mat4 getViewMatrix(vec3 camPos) {
     vec3 lookPos = s_simObject->pos;
     vec3 viewVec = lookPos - camPos;
@@ -317,6 +340,7 @@ static std::string matrixToString(mat4 m) {
     return mString;
 }
 
+
 static void render(float frametime) {
     //glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -329,7 +353,7 @@ static void render(float frametime) {
 	mat4 simRotateMat = s_simObject->getRotate();
     mat4 simTranslateMat = s_simObject->getTranslate();
 
-	vec3 camOffset = vec3(simRotateMat * vec4(0, 0, 17.5, 1)); //todo not sure why i have to inverse this
+	vec3 camOffset = vec3(simRotateMat * vec4(0, 0, 17.5, 1));
     vec3 camPos = s_simObject->pos + camOffset;
     //std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
     //std::cout << "torque: " << glm::to_string(torque) << std::endl;
@@ -350,17 +374,19 @@ static void render(float frametime) {
     vec3 lift = rld::lift();
     vec3 drag = rld::drag();
     vec3 combinedForce = lift + drag;
-    vec3 torque = rld::torque() * 10.f;
+    vec3 torque = rld::torque();
 	//std::cout << "lift: " << glm::to_string(lift) << std::endl;
 	//std::cout << "drag: " << glm::to_string(drag) << std::endl;
-	std::cout << "torque: " << glm::to_string(torque) << std::endl;
+	std::cout << "torque y (in thousands): " << torque.y / 1000.f << std::endl;
 	//std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
 	//std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
     //s_simObject->addTranslationalForce(combinedForce * 10.f);
-    s_simObject->addAngularForce(vec3(torque.x, 0, 0));
+    //s_simObject->addAngularForce(vec3(0, torque.y, 0));
     s_simObject->update(frametime);
-	std::cout << "angle " << glm::to_string(s_simObject->a_pos) << std::endl;
-	std::cout << "pos " << glm::to_string(s_simObject->pos) << std::endl;
+	std::cout << "y angle (in degrees) " << glm::degrees(s_simObject->a_pos.y) << std::endl;
+	std::cout << "y angle (in radians) " << s_simObject->a_pos.y << std::endl;
+
+	//std::cout << "pos " << glm::to_string(s_simObject->pos) << std::endl;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 	std::cout << std::endl;
 
@@ -371,15 +397,16 @@ static void render(float frametime) {
     modelMat = s_modelMat;
     normalMat = s_normalMat;
 
-	projMat = getPerspectiveMatrix();
 
 	//modelMat = mat4();
 
     if (k_windDebug) {
+		projMat = getOrthographicMatrix();
         modelMat = windViewMatrix * simRotateMat * s_modelMat; //what the wind sees (use for debugging)
         viewMat = glm::translate(mat4(), vec3(0, 0, -17.5)); //just move model away so we can see it on screen. Just for debugging not used anywhere for sim
     }
     else {
+		projMat = getPerspectiveMatrix();
         modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
         viewMat = getViewMatrix(camPos);
         ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
