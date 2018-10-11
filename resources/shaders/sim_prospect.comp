@@ -34,6 +34,8 @@ struct AirGeoMapElement {
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
+layout (binding = 1,    r8) uniform image2D u_turbImg;
+layout (binding = 5,    r8) uniform image2D u_prevTurbImg;
 layout (binding = 2, rgba16_snorm) uniform image2D u_fboNormImg;
 
 // Uniform buffer for better read-only performance
@@ -106,6 +108,11 @@ void main() {
     ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
     if (texCoord.x >= u_screenSize || texCoord.y >= u_screenSize) {
         return;
+    }
+
+    // Copy turbulence texture to previous turbulence texture
+    if (all(lessThan(texCoord, ivec2(u_screenSize)))) {
+        imageStore(u_prevTurbImg, texCoord, imageLoad(u_turbImg, texCoord));
     }
 
     vec4 color = imageLoad(u_fboImg, texCoord);

@@ -62,7 +62,6 @@ namespace Results {
             "Angle",
             min,
             max,
-            bvec2(true, false),
             k_minAngleGraphSize,
             k_maxAngleGraphSize
         ));
@@ -85,7 +84,6 @@ namespace Results {
             "Slice",
             min,
             max,
-            bvec2(true, false),
             k_minSliceGraphSize,
             k_maxSliceGraphSize
         ));

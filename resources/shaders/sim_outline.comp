@@ -31,9 +31,9 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
-const float k_maxSearchDist = 0.2f; // In wind space
 const float k_turbulenceDist = 0.025f;
-const bool k_doTurbulence = false;
+const float k_maxSearchDist = 2.0f * k_turbulenceDist; // In wind space
+const bool k_doTurbulence = true;
 
 const float k_minNormalZ = 1.0f / 1000000.0f;
 const float k_maxNormalZ = 1.0f - k_minNormalZ;
@@ -48,11 +48,11 @@ const bool k_ignoreEdges = false;
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform  image2D u_fboImg;
-layout (binding = 1, rgba8) uniform  image2D u_turbImg;
+layout (binding = 1,    r8) uniform  image2D u_turbImg;
 layout (binding = 3,  r32i) uniform iimage2D u_flagImg;
 layout (binding = 4, rgba8) uniform  image2D u_sideImg;
 
-layout (binding = 0) uniform sampler2D u_turbTex;
+layout (binding = 0) uniform sampler2D u_prevTurbTex;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -111,7 +111,23 @@ vec2 windToScreen(vec2 wind) {
 float screenToWindDist(float screenDist) {
     return screenDist / float(u_screenSize) * u_windframeSize;
 }
-extern int g;
+
+bool isScreenTurbulent(vec2 screenPos) {
+    return texture2D(u_prevTurbTex, screenPos / u_screenSize).r > 0.0f;    
+}
+
+bool isWindTurbulent(vec2 windPos) {
+    return isScreenTurbulent(windToScreen(windPos));
+}
+
+void setScreenTurbulent(vec2 screenPos) {
+    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(0.5f, 0.0f, 0.0f, 0.0f));    
+}
+
+void setWindTurbulent(vec2 windPos) {
+    setScreenTurbulent(windToScreen(windPos));
+}
+
 void main() {
     int workI = int(gl_LocalInvocationID.x);
 
@@ -120,96 +136,98 @@ void main() {
         vec2 geoWindPos = u_geoPixels[geoI].windPos;
         vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
         ivec2 geoTexCoord = u_geoPixels[geoI].texCoord; // Need exact texture coord because rasterization math and our wind-to-screen math don't always align
+        vec2 geoScreenPos = windToScreen(geoWindPos);
+        geoScreenPos = clamp(geoScreenPos, vec2(geoTexCoord), vec2(geoTexCoord + 1)); // necessary for edge cases
 
         bool shouldSpawn = geoNormal.z >= k_minNormalZ && geoNormal.z <= k_maxNormalZ;
+        bool shouldSearch = true;
+        
+        // If geo is in turbulence, forget it
+        if (k_doTurbulence && isScreenTurbulent(geoScreenPos)) {
+            shouldSearch = false;
+            shouldSpawn = false;
+        }
 
         // Look for existing air pixel
-        vec2 screenPos = vec2(geoTexCoord) + 0.5f;
-        ivec2 pixel = ivec2(screenPos);
-        vec2 screenDir = normalize(geoNormal.xy);
-        vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
-        float totalDist = 0.0f;
-        while (true) {            
-            if (k_doLineSearch) {
-                // TODO: optimize
-                vec2 delta = corner - (screenPos - vec2(pixel));
-                vec2 dist = abs(delta / screenDir);
-                if (dist.x < dist.y) {
-                    screenPos += screenDir * dist.x;
-                    pixel.x += int(sign(screenDir.x));
-                    totalDist += screenToWindDist(dist.x);
+        if (shouldSearch) {
+            vec2 screenPos = geoScreenPos;
+            ivec2 pixel = geoTexCoord;
+            vec2 screenDir = normalize(geoNormal.xy);
+            vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
+            float totalDist = 0.0f;
+
+            // Search along line in direction of geo normal
+            while (true) {            
+                if (k_doLineSearch) {
+                    // TODO: optimize
+                    vec2 delta = corner - (screenPos - vec2(pixel));
+                    vec2 dist = abs(delta / screenDir);
+                    if (dist.x < dist.y) {
+                        screenPos += screenDir * dist.x;
+                        pixel.x += int(sign(screenDir.x));
+                        totalDist += screenToWindDist(dist.x);
+                    }
+                    else {
+                        screenPos += screenDir * dist.y;
+                        pixel.y += int(sign(screenDir.y));
+                        totalDist += screenToWindDist(dist.y);
+                    }
                 }
                 else {
-                    screenPos += screenDir * dist.y;
-                    pixel.y += int(sign(screenDir.y));
-                    totalDist += screenToWindDist(dist.y);
+                    screenPos += screenDir;
+                    pixel = ivec2(screenPos);
+                    totalDist += screenToWindDist(1.0f);
                 }
-            }
-            else {
-                screenPos += screenDir;
-                pixel = ivec2(screenPos);
-                totalDist += screenToWindDist(1.0f);
-            }
 
-            if (totalDist > k_maxSearchDist) {
-                break;
-            }
+                if (totalDist > k_maxSearchDist) {
+                    break;
+                }
 
-            vec4 color = imageLoad(u_fboImg, pixel);
-
-            // Visualize the search
-            if (bool(u_debug)) {
-                //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
-            }
-
-            // If find turbulence, stop looking and mark turbulence
-            if (k_doTurbulence) {
-                float turbulence = texture2D(u_turbTex, vec2(pixel) / vec2(u_screenSize)).r;
-                if (turbulence > 0.0f) {
+                // If find turbulence, stop looking and mark turbulence
+                if (k_doTurbulence && isScreenTurbulent(screenPos)) {
                     // Write turbulence pixel half way between found turbulence and geometry
-                    // TODO
+                    setScreenTurbulent((geoScreenPos + screenPos) * 0.5f);
+
                     shouldSpawn = false;
                     break;
                 }
-            }
 
-            if (color.r != 0.0f) { // we found a geo pixel
-                break;
-            }
-            if (color.g != 0.0f) { // we found an air pixel
-                int airI = imageLoad(u_flagImg, pixel).x;               
-                if (airI != 0) { // TODO: this should not be necessary, just here for sanity
-                    --airI;
+                vec4 color = imageLoad(u_fboImg, pixel);
 
-                    // If past turbulence distance, set air as turbulent and mark turbulance
-                    if (k_doTurbulence) {
-                        if (totalDist > k_turbulenceDist) {
+                // Visualize the search
+                if (bool(u_debug)) {
+                    //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+                }
+
+                if (color.r != 0.0f) { // we found a geo pixel
+                    break;
+                }
+                if (color.g != 0.0f) { // we found an air pixel
+                    int airI = imageLoad(u_flagImg, pixel).x;               
+                    if (airI != 0) { // TODO: this should not be necessary, just here for sanity
+                        --airI;
+
+                        // If past turbulence distance, set air as turbulent and mark turbulance
+                        if (k_doTurbulence && totalDist > k_turbulenceDist) {
                             // Set air pixel to be turbulent
                             u_airPixels[airI].velocity.w = 1.0f;
                             // Don't need to write turbulence at air because it happens in move shader
-                            // Write turbulence pixel at air and half way between air and geometry
-                            // TODO
-
-                            // Old
-                            //vec2 airWindPos = u_airPixels[airI].windPos;
-                            //ivec2 p1 = ivec2(windToScreen(airWindPos) * 0.25f);
-                            //ivec2 p2 = ivec2(windToScreen((airWindPos + geoWindPos) * 0.5f) * 0.25f);
-                            //imageStore(u_turbImg, p1, vec4(0.0f, 0.0f, 1.0f, 1.0f));
-                            //imageStore(u_turbImg, p2, vec4(0.0f, 0.0f, 1.0f, 1.0f));
-
+                            // Write turbulence pixel half way between air and geometry
+                            setScreenTurbulent((geoScreenPos + screenPos) * 0.5f);
+                            
                             shouldSpawn = false;
                             break;
                         }
-                    }
 
-                    int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
-                    if (mapI >= MAX_GEO_PER_AIR) {
+                        int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
+                        if (mapI >= MAX_GEO_PER_AIR) {
+                            break;
+                        }
+                        u_airGeoMap[airI].geoIndices[mapI] = geoI;
+
+                        shouldSpawn = false;   
                         break;
                     }
-                    u_airGeoMap[airI].geoIndices[mapI] = geoI;
-
-                    shouldSpawn = false;   
-                    break;
                 }
             }
         }

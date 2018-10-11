@@ -1,0 +1,67 @@
+#version 450 core
+
+layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+// Types -----------------------------------------------------------------------
+
+// Constants -------------------------------------------------------------------
+
+// Uniforms --------------------------------------------------------------------
+
+layout (binding = 0, rgba8) uniform image2D u_fboImg;
+layout (binding = 4, rgba8) uniform coherent image2D u_sideImg;
+
+layout (binding = 0) uniform sampler2D u_turbTex;
+
+// Uniform buffer for better read-only performance
+layout (binding = 0, std140) uniform Constants {
+    int u_maxGeoPixels;
+    int u_maxAirPixels;
+    int u_screenSize;
+    float u_liftC;
+    float u_dragC;
+    float u_windframeSize;
+    float u_sliceSize;
+    float u_windSpeed;
+    float u_dt;
+    int u_slice;
+    float u_sliceZ;
+    uint u_debug;
+};
+
+// Shared ----------------------------------------------------------------------
+
+shared float sideTurbs[gl_WorkGroupSize.y];
+
+// Functions -------------------------------------------------------------------
+
+float windToScreen(float wind) {
+    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
+}
+
+void main() {
+    int sideX = int(windToScreen(u_sliceZ));
+
+    ivec2 workCoord = ivec2(gl_LocalInvocationID.xy);
+    for (ivec2 texCoord = workCoord; texCoord.y < u_screenSize; texCoord.y += int(gl_WorkGroupSize.y)) {
+        sideTurbs[workCoord.y] = 0.0f;
+
+        for (texCoord.x = workCoord.x; texCoord.x < u_screenSize; texCoord.x += int(gl_WorkGroupSize.x)) {
+
+            float turb = texture(u_turbTex, vec2(texCoord) / float(u_screenSize)).r;
+
+            vec4 color = imageLoad(u_fboImg, texCoord);
+            color.b = turb;
+            imageStore(u_fboImg, texCoord, color);
+    
+            sideTurbs[workCoord.y] = max(sideTurbs[workCoord.y], turb);
+        }
+
+        barrier();
+        
+        ivec2 sideTexCoord = ivec2(sideX, texCoord.y);
+        vec4 color = imageLoad(u_sideImg, sideTexCoord);
+        color.b = sideTurbs[workCoord.y];
+        imageStore(u_sideImg, sideTexCoord, color);
+    }
+}
