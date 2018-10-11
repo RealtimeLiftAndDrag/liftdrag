@@ -49,7 +49,7 @@ public:
 
 };
 
-static const bool k_windDebug(true);
+static const bool k_windDebug(false);
 static const ivec2 k_windowSize(1280, 1280);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
@@ -353,6 +353,8 @@ static void render(float frametime) {
 
 	vec3 camOffset = vec3(simRotateMat * vec4(0, 0, 25.0, 1));
     vec3 camPos = s_simObject->pos + camOffset;
+	mat4 viewMat = getViewMatrix(camPos);
+
     //std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
     //std::cout << "torque: " << glm::to_string(torque) << std::endl;
     //std::cout << "time scale: " << k_timeScale << std::endl;
@@ -385,7 +387,7 @@ static void render(float frametime) {
 		drag = vec3(0);
 	}*/
 	//torque *= 10.f;
-    //s_simObject->addAngularForce(vec3(torque.x, 0, 0));
+    s_simObject->addAngularForce(torque);
     s_simObject->update(frametime);
 	std::cout << "lift: " << glm::to_string(lift) << std::endl;
 	//std::cout << "drag: " << glm::to_string(drag) << std::endl;
@@ -400,7 +402,7 @@ static void render(float frametime) {
 
 
     mat4 modelMat, normalMat;
-    mat4 projMat, viewMat;
+    mat4 projMat;
 
     modelMat = s_modelMat;
     normalMat = s_normalMat;
@@ -416,7 +418,7 @@ static void render(float frametime) {
     else {
 		projMat = getPerspectiveMatrix();
         modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
-        viewMat = getViewMatrix(camPos);
+		normalMat = glm::transpose(glm::inverse(modelMat));
         ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
     }
 
