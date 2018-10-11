@@ -50,11 +50,11 @@ public:
 };
 
 static const bool k_windDebug(true);
-static const ivec2 k_windowSize(1280, 720);
+static const ivec2 k_windowSize(1280, 1280);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
 
-static constexpr int k_simTexSize = 720;
+static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
 static constexpr float k_simLiftC = 0.2f;
 static constexpr float k_simDragC = 0.1f;
@@ -197,8 +197,8 @@ static bool setupModel(const std::string &resourceDir) {
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
     s_simObject->pos.y = 30.f; //in meters
-	s_simObject->vel.z = -60.f; //in m/s
-	//s_simObject->a_pos.y = PIQ; //in m/s
+	s_simObject->vel.z = -120.f; //in m/s
+	//s_simObject->a_pos.y = 0.001; //in m/s
 
     return true;
 }
@@ -351,7 +351,7 @@ static void render(float frametime) {
 	mat4 simRotateMat = s_simObject->getRotate();
     mat4 simTranslateMat = s_simObject->getTranslate();
 
-	vec3 camOffset = vec3(simRotateMat * vec4(0, 0, 17.5, 1));
+	vec3 camOffset = vec3(simRotateMat * vec4(0, 0, 25.0, 1));
     vec3 camPos = s_simObject->pos + camOffset;
     //std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
     //std::cout << "torque: " << glm::to_string(torque) << std::endl;
@@ -374,16 +374,25 @@ static void render(float frametime) {
     vec3 drag = rld::drag();
     vec3 combinedForce = lift + drag;
     vec3 torque = rld::torque();
-	//std::cout << "lift: " << glm::to_string(lift) << std::endl;
-	//std::cout << "drag: " << glm::to_string(drag) << std::endl;
-	std::cout << "torque y (in thousands): " << torque.y / 1000.f << std::endl;
+	
 	//std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
 	//std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
     //s_simObject->addTranslationalForce(combinedForce * 10.f);
-    //s_simObject->addAngularForce(vec3(0, torque.y, 0));
+	float mEV = 100000.f;
+	/*if (length(torque) > mEV || length(lift) > mEV || length(drag) > mEV) {
+		torque = vec3(0);
+		lift = vec3(0);
+		drag = vec3(0);
+	}*/
+	//torque *= 10.f;
+    //s_simObject->addAngularForce(vec3(torque.x, 0, 0));
     s_simObject->update(frametime);
-	std::cout << "y angle (in degrees) " << glm::degrees(s_simObject->a_pos.y) << std::endl;
-	std::cout << "y angle (in radians) " << s_simObject->a_pos.y << std::endl;
+	std::cout << "lift: " << glm::to_string(lift) << std::endl;
+	//std::cout << "drag: " << glm::to_string(drag) << std::endl;
+	std::cout << "torque: " << torque.y /1000.f << std::endl;
+	//std::cout << "y angle (in degrees) " << glm::degrees(s_simObject->a_pos.y) << std::endl;
+	//std::cout << "y angle (in radians) " << s_simObject->a_pos.y << std::endl;
+	std::cout << "angle: " << s_simObject->a_pos.y << std::endl;
 
 	//std::cout << "pos " << glm::to_string(s_simObject->pos) << std::endl;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);

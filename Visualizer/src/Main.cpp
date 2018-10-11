@@ -69,8 +69,8 @@ static constexpr float k_minRudderAngle(-90.0f), k_maxRudderAngle(90.0f);
 static constexpr float k_minAileronAngle(-90.0f), k_maxAileronAngle(90.0f);
 static constexpr float k_minElevatorAngle(-90.0f), k_maxElevatorAngle(90.0f);
 
-static constexpr float k_angleOfAttackIncrement(1.0f); // the granularity of angle of attack
-static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
+static constexpr float k_angleOfAttackIncrement(1.0f / 32.0f); // the granularity of angle of attack
+static constexpr float k_manualAngleIncrement(1.0f / 32.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
 static constexpr float k_autoAngleIncrement(7.0f); // how many degrees to change the angle of attack by when auto progressing
 
 static const std::string k_controlsString(
@@ -177,7 +177,8 @@ static void changeElevatorAngle(float deltaAngle) {
 }
 
 static void setSimulation(float angleOfAttack, bool debug) {
-    mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
+    mat4 rotMat(glm::rotate(mat4(), angleOfAttack, vec3(0.0f, 1.0f, 0.0f)));
+	//mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
 
     rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
 }
@@ -331,7 +332,7 @@ static bool setupModel() {
 
         case SimModel::f18:
             s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
-            s_windframeWidth = 14.5f;
+            s_windframeWidth = 20.5f;
             s_windframeDepth = 22.0f;
             s_windSpeed = 10.0f;
             break;
