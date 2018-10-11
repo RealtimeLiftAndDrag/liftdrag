@@ -49,7 +49,7 @@ public:
 
 };
 
-static const bool k_windDebug(false);
+static const bool k_windDebug(true);
 static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
@@ -324,7 +324,7 @@ static void render(float frametime) {
 
 
 
-	vec3 wind = vec3(0, 0, 10.f);//(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
+	vec3 wind = -(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
 	s_windSpeed = length(s_simObject->vel);
 	mat4 windViewMatrix = getWindViewMatrix(wind);
 	mat4 simRotateMat = s_simObject->getRotate();
@@ -377,8 +377,8 @@ static void render(float frametime) {
 	//modelMat = mat4();
 
     if (k_windDebug) {
-        modelMat = windViewMatrix /* simRotateMat */* modelMat; //what the wind sees (use for debugging)
-        viewMat = getViewMatrix(vec3(0, 0, 17.5));//glm::translate(mat4(), vec3(0, 0, 17.5));
+        modelMat = windViewMatrix * simRotateMat * s_modelMat; //what the wind sees (use for debugging)
+        viewMat = glm::translate(mat4(), vec3(0, 0, -17.5)); //just move model away so we can see it on screen. Just for debugging not used anywhere for sim
     }
     else {
         modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
