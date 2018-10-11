@@ -49,7 +49,7 @@ public:
 
 };
 
-static const bool k_windDebug(true);
+static const bool k_windDebug(false);
 static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
@@ -188,8 +188,7 @@ static bool setupModel(const std::string &resourceDir) {
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
     s_simObject->pos.y = 30.f;
-    //todo
-	//s_simObject->vel.z = 30.f;
+	s_simObject->vel.z = -10.f;
 
     return true;
 }
@@ -337,28 +336,28 @@ static void render(float frametime) {
     //std::cout << "time scale: " << k_timeScale << std::endl;
     //std::cout << "curPos: " << glm::to_string(s_simObject->pos) << std::endl;
     //std::cout << "curAngle: " << glm::to_string(s_simObject->a_pos) << std::endl;
-    std::cout << "Wind vector: " << glm::to_string(wind) << std::endl;
+    //std::cout << "Wind vector: " << glm::to_string(wind) << std::endl;
     //std::cout << "sim rotate mat\n" << matrixToString(simRotateMat) << std::endl << std::endl;
-    std::cout << "wind view matrix\n" << matrixToString(windViewMatrix) << std::endl << std::endl;
-    std::cout << "s_model matrix\n" << matrixToString(s_modelMat) << std::endl << std::endl;
+    //std::cout << "wind view matrix\n" << matrixToString(windViewMatrix) << std::endl << std::endl;
+    //std::cout << "s_model matrix\n" << matrixToString(s_modelMat) << std::endl << std::endl;
     //std::cout << "Final rld modelMat\n" << matrixToString(windViewMatrix * simRotateMat * s_modelMat) << std::endl << std::endl;
-    std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(0, 0, 1))) << std::endl << std::endl;
+    //std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(0, 0, 1))) << std::endl << std::endl;
     //
-    //rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
+    rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
-    //rld::sweep();
+    rld::sweep();
     vec3 lift = rld::lift();
     vec3 drag = rld::drag();
     vec3 combinedForce = lift + drag;
-    vec3 torque = rld::torque();
+    vec3 torque = rld::torque() * 10.f;
 	//std::cout << "lift: " << glm::to_string(lift) << std::endl;
 	//std::cout << "drag: " << glm::to_string(drag) << std::endl;
-	//std::cout << "torque: " << glm::to_string(torque) << std::endl;
+	std::cout << "torque: " << glm::to_string(torque) << std::endl;
 	//std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
 	//std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
     //s_simObject->addTranslationalForce(combinedForce * 10.f);
-    s_simObject->addAngularForce(vec3(10000.f, 0, 0));
+    s_simObject->addAngularForce(vec3(0, torque.y, 0));
     s_simObject->update(frametime);
 	std::cout << "angle " << glm::to_string(s_simObject->a_pos) << std::endl;
 	std::cout << "pos " << glm::to_string(s_simObject->pos) << std::endl;
