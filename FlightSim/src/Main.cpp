@@ -36,8 +36,8 @@ extern "C" {
 #include "xboxcontroller.h"
 
 #define PI 3.1415926
-#define PIH 3.1415926/2.
-#define PIQ 3.1415926/4.
+#define PIH 3.1415926f/2.f
+#define PIQ 3.1415926f/4.f
 
 CXBOXController XBOXController(1);
 
@@ -49,7 +49,7 @@ public:
 
 };
 
-static const bool k_windDebug(true);
+static const bool k_windDebug(false);
 static const ivec2 k_windowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
@@ -187,9 +187,9 @@ static bool setupModel(const std::string &resourceDir) {
 	s_simObject->setMaxThrust(62.3 * 1000.f * 2.f); //dry thrust from wiki without afterburner (62.3kN per enginer)
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
-	//todo
-    //s_simObject->pos.y = 30.f;
-    //s_simObject->vel.z = 30.f;
+    s_simObject->pos.y = 30.f;
+    //todo
+	//s_simObject->vel.z = 30.f;
 
     return true;
 }
@@ -324,13 +324,13 @@ static void render(float frametime) {
 
 
 
-	vec3 wind = vec3(0, -10, 10.f);//(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
+	vec3 wind = vec3(0, 0, 10.f);//(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
 	s_windSpeed = length(s_simObject->vel);
-	mat4 windViewMatrix = getWindViewMatrix(wind); //todo not sure why this needs to be negative. Works but still trying to figure out why
-    mat4 simRotateMat = s_simObject->getRotate();
-    //mat4 simTranslateMat = s_simObject->getTranslate();
+	mat4 windViewMatrix = getWindViewMatrix(wind);
+	mat4 simRotateMat = s_simObject->getRotate();
+    mat4 simTranslateMat = s_simObject->getTranslate();
 
-    vec3 camOffset = vec3(vec4(0, 0, 17.5, 1) * glm::inverse(s_simObject->getRotate())); //todo not sure why i have to inverse this
+	vec3 camOffset = vec3(simRotateMat * vec4(0, 0, 17.5, 1)); //todo not sure why i have to inverse this
     vec3 camPos = s_simObject->pos + camOffset;
     //std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
     //std::cout << "torque: " << glm::to_string(torque) << std::endl;
@@ -378,10 +378,10 @@ static void render(float frametime) {
 
     if (k_windDebug) {
         modelMat = windViewMatrix /* simRotateMat */* modelMat; //what the wind sees (use for debugging)
-        viewMat = getViewMatrix(camPos);//glm::translate(mat4(), vec3(0, 0, 17.5));
+        viewMat = getViewMatrix(vec3(0, 0, 17.5));//glm::translate(mat4(), vec3(0, 0, 17.5));
     }
     else {
-        modelMat = /*simTranslateMat*/ simRotateMat * modelMat; //what should be rendered
+        modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
         viewMat = getViewMatrix(camPos);
         ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
     }
