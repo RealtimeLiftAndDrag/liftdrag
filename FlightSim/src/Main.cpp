@@ -345,8 +345,6 @@ static void render(float frametime) {
     //glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-
 	vec3 wind = -(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
 	s_windSpeed = length(s_simObject->vel);
 	mat4 windViewMatrix = getWindViewMatrix(wind);
@@ -367,7 +365,8 @@ static void render(float frametime) {
     //std::cout << "Final rld modelMat\n" << matrixToString(windViewMatrix * simRotateMat * s_modelMat) << std::endl << std::endl;
     //std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(0, 0, 1))) << std::endl << std::endl;
     //
-    rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
+	s_normalMat = glm::transpose(glm::inverse(s_modelMat));
+	rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
     rld::sweep();
