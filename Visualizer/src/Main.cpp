@@ -14,8 +14,8 @@ extern "C" {
 // TODO: lift should be independent of the number of slices
 // TODO: how far away should turbulence start? linear or squared air speed?
 // TODO: front-facing drag only on outline??
-
-// TODO: do copy texture function and implement distance for turbulence
+// TODO: should wind shadow be removed on forward faces?
+// TODO: distance for turbulence and wind shadow?
 
 
 
@@ -30,7 +30,7 @@ extern "C" {
 #include "Common/Model.hpp"
 #include "Common/Program.h"
 #include "Common/UI.hpp"
-#include "Common/Text.hpp"
+#include "Common/UI_Text.hpp"
 #include "Common/Graph.hpp"
 #include "Common/TexViewer.hpp"
 #include "Common/Util.hpp"
@@ -55,7 +55,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::f18);
+static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
@@ -110,8 +110,11 @@ static bool s_shouldAutoProgress(false);
 
 static shr<MainUIC> s_mainUIC;
 static shr<TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
-static shr<Text> s_angleText, s_angleLiftText, s_angleDragText, s_angleTorqueText;
-static shr<Text> s_rudderText, s_elevatorText, s_aileronText;
+static shr<UI::String> s_angleLabel, s_angleLiftLabel, s_angleDragLabel, s_angleTorqueLabel;
+static shr<UI::Number> s_angleNum;
+static shr<UI::Vector> s_angleLiftNum, s_angleDragNum, s_angleTorqueNum;
+static shr<UI::String> s_rudderLabel, s_elevatorLabel, s_aileronLabel;
+static shr<UI::Number> s_rudderNum, s_elevatorNum, s_aileronNum;
 
 static bool s_isInfoChange(true);
 static bool s_isF18Change(true);
@@ -198,9 +201,13 @@ static void submitResults(float angleOfAttack) {
 static void doFastSweep(float angleOfAttack) {
     setSimulation(angleOfAttack, false);
 
+    glDisable(GL_BLEND); // Can't have blending for simulation
+
     double then(glfwGetTime());
     rld::sweep();
     double dt(glfwGetTime() - then);
+
+    glEnable(GL_BLEND);
 
     submitResults(angleOfAttack);
 
@@ -356,8 +363,11 @@ static bool setup() {
         return false;
     }
     
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glEnable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND); // need blending for ui but don't want it for simulation
+    glEnable(GL_BLEND);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);  
 
     // Setup model
     if (!setupModel()) {
@@ -389,30 +399,54 @@ static bool setup() {
 
     shr<Graph> sliceGraph(Results::sliceGraph());
 
-    const int k_infoWidth(16);
-    s_angleText      .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_angleLiftText  .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_angleDragText  .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_angleTorqueText.reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_rudderText     .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_elevatorText   .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
-    s_aileronText    .reset(new Text("", ivec2(1, 0), vec3(1.0f), ivec2(k_infoWidth, 1), ivec2(0, 1)));
+    const int k_infoWidth(8);
+
+    s_angleLabel      .reset(new UI::String("Angle: ", 1, vec4(1.0f)));
+    s_angleLiftLabel  .reset(new UI::String("Lift: ", 1, vec4(1.0f)));
+    s_angleDragLabel  .reset(new UI::String("Drag: ", 1, vec4(1.0f)));
+    s_angleTorqueLabel.reset(new UI::String("Torq: ", 1, vec4(1.0f)));
+    s_rudderLabel     .reset(new UI::String("Rudder: ", 1, vec4(1.0f)));
+    s_elevatorLabel   .reset(new UI::String("Elevator: ", 1, vec4(1.0f)));
+    s_aileronLabel    .reset(new UI::String("Aileron: ", 1, vec4(1.0f)));
+
+    s_angleNum      .reset(new UI::Number(0.0, 1, vec4(1.0f), 5, 0, false, 3));
+    s_angleLiftNum  .reset(new UI::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
+    s_angleDragNum  .reset(new UI::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
+    s_angleTorqueNum.reset(new UI::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
+    s_rudderNum     .reset(new UI::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    s_elevatorNum   .reset(new UI::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    s_aileronNum    .reset(new UI::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
 
     shr<UI::HorizontalGroup> f18Info(new UI::HorizontalGroup());
-    f18Info->add(s_rudderText);
-    f18Info->add(s_elevatorText);
-    f18Info->add(s_aileronText);
+    f18Info->add(s_rudderLabel);
+    f18Info->add(s_rudderNum);
+    f18Info->add(s_elevatorLabel);
+    f18Info->add(s_elevatorNum);
+    f18Info->add(s_aileronLabel);
+    f18Info->add(s_aileronNum);
 
     ivec2 textSize(Text::detDimensions(k_controlsString));
-    shr<Text> controlsText(new Text(k_controlsString, ivec2(1, 0), vec3(1.0f), textSize, ivec2(textSize.x, 0)));
+    shr<UI::Text> controlsText(new UI::Text(k_controlsString, ivec2(1, 0), vec4(1.0f), textSize, ivec2(textSize.x, 0)));
 
     shr<UI::VerticalGroup> infoGroup(new UI::VerticalGroup());
     infoGroup->add(controlsText);
     infoGroup->add(f18Info);
-    infoGroup->add(s_angleTorqueText);
-    infoGroup->add(s_angleDragText);
-    infoGroup->add(s_angleLiftText);
-    infoGroup->add(s_angleText);
+    shr<UI::HorizontalGroup> angleTorqueGroup(new UI::HorizontalGroup());
+    angleTorqueGroup->add(s_angleTorqueLabel);
+    angleTorqueGroup->add(s_angleTorqueNum);
+    infoGroup->add(angleTorqueGroup);
+    shr<UI::HorizontalGroup> angleDragGroup(new UI::HorizontalGroup());
+    angleDragGroup->add(s_angleDragLabel);
+    angleDragGroup->add(s_angleDragNum);
+    infoGroup->add(angleDragGroup);
+    shr<UI::HorizontalGroup> angleLiftGroup(new UI::HorizontalGroup());
+    angleLiftGroup->add(s_angleLiftLabel);
+    angleLiftGroup->add(s_angleLiftNum);
+    infoGroup->add(angleLiftGroup);
+    shr<UI::HorizontalGroup> angleGroup(new UI::HorizontalGroup());
+    angleGroup->add(s_angleLabel);
+    angleGroup->add(s_angleNum);
+    infoGroup->add(angleGroup);
 
     shr<UI::HorizontalGroup> bottomGroup(new UI::HorizontalGroup());
     bottomGroup->add(angleGraph);
@@ -434,42 +468,15 @@ static void cleanup() {
 }
 
 static void updateInfoText() {
-    std::stringstream ss;
-
-    ss << "Angle: " << Util::numberString(s_angleOfAttack, 2) << "\u00B0";
-    s_angleText->string(ss.str());
-
-    ss.str(std::string());
-
-    ss << "Lift: " << Util::vectorString(rld::lift(), 3);
-    s_angleLiftText->string(ss.str());
-
-    ss.str(std::string());
-
-    ss << "Drag: " << Util::vectorString(rld::drag(), 3);
-    s_angleDragText->string(ss.str());
-
-    ss.str(std::string());
-
-    ss << "Torq: " << Util::vectorString(rld::torque(), 3);
-    s_angleTorqueText->string(ss.str());
-}
+    s_angleNum->value(s_angleOfAttack);
+    s_angleLiftNum->value(rld::lift());
+    s_angleDragNum->value(rld::drag());
+    s_angleTorqueNum->value(rld::torque());}
 
 static void updateF18InfoText() {
-    std::stringstream ss;
-
-    ss << "Rudder: " << Util::numberString(s_rudderAngle, 2) << "\u00B0";
-    s_rudderText->string(ss.str());
-
-    ss.str(std::string());
-
-    ss << "Elevator: " << Util::numberString(s_elevatorAngle, 2) << "\u00B0";
-    s_elevatorText->string(ss.str());
-
-    ss.str(std::string());
-
-    ss << "Aileron: " << Util::numberString(s_aileronAngle, 2) << "\u00B0";
-    s_aileronText->string(ss.str());
+    s_rudderNum->value(s_rudderAngle);
+    s_elevatorNum->value(s_elevatorAngle);
+    s_aileronNum->value(s_aileronAngle);
 }
 
 static void update() {
@@ -480,6 +487,8 @@ static void update() {
             setSimulation(s_angleOfAttack, true);
             Results::clearSlices();
         }
+        
+        glDisable(GL_BLEND); // can't have blending for simulation
 
         if (rld::step()) { // That was the last slice
             s_shouldSweep = false;
@@ -495,6 +504,8 @@ static void update() {
                 s_shouldSweep = true;
             }
         }
+
+        glEnable(GL_BLEND);
 
         s_isInfoChange = true;
         s_shouldStep = false;
@@ -545,10 +556,8 @@ int main(int argc, char ** argv) {
         update();
         
         glDisable(GL_DEPTH_TEST); // don't want depth test for UI
-        glEnable(GL_BLEND); // need blending for ui but don't want it for simulation
         UI::render();
         glEnable(GL_DEPTH_TEST);
-        glDisable(GL_BLEND);
 
         ++fps;
         double now(glfwGetTime());

@@ -38,9 +38,15 @@ namespace rld {
     );
 
     // Does one slice and returns if it was the last one
+    // Requires OpenGL state:
+    // - `GL_DEPTH_TEST` disabled
+    // - `GL_BLEND` enabled
     bool step(bool isExternalCall = true);
 
     // Does a full sweep
+    // Requires OpenGL state:
+    // - `GL_DEPTH_TEST` disabled
+    // - `GL_BLEND` enabled
     void sweep();
 
     // Returns the index of the slice that would be NEXT

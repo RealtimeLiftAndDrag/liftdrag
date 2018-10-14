@@ -136,41 +136,54 @@ ivec2 Text::detSize(const ivec2 & dimensions) {
     return dimensions * s_fontSize;
 }
 
-Text::Text(const std::string & string, const ivec2 & align, const vec3 & color, const ivec2 & minDimensions, const ivec2 & maxDimensions) :
-    Single(detSize(minDimensions), detSize(maxDimensions)),
-    m_string(string),
-    m_align(align),
-    m_color(color),
-    m_isChange(true),
-    m_vao(0), m_charVBO(0),
-    m_charData()
+ivec2 Text::detSize(const std::string & str) {
+    return detSize(detDimensions(str));
+}
+
+Text::Text() :
+    m_string(),
+    m_align(1),
+    m_color(0.5f, 0.5f, 0.5f, 1.0f)
 {}
 
-void Text::render() const {
+Text::Text(const std::string & string, const ivec2 & align, const vec4 & color) :
+    m_string(string),
+    m_align(align),
+    m_color(color)
+{
+    if (string.size()) {
+        detLineSpecs();
+        detDimensions();
+        detSize();
+        detBasepoint();
+        m_isChange = true;
+    }
+}
+
+void Text::render(const ivec2 & position) const {
     if (m_vao == 0) {
         if (!prepare()) {
             return;
         }
     }
 
-    if (m_string.empty()) {
+    if (m_string.empty() || m_color.a == 0.0f) {
         return;
     }
 
     if (m_isChange) {
-        detCharData();
         upload();
         m_isChange = false;
     }
 
-    glViewport(m_position.x, m_position.y, m_size.x, m_size.y);
+    glViewport(position.x, position.y, m_size.x, m_size.y);
 
     s_prog->bind();
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, s_fontTex);
 
-    glUniform3f(s_prog->getUniform("u_color"), m_color.r, m_color.g, m_color.b);
+    glUniform4fv(s_prog->getUniform("u_color"), 1, &m_color.r);
     glUniform2f(s_prog->getUniform("u_viewportSize"), float(m_size.x), float(m_size.y));
 
     glBindVertexArray(m_vao);
@@ -180,29 +193,58 @@ void Text::render() const {
     s_prog->unbind();
 }
 
-void Text::pack() {
-    m_isChange = true;
+void Text::renderAt(const ivec2 & basepoint) const {
+    render(basepoint - m_basepoint);
 }
 
-void Text::cleanup() {
-    glDeleteVertexArrays(1, &m_vao);
-    m_vao = 0;
-    glDeleteBuffers(1, &m_charVBO);
-    m_charVBO = 0;
+void Text::renderWithin(const ivec2 & boundsPos, const ivec2 & boundsSize) const {
+    ivec2 offset;
+
+    if (m_align.x > 0) offset.x = 0;
+    else if (m_align.x < 0) offset.x = boundsSize.x - m_size.x;
+    else offset.x = (boundsSize.x - m_size.x) / 2;
+
+    if (m_align.y > 0) offset.y = boundsSize.y - m_size.y;
+    else if (m_align.y < 0) offset.y = 0;
+    else offset.y = (boundsSize.y - m_size.y) / 2;
+
+    render(boundsPos + offset);
 }
 
-void Text::string(const std::string & string) {
+std::string Text::string(const std::string & string) {
+    return this->string(std::string(string));
+}
+
+std::string Text::string(std::string && string) {
     if (string != m_string) {
-        m_string = string;
+        std::swap(m_string, string);
+
+        detLineSpecs();
+        detDimensions();
+        detSize();
+        detBasepoint();
+
+        m_isChange = true;
+    }
+
+    return move(string);
+}
+
+void Text::color(const vec4 & color) {
+    m_color = color;
+}
+
+void Text::align(const ivec2 & align) {
+    if (align != m_align) {
+        m_align = align;
+
+        detBasepoint();
+
         m_isChange = true;
     }
 }
 
-void Text::color(const vec3 & color) {
-    m_color = color;
-}
-
-bool Text::prepare() const {    
+bool Text::prepare() const {
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_charVBO);
 
@@ -231,45 +273,67 @@ bool Text::prepare() const {
     return true;
 }
 
-void Text::detCharData() const {
-    m_lineEndIndices.clear();
-    for (int i(0); i < m_string.length(); ++i) {
+void Text::detLineSpecs() {
+    m_lineSpecs.clear();
+    int startI(0);
+    for (int i(0); i < int(m_string.length()); ++i) {
         if (m_string[i] == '\n') {
-            m_lineEndIndices.push_back(i);
+            m_lineSpecs.emplace_back(startI, i - startI);
+            startI = i + 1;
         }
     }
-    m_lineEndIndices.push_back(int(m_string.length()));
-    int nLines(int(m_lineEndIndices.size()));
-    int totalHeight(nLines * s_fontSize.y);
+    m_lineSpecs.emplace_back(startI, int(m_string.length()) - startI);
+}
 
-    m_charData.clear();
+void Text::detDimensions() {
+    m_dimensions.x = 0;
+    for (const auto & spec : m_lineSpecs) {
+        if (spec.y > m_dimensions.x) m_dimensions.x = spec.y;
+    }
+    m_dimensions.y = int(m_lineSpecs.size());
+}
+
+void Text::detSize() {
+    m_size = m_dimensions * s_fontSize;
+}
+
+void Text::detBasepoint() {
+    if (m_align.x > 0) m_basepoint.x = 0;
+    else if (m_align.x < 0) m_basepoint.x = m_size.x;
+    else m_basepoint.x = m_size.x / 2;
+
+    if (m_align.y > 0) m_basepoint.y = m_size.y - s_fontSize.y;
+    else if (m_align.y < 0) m_basepoint.y = 0;
+    else m_basepoint.y = m_size.y / 2;
+}
+
+void Text::upload() const {
+    std::vector<vec2> charData;
+    charData.reserve(m_string.size() * 2);
 
     ivec2 charPos;
-    if (m_align.y > 0) charPos.y = m_size.y - s_fontSize.y;
-    else if (m_align.y == 0) charPos.y = m_size.y / 2 + totalHeight / 2 - s_fontSize.y;
+    charPos.y = m_size.y - s_fontSize.y;
 
-    for (int lineI(0), strI(0); lineI < nLines; ++lineI) {
-        int lineLength(m_lineEndIndices[lineI] - strI);
+    for (int lineI(0); lineI < m_dimensions.y; ++lineI) {
+        int strI(m_lineSpecs[lineI].x);
+        int lineLength(m_lineSpecs[lineI].y);
         int lineWidth(lineLength * s_fontSize.x);
 
-        charPos.x = 0;
-        if (m_align.x < 0) charPos.x = m_size.x - lineWidth;
-        else if (m_align.x == 0) charPos.x = m_size.x / 2 - lineWidth / 2;
+        if (m_align.x > 0) charPos.x = 0;
+        else if (m_align.x < 0) charPos.x = m_size.x - lineWidth;
+        else charPos.x = (m_size.x - lineWidth) / 2;
 
         for (int i(0); i < lineLength; ++i) {        
-            m_charData.emplace_back(charPos);
-            m_charData.emplace_back(s_charTexCoords[unsigned char(m_string[strI + i])]);
+            charData.emplace_back(charPos);
+            charData.emplace_back(s_charTexCoords[unsigned char(m_string[strI + i])]);
 
             charPos.x += s_fontSize.x;            
         }
 
         charPos.y -= s_fontSize.y;
-        strI += lineLength + 1;
     }
-}
 
-void Text::upload() const {
     glBindBuffer(GL_ARRAY_BUFFER, m_charVBO);
-    glBufferData(GL_ARRAY_BUFFER, m_charData.size() * sizeof(vec2), m_charData.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, charData.size() * sizeof(vec2), charData.data(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }

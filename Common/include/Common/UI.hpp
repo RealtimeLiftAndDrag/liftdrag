@@ -16,12 +16,14 @@ namespace UI {
 
         ivec2 m_position;
         ivec2 m_size;
+        vec4 m_backColor;
+        vec4 m_borderColor;
     
         public:
 
         virtual void update() {};
 
-        virtual void render() const = 0;
+        virtual void render() const;
 
         virtual void pack() = 0;
 
@@ -36,7 +38,21 @@ namespace UI {
 
         virtual bool contains(const ivec2 & point) const final;
 
+        virtual void focus() final;
+
+        virtual void unfocus() final;
+
+        virtual bool focused() const final;
+
+        virtual const vec4 & backColor() const final { return m_backColor; }
+        virtual void backColor(const vec4 & color) final;
+
+        virtual const vec4 & borderColor() const final { return m_backColor; }
+        virtual void borderColor(const vec4 & color) final;
+
         virtual void keyEvent(int key, int action, int mods) {}
+
+        virtual void charEvent(char c) {}
 
         virtual void cursorPositionEvent(const ivec2 & pos, const ivec2 & delta) {}
 
@@ -47,6 +63,10 @@ namespace UI {
         virtual void mouseButtonEvent(int button, int action, int mods) {}
 
         virtual void scrollEvent(const ivec2 & delta) {}
+
+        virtual void focusEvent() {}
+
+        virtual void unfocusEvent() {}
 
     };
 
@@ -98,6 +118,8 @@ namespace UI {
         virtual const ivec2 & maxSize() const override;
 
         virtual void keyEvent(int key, int action, int mods) override;
+
+        virtual void charEvent(char c) override;
 
         virtual void cursorPositionEvent(const ivec2 & pos, const ivec2 & delta) override;
 
@@ -151,6 +173,9 @@ namespace UI {
 
     void poll();
 
+    // Requires OpenGL state:
+    // - `GL_DEPTH_TEST` disabled
+    // - `GL_BLEND` enabled
     void update();
 
     void render();
@@ -162,5 +187,7 @@ namespace UI {
     bool isMouseButtonPressed(int button);
 
     bool isKeyPressed(int key);
+
+    void focus(Component * component);
 
 }

@@ -147,7 +147,7 @@ bool Graph::setup(const std::string & resourceDir) {
 Graph::PlotComp::PlotComp(Graph & graph, const ivec2 & minSize, const ivec2 & maxSize) :
     Single(minSize, maxSize),
     m_graph(graph),
-    m_cursorText(new Text("", ivec2(1, 1), vec3(1.0f), ivec2(), ivec2())),
+    m_cursorText(new UI::Text("", ivec2(1, 1), vec4(1.0f), ivec2(), ivec2())),
     m_isFocusUpdateNeeded(false)
 {
     m_cursorText->size(ivec2(100, 100));
@@ -307,13 +307,13 @@ void Graph::PlotComp::updateFocus() {
     float x(m_graph.focusX());
 
     std::stringstream ss;
-    ss << m_graph.m_xLabel << ": " << Util::numberString(x, k_gridTextPrecision);
+    ss << m_graph.m_xLabel << ": " << Util::numberString(x, false, k_gridTextPrecision);
     for (const Curve & curve : m_graph.m_curves) {
         float val(curve.valAt(x));
         if (std::isnan(val)) {
             continue;
         }
-        ss << '\n' << curve.label << ": " << Util::numberString(val, k_gridTextPrecision);
+        ss << '\n' << curve.label << ": " << Util::numberString(val, false, k_gridTextPrecision);
     }
 
     m_cursorText->string(ss.str());
@@ -325,10 +325,10 @@ void Graph::PlotComp::updateFocus() {
 Graph::InnerComp::InnerComp(Graph & graph, const ivec2 & minPlotSize, const ivec2 & maxPlotSize) :
     m_graph(graph),
     m_plotComp(new PlotComp(graph, minPlotSize, maxPlotSize)),
-    m_domainMinText(new Text("", ivec2(0, 1), vec3(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
-    m_domainMaxText(new Text("", ivec2(0, 1), vec3(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
-    m_rangeMinText(new Text("", ivec2(-1, 0), vec3(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
-    m_rangeMaxText(new Text("", ivec2(-1, 0), vec3(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
+    m_domainMinText(new UI::Text("", ivec2(0, 1), vec4(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
+    m_domainMaxText(new UI::Text("", ivec2(0, 1), vec4(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
+    m_rangeMinText(new UI::Text("", ivec2(-1, 0), vec4(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
+    m_rangeMaxText(new UI::Text("", ivec2(-1, 0), vec4(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
     m_isGridTextUpdateNeeded(true)
 {
     add(m_plotComp);
@@ -384,14 +384,14 @@ void Graph::InnerComp::updateGridText() {
     ivec2 offset(m_minMargin / 2);
 
     m_domainMinText->position(m_position + ivec2(offset.x + gridMinPos.x, 0));
-    m_domainMinText->string(Util::numberString(gridMin.x, k_gridTextPrecision));
+    m_domainMinText->string(Util::numberString(gridMin.x, false, k_gridTextPrecision));
     m_domainMaxText->position(m_position + ivec2(offset.x + gridMaxPos.x, 0));
-    m_domainMaxText->string(Util::numberString(gridMax.x, k_gridTextPrecision));
+    m_domainMaxText->string(Util::numberString(gridMax.x, false, k_gridTextPrecision));
 
     m_rangeMinText->position(m_position + ivec2(0, offset.y + gridMinPos.y));
-    m_rangeMinText->string(Util::numberString(gridMin.y, k_gridTextPrecision));
+    m_rangeMinText->string(Util::numberString(gridMin.y, false, k_gridTextPrecision));
     m_rangeMaxText->position(m_position + ivec2(0, offset.y + gridMaxPos.y));
-    m_rangeMaxText->string(Util::numberString(gridMax.y, k_gridTextPrecision));
+    m_rangeMaxText->string(Util::numberString(gridMax.y, false, k_gridTextPrecision));
 }
 
 
@@ -408,7 +408,7 @@ Graph::Graph(const std::string & title, const std::string & xLabel, const vec2 &
 
     if (!title.empty()) {
         int lineCount(Text::detDimensions(title).y);
-        shr<Text> titleComp(new Text(title, ivec2(), vec3(1.0f), ivec2(int(title.size()), lineCount), ivec2(0, lineCount)));
+        shr<UI::Text> titleComp(new UI::Text(title, ivec2(), vec4(1.0f), ivec2(int(title.size()), lineCount), ivec2(0, lineCount)));
         add(titleComp);
     }
 }

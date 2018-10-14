@@ -31,6 +31,8 @@
     <None Include="..\resources\shaders\tex.vert" />
     <None Include="..\resources\shaders\text.frag" />
     <None Include="..\resources\shaders\text.vert" />
+    <None Include="..\resources\shaders\ui_comp.frag" />
+    <None Include="..\resources\shaders\ui_comp.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\glad\glad.c" />
@@ -44,6 +46,7 @@
     <ClCompile Include="src\TexViewer.cpp" />
     <ClCompile Include="src\tinyobjloader\tiny_obj_loader.cpp" />
     <ClCompile Include="src\UI.cpp" />
+    <ClCompile Include="src\UI_Text.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Common\Global.hpp" />
@@ -55,6 +58,7 @@
     <ClInclude Include="include\Common\Text.hpp" />
     <ClInclude Include="include\Common\TexViewer.hpp" />
     <ClInclude Include="include\Common\UI.hpp" />
+    <ClInclude Include="include\Common\UI_Text.hpp" />
     <ClInclude Include="include\Common\Util.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

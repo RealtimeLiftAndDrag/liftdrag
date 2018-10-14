@@ -7,7 +7,7 @@
 
 #include "Global.hpp"
 #include "UI.hpp"
-#include "Text.hpp"
+#include "UI_Text.hpp"
 
 
 
@@ -44,7 +44,7 @@ class Graph : public UI::VerticalGroup {
         private:
 
         Graph & m_graph;
-        shr<Text> m_cursorText;
+        shr<UI::Text> m_cursorText;
         bool m_isFocusUpdateNeeded;
 
         public:
@@ -77,8 +77,8 @@ class Graph : public UI::VerticalGroup {
 
         Graph & m_graph;
         shr<PlotComp> m_plotComp;
-        shr<Text> m_domainMinText, m_domainMaxText;
-        shr<Text> m_rangeMinText, m_rangeMaxText;
+        shr<UI::Text> m_domainMinText, m_domainMaxText;
+        shr<UI::Text> m_rangeMinText, m_rangeMaxText;
         ivec2 m_minMargin, m_maxMargin;
         bool m_isGridTextUpdateNeeded;
 

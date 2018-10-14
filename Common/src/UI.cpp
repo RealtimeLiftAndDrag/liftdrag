@@ -12,12 +12,17 @@
 #include "Text.hpp"
 #include "Graph.hpp"
 #include "TexViewer.hpp"
+#include "Program.h"
 
 
 
 namespace UI {
 
     static const ivec2 k_tooltipOffset(12, -12);
+
+    static const std::string k_compVertFilename("ui_comp.vert"), k_compFragFilename("ui_comp.frag");
+
+
 
     static GLFWwindow * s_window;
     static ivec2 s_windowSize;
@@ -26,6 +31,12 @@ namespace UI {
     static ivec2 s_cursorPos;
     static bool s_cursorInside;
     static bool s_isTooltipChange;
+    static Component * s_focus;
+    
+    static unq<Program> s_compProg;
+    static uint s_squareVBO, s_squareVAO;
+
+
 
     static void errorCallback(int error, const char * description) {
         std::cerr << "GLFW error " << error << ": " << description << std::endl;
@@ -39,7 +50,13 @@ namespace UI {
     }
 
     static void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mods) {
-        s_root->keyEvent(key, action, mods);
+        if (s_focus) s_focus->keyEvent(key, action, mods);
+        else s_root->keyEvent(key, action, mods);
+    }
+
+    static void charCallback(GLFWwindow * window, unsigned int codepoint) {
+        if (s_focus) s_focus->charEvent(char(codepoint));
+        else s_root->charEvent(char(codepoint));
     }
 
     static void cursorPositionCallback(GLFWwindow * window, double xpos, double ypos) {
@@ -73,10 +90,26 @@ namespace UI {
         std::vector<int> vals(n, total / n);
         int excess(total % n);
         for (int i(0); i < excess; ++i) ++vals[i];
-        return std::move(vals);
+        return move(vals);
     }
 
 
+
+    void Component::render() const {
+        if (m_backColor.a == 0.0f && m_borderColor.a == 0.0f) {
+            return;
+        }
+
+        glUseProgram(s_compProg->pid);
+        glUniform2f(s_compProg->getUniform("u_viewportSize"), float(m_size.x), float(m_size.y));
+        glUniform4fv(s_compProg->getUniform("u_backColor"), 1, &m_backColor.r);
+        glUniform4fv(s_compProg->getUniform("u_borderColor"), 1, &m_borderColor.r);
+        glViewport(m_position.x, m_position.y, m_size.x, m_size.y);
+        glBindVertexArray(s_squareVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+        glUseProgram(0);
+    }
 
     void Component::position(const ivec2 & position) {
         m_position = position;
@@ -89,6 +122,26 @@ namespace UI {
     bool Component::contains(const ivec2 & point) const {
         ivec2 p(point - m_position);
         return p.x >= 0 && p.y >= 0 && p.x < m_size.x && p.y < m_size.y;
+    }
+
+    void Component::focus() {
+        UI::focus(this);
+    }
+
+    void Component::unfocus() {
+        if (this == s_focus) UI::focus(nullptr);
+    }
+
+    bool Component::focused() const {
+        return this == s_focus;
+    }
+
+    void Component::backColor(const vec4 & backColor) {
+        m_backColor = backColor;
+    }
+
+    void Component::borderColor(const vec4 & borderColor) {
+        m_borderColor = borderColor;
     }
 
 
@@ -123,6 +176,10 @@ namespace UI {
 
     void Group::keyEvent(int key, int action, int mods) {
         if (m_cursorOverComp) m_cursorOverComp->keyEvent(key, action, mods);
+    }
+
+    void Group::charEvent(char c) {
+        if (m_cursorOverComp) m_cursorOverComp->charEvent(c);
     }
 
     void Group::cursorPositionEvent(const ivec2 & pos, const ivec2 & delta) {
@@ -312,6 +369,7 @@ namespace UI {
 
         glfwSetFramebufferSizeCallback(s_window, framebufferSizeCallback);
         glfwSetKeyCallback(s_window, keyCallback);
+        glfwSetCharCallback(s_window, charCallback);
         glfwSetCursorPosCallback(s_window, cursorPositionCallback);
         glfwSetCursorEnterCallback(s_window, cursorEnterCallback);
         glfwSetMouseButtonCallback(s_window, mouseButtonCallback);
@@ -324,12 +382,40 @@ namespace UI {
             std::cerr << "Failed to initialize GLAD" << std::endl;
             return false;
         }
-    
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glEnable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
-        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
-        glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);        
+
+        // Setup comp shader
+        s_compProg.reset(new Program());
+        s_compProg->setShaderNames(resourceDir + "/shaders/" + k_compVertFilename, resourceDir + "/shaders/" + k_compFragFilename);
+        if (!s_compProg->init()) {
+            std::cerr << "Failed to initialize comp program" << std::endl;
+            return false;
+        }
+        s_compProg->addUniform("u_viewportSize");
+        s_compProg->addUniform("u_backColor");
+        s_compProg->addUniform("u_borderColor");
+
+        // Setup square vao and vbo
+        vec2 locs[6]{
+            { 0.0f, 0.0f },
+            { 1.0f, 0.0f },
+            { 1.0f, 1.0f },
+            { 1.0f, 1.0f },
+            { 0.0f, 1.0f },
+            { 0.0f, 0.0f }
+        };
+        glGenVertexArrays(1, &s_squareVAO);
+        glBindVertexArray(s_squareVAO);
+        glGenBuffers(1, &s_squareVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, s_squareVBO);
+        glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(vec2), locs, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+        glBindVertexArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        if (glGetError() != GL_NO_ERROR) {
+            std::cerr << "OpenGL error" << std::endl;
+            return false;
+        }
 
         if (!Text::setup(resourceDir)) {
             std::cerr << "Failed to setup text" << std::endl;
@@ -412,6 +498,15 @@ namespace UI {
 
     bool isKeyPressed(int key) {
         return glfwGetKey(s_window, key) == GLFW_PRESS;
+    }
+
+    void focus(Component * component) {
+        Component * prevFocus = s_focus;
+        s_focus = component;
+        if (s_focus != prevFocus) {
+            if (prevFocus) prevFocus->unfocusEvent();
+            if (s_focus) s_focus->focusEvent();
+        }
     }
 
 }

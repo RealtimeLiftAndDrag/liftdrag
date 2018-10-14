@@ -83,8 +83,7 @@ static constexpr float k_minElevatorAngle(-90.0f), k_maxElevatorAngle(90.0f);
 
 static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
 
-
-static GLFWwindow * s_window;
+static shr<MainUIC> s_mainUIC;
 
 
 

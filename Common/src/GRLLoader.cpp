@@ -134,7 +134,7 @@ namespace grl {
             }
         }
 
-        return std::move(objects);
+        return move(objects);
     }
 
 }

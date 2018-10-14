@@ -41,5 +41,9 @@ using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
 
+using std::pair;
+
 template <typename T> using unq = std::unique_ptr<T>;
 template <typename T> using shr = std::shared_ptr<T>;
+
+using std::move;
