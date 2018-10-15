@@ -295,7 +295,8 @@ void main() {
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
             float dist = distance(airWindPos, geoWindPos);
 
-            float area = pixelSize * u_sliceSize / max(sqrt(1.0f - geoNormal.z * geoNormal.z), 0.001f); // TODO: needs to not be able to be infinity
+            //float area = pixelSize * u_sliceSize / max(sqrt(1.0f - geoNormal.z * geoNormal.z), 0.001f); // TODO: needs to not be able to be infinity
+            float area = pixelSize * u_sliceSize * (1.0f - abs(dot(geoNormal, normalize(airVelocity))));
 
             // Calculate backforce
             vec2 thisBackforce = normalize(-geoNormal.xy) * dist * dist;// = dist*dist*a + dist*b + c;
@@ -310,25 +311,26 @@ void main() {
             vec3 thisLift = geoNormal * liftFactor;
 
             // Calculate drag
-            float dragFactor = 0.5f * k_airDensity * windSpeed2 * max(-dot(geoNormal, normalize(airVelocity)), 0.0f) * area; // TODO: should windSpeed2 be replaced with magnitude of airVelocity squared?
-            dragFactor *= dragFunc(dist);
-            dragFactor *= u_dragC;
-            vec3 thisDrag = -geoNormal * dragFactor;
+            //float dragFactor = 0.5f * k_airDensity * windSpeed2 * max(-dot(geoNormal, normalize(airVelocity)), 0.0f) * area; // TODO: should windSpeed2 be replaced with magnitude of airVelocity squared?
+            //dragFactor *= dragFunc(dist);
+            //dragFactor *= u_dragC;
+            //vec3 thisDrag = -geoNormal * dragFactor;
 
             // Calculate torque
-            vec3 thisTorq = cross(vec3(geoWindPos, u_sliceZ), thisLift + thisDrag); // TODO: is this right
+            //vec3 thisTorq = cross(vec3(geoWindPos, u_sliceZ), thisLift + thisDrag);
+            vec3 thisTorq = cross(vec3(geoWindPos, u_sliceZ), thisLift);
 
             lift += thisLift;
-            drag += thisDrag;
+            //drag += thisDrag;
             torq += thisTorq;
         }
         // Average
         if (geoCount > 0) {
             float invGeoCount = 1.0f / float(geoCount);
             backforce *= invGeoCount;
-            lift *= invGeoCount;
-            drag *= invGeoCount;
-            torq *= invGeoCount;
+            //lift *= invGeoCount;
+            //drag *= invGeoCount;
+            //torq *= invGeoCount;
         }
         // Add to total
         totalLift += lift;
@@ -340,17 +342,14 @@ void main() {
             ivec2 texCoord = ivec2(windToScreen(airWindPos));
             vec4 color = imageLoad(u_fboImg, texCoord);
             color.g = 1.0f;
-            if (dragFactor >= 0.01f) color.b = dragFactor * 0.5f;
-            else if (liftFactor >= 0.01f) color.b = liftFactor * 0.5f + 0.5f;
             imageStore(u_fboImg, texCoord, color);
         }
 
         // Update velocity
         airVelocity.xy += backforce;
         if (!isScreenInShadow(airScreenPos)) {
-            airVelocity.z = -u_windSpeed;
+            airVelocity.xy *= 0.85f; // TODO: make dependent on slice size
         }
-        airVelocity = normalize(airVelocity) * u_windSpeed;
 
         // Update location
         airWindPos.xy += airVelocity.xy * u_dt;

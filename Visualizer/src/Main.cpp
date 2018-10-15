@@ -10,12 +10,14 @@ extern "C" {
 }
 #endif
 
-// TODO: should average backforce when multiple geo pixels, or simply sum?
+// TODO: should average backforce when multiple geo pixels, or simply sum? -> sum
 // TODO: lift should be independent of the number of slices
-// TODO: how far away should turbulence start? linear or squared air speed?
-// TODO: front-facing drag only on outline??
-// TODO: should wind shadow be removed on forward faces?
-// TODO: distance for turbulence and wind shadow?
+// TODO: how far away should turbulence start? linear or squared air speed? -> don't know, no drag
+// TODO: front-facing drag only on outline?? -> approx using prospect, long term solution as density flow nonsense
+// TODO: infinity area thing
+// TODO: velocity updating -> add windspeed to z, normalize, multiply so that z is equal to windspeed
+
+// TODO: three very different airfoils, at some angle, with aoa vs lift and drag along with expected values
 
 
 
@@ -323,7 +325,7 @@ void MainUIC::keyEvent(int key, int action, int mods) {
 
 static bool setupModel() {
     switch (k_simModel) {
-        case SimModel::airfoil: s_model = Model::load(s_resourceDir + "/models/0012.obj"  ); break;
+        case SimModel::airfoil: s_model = Model::load(s_resourceDir + "/models/8412.obj"  ); break;
         case SimModel::    f18: s_model = Model::load(s_resourceDir + "/models/f18.grl"   ); break;
         case SimModel:: sphere: s_model = Model::load(s_resourceDir + "/models/sphere.obj"); break;
     }
