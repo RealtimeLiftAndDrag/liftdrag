@@ -17,7 +17,7 @@ namespace UI {
 
         static const ivec2 & fontSize() { return ::Text::fontSize(); }
 
-        private:
+        protected:
 
         ::Text m_text;
 
@@ -28,15 +28,17 @@ namespace UI {
 
         virtual void render() const override;
 
-        virtual bool string(const std::string & str);
-        virtual bool string(std::string && string);
+        virtual void string(const std::string & str);
+        virtual void string(std::string && string);
         virtual const std::string & string() const { return m_text.string(); }
 
         virtual void align(const ivec2 & align);
-        virtual const ivec2 & align() const final { return m_text.align(); }
+        virtual const ivec2 & align() const { return m_text.align(); }
 
         virtual void color(const vec4 & color);
-        virtual const vec4 & color() const final { return m_text.color(); }
+        virtual const vec4 & color() const { return m_text.color(); }
+
+        virtual bool verify(std::string & str);
 
     };
 
@@ -47,8 +49,7 @@ namespace UI {
         String(const std::string & initStr, int align, const vec4 & color);
         String(const std::string & initStr, int align, const vec4 & color, int minWidth, int maxWidth);
 
-        virtual bool string(std::string && string) override;
-        using Text::string;
+        virtual bool verify(std::string & string) override;
 
     };
 
@@ -66,10 +67,9 @@ namespace UI {
 
         public:
 
-        Number(double initVal, int align, const vec4 & color, int minWidth, int maxWidth, bool fixed, int precision);
+        Number(double initVal, int align, const vec4 & color, int minWidth, int maxWidth, bool fixed, int precision);        
 
-        virtual bool string(std::string && string) override;
-        using Text::string;
+        virtual bool verify(std::string & string) override;
 
         virtual void value(double val);
         virtual double value() const final { return m_value; }
@@ -80,7 +80,7 @@ namespace UI {
     
         protected:
 
-        shr<Number> m_xNum, m_yNum, m_zNum;
+        shr<Number> m_x, m_y, m_z;
 
         public:
 
@@ -102,8 +102,8 @@ namespace UI {
 
         TextField(const std::string & initStr, const ivec2 & align, const vec4 & color, const ivec2 & minDimensions, const ivec2 & maxDimensions);
 
-        virtual bool string(std::string && string) override;
-        virtual const std::string & string() const override final;
+        virtual void string(std::string && string) override;
+        virtual const std::string & string() const override;
         using Text::string;
 
         virtual void keyEvent(int key, int action, int mods) override;
@@ -134,6 +134,8 @@ namespace UI {
         
         StringField(const std::string & initStr, int align, const vec4 & color, int minWidth, int maxWidth);
 
+        virtual bool verify(std::string & string) override;
+
         virtual bool valid(char c) const override;
     
     };
@@ -150,13 +152,27 @@ namespace UI {
         
         NumberField(double initVal, int align, const vec4 & color, int minWidth, int maxWidth, bool fixed, int precision);
 
-        virtual bool string(std::string && string) override;
-        using Text::string;
+        virtual bool verify(std::string & string) override;
 
         virtual bool valid(char c) const override;
 
         virtual double value() const final { return m_value; }
         virtual void value(double val);
+    
+    };
+
+    class VectorField : public HorizontalGroup {
+    
+        protected:
+
+        shr<NumberField> m_x, m_y, m_z;
+
+        public:
+
+        VectorField(const vec3 & initVal, const vec4 & color, int compWidth, bool fixed, int precision);
+
+        virtual void value(const vec3 & val);
+        virtual vec3 value() const final;
     
     };
 

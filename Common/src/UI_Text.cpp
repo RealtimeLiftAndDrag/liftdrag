@@ -20,22 +20,23 @@ namespace UI {
 
     Text::Text(const std::string & string, const ivec2 & align, const vec4 & color, const ivec2 & minDimensions, const ivec2 & maxDimensions) :
         Single(::Text::detSize(minDimensions), ::Text::detSize(maxDimensions)),
-        m_text(string, align, color)
-    {}
+        m_text("", align, color)
+    {
+        std::string str(string);
+        if (verify(str)) m_text.string(move(str));
+    }
 
     void Text::render() const {
         Component::render();
         m_text.renderWithin(m_position, m_size);
     }
 
-    bool Text::string(const std::string & str) {
+    void Text::string(const std::string & str) {
         string(std::string(str));
-        return true;
     }
 
-    bool Text::string(std::string && str) {
-        m_text.string(move(str));
-        return true;
+    void Text::string(std::string && str) {
+        if (verify(str)) m_text.string(move(str));
     }
 
     void Text::align(const ivec2 & align) {
@@ -45,6 +46,15 @@ namespace UI {
     void Text::color(const vec4 & color) {
         m_text.color(color);
     }
+
+    bool Text::verify(std::string & str) {
+        for (char c : str) {
+            if (!(Util::isPrintable(c) || c == '\n')) {
+                return false;
+            }
+        }
+        return true;
+    }
     
     
 
@@ -53,18 +63,15 @@ namespace UI {
     {}
 
     String::String(const std::string & initStr, int align, const vec4 & color, int minWidth, int maxWidth) :
-        Text("", ivec2(align, 0), color, ivec2(minWidth, 1), ivec2(maxWidth, 1))
-    {
-        string(initStr);
-    }
+        Text(initStr, ivec2(align, 0), color, ivec2(minWidth, 1), ivec2(maxWidth, 1))
+    {}
 
-    bool String::string(std::string && str) {
+    bool String::verify(std::string & str) {
         for (char c : str) {
             if (!Util::isPrintable(c)) {
                 return false;
             }
         }
-        Text::string(move(str));
         return true;
     }
     
@@ -92,44 +99,43 @@ namespace UI {
         m_precision(precision)
     {}
 
-    bool Number::string(std::string && str) {
+    bool Number::verify(std::string & str) {
         double val(detValue(str));
         if (std::isnan(val)) {
             return false;
         }
-        value(val);
+        m_value = val;
         return true;
     }
 
     void Number::value(double val) {
-        m_value = val;
-        Text::string(Util::numberString(val, m_fixed, m_precision));
+        string(Util::numberString(val, m_fixed, m_precision));
     }
 
     
 
     Vector::Vector(const vec3 & initVal, const vec4 & color, int compWidth, bool fixed, int precision) :
-        m_xNum(new Number(initVal.x, 0, color, compWidth, compWidth, fixed, precision)),
-        m_yNum(new Number(initVal.y, 0, color, compWidth, compWidth, fixed, precision)),
-        m_zNum(new Number(initVal.z, 0, color, compWidth, compWidth, fixed, precision))
+        m_x(new Number(initVal.x, 0, color, compWidth, compWidth, fixed, precision)),
+        m_y(new Number(initVal.y, 0, color, compWidth, compWidth, fixed, precision)),
+        m_z(new Number(initVal.z, 0, color, compWidth, compWidth, fixed, precision))
     {
         add(shr<String>(new String("<", 0, color, 1, 1)));
-        add(m_xNum);
+        add(m_x);
         add(shr<String>(new String(" ", 0, color, 1, 1)));
-        add(m_yNum);
+        add(m_y);
         add(shr<String>(new String(" ", 0, color, 1, 1)));
-        add(m_zNum);
+        add(m_z);
         add(shr<String>(new String(">", 0, color, 1, 1)));
     }
 
     void Vector::value(const vec3 & val) {
-        m_xNum->value(val.x);
-        m_yNum->value(val.y);
-        m_zNum->value(val.z);
+        m_x->value(val.x);
+        m_y->value(val.y);
+        m_z->value(val.z);
     }
 
     vec3 Vector::value() const {
-        return vec3(m_xNum->value(), m_yNum->value(), m_zNum->value());
+        return vec3(m_x->value(), m_y->value(), m_z->value());
     }
 
     
@@ -142,16 +148,13 @@ namespace UI {
         string(initStr);
     }
 
-    bool TextField::string(std::string && string) {
-        for (char c : string) {
-            if (!valid(c)) {
-                return false;
-            }
+    void TextField::string(std::string && string) {
+        if (m_editing) {
+            if (verify(string)) m_savedString = move(string);
         }
-
-        if (m_editing) m_savedString = move(string);
-        else Text::string(move(string));
-        return true;
+        else {
+            Text::string(move(string));
+        }
     }
 
     const std::string & TextField::string() const {
@@ -181,7 +184,7 @@ namespace UI {
     }
 
     void TextField::charEvent(char c) {
-        if (m_editing && valid(c)) Text::string(Text::string() + c);
+        if (m_editing && valid(c)) m_text.string(m_text.string() + c);
     }
     
     void TextField::mouseButtonEvent(int button, int action, int mods) {
@@ -204,21 +207,20 @@ namespace UI {
 
     void TextField::startEditing() {
         m_editing = true;
-        m_savedString = Text::string();
-        Text::string("");
         borderColor(color());
+        m_savedString = m_text.string("");
     }
 
     void TextField::doneEditing() {
         m_editing = false;
-        if (!string(Text::string())) Text::string(move(m_savedString));
         borderColor(vec4());
+        string(move(m_savedString));
     }
 
     void TextField::cancelEditing() {
         m_editing = false;
-        Text::string(move(m_savedString));
         borderColor(vec4());
+        m_text.string(move(m_savedString));
     }
 
     
@@ -226,6 +228,15 @@ namespace UI {
     StringField::StringField(const std::string & initStr, int align, const vec4 & color, int minWidth, int maxWidth) :
         TextField(initStr, ivec2(align, 0), color, ivec2(minWidth, 1), ivec2(maxWidth, 1))
     {}
+
+    bool StringField::verify(std::string & str) {
+        for (char c : str) {
+            if (!Util::isPrintable(c)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     bool StringField::valid(char c) const {
         return Util::isPrintable(c);
@@ -240,22 +251,48 @@ namespace UI {
         m_precision(precision)
     {}
 
-    bool NumberField::string(std::string && str) {
+    bool NumberField::verify(std::string & str) {
         double val(Number::detValue(str));
         if (std::isnan(val)) {
             return false;
         }
-        value(val);
+        m_value = val;
         return true;
     }
 
+
     void NumberField::value(double val) {
-        m_value = val;
-        TextField::string(Util::numberString(val, m_fixed, m_precision));
+        string(Util::numberString(val, m_fixed, m_precision));
     }
 
     bool NumberField::valid(char c) const {
         return std::isdigit(c) || c == '.' || c == '-';
+    }
+
+    
+
+    VectorField::VectorField(const vec3 & initVal, const vec4 & color, int compWidth, bool fixed, int precision) :
+        m_x(new NumberField(initVal.x, 0, color, compWidth, compWidth, fixed, precision)),
+        m_y(new NumberField(initVal.y, 0, color, compWidth, compWidth, fixed, precision)),
+        m_z(new NumberField(initVal.z, 0, color, compWidth, compWidth, fixed, precision))
+    {
+        add(shr<String>(new String("<", 0, color, 1, 1)));
+        add(m_x);
+        add(shr<String>(new String(" ", 0, color, 1, 1)));
+        add(m_y);
+        add(shr<String>(new String(" ", 0, color, 1, 1)));
+        add(m_z);
+        add(shr<String>(new String(">", 0, color, 1, 1)));
+    }
+
+    void VectorField::value(const vec3 & val) {
+        m_x->value(val.x);
+        m_y->value(val.y);
+        m_z->value(val.z);
+    }
+
+    vec3 VectorField::value() const {
+        return vec3(m_x->value(), m_y->value(), m_z->value());
     }
 
 }

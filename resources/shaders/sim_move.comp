@@ -310,7 +310,7 @@ void main() {
             vec3 thisLift = geoNormal * liftFactor;
 
             // Calculate drag
-            float dragFactor = 0.5f * k_airDensity * windSpeed2 * max(-dot(geoNormal, vec3(0.0f, 0.0f, -1.0f)), 0.0f) * area;
+            float dragFactor = 0.5f * k_airDensity * windSpeed2 * max(-dot(geoNormal, normalize(airVelocity)), 0.0f) * area; // TODO: should windSpeed2 be replaced with magnitude of airVelocity squared?
             dragFactor *= dragFunc(dist);
             dragFactor *= u_dragC;
             vec3 thisDrag = -geoNormal * dragFactor;

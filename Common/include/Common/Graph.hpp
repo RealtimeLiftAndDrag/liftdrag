@@ -77,8 +77,8 @@ class Graph : public UI::VerticalGroup {
 
         Graph & m_graph;
         shr<PlotComp> m_plotComp;
-        shr<UI::Text> m_domainMinText, m_domainMaxText;
-        shr<UI::Text> m_rangeMinText, m_rangeMaxText;
+        shr<UI::Number> m_domainMinText, m_domainMaxText;
+        shr<UI::Number> m_rangeMinText, m_rangeMaxText;
         ivec2 m_minMargin, m_maxMargin;
         bool m_isGridTextUpdateNeeded;
 

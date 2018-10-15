@@ -325,10 +325,10 @@ void Graph::PlotComp::updateFocus() {
 Graph::InnerComp::InnerComp(Graph & graph, const ivec2 & minPlotSize, const ivec2 & maxPlotSize) :
     m_graph(graph),
     m_plotComp(new PlotComp(graph, minPlotSize, maxPlotSize)),
-    m_domainMinText(new UI::Text("", ivec2(0, 1), vec4(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
-    m_domainMaxText(new UI::Text("", ivec2(0, 1), vec4(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
-    m_rangeMinText(new UI::Text("", ivec2(-1, 0), vec4(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
-    m_rangeMaxText(new UI::Text("", ivec2(-1, 0), vec4(1.0f), ivec2(k_gridTextLength, 1), ivec2(k_gridTextLength, 1))),
+    m_domainMinText(new UI::Number(0.0,  0, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
+    m_domainMaxText(new UI::Number(0.0,  0, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
+    m_rangeMinText (new UI::Number(0.0, -1, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
+    m_rangeMaxText (new UI::Number(0.0, -1, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
     m_isGridTextUpdateNeeded(true)
 {
     add(m_plotComp);
@@ -384,14 +384,14 @@ void Graph::InnerComp::updateGridText() {
     ivec2 offset(m_minMargin / 2);
 
     m_domainMinText->position(m_position + ivec2(offset.x + gridMinPos.x, 0));
-    m_domainMinText->string(Util::numberString(gridMin.x, false, k_gridTextPrecision));
+    m_domainMinText->value(gridMin.x);
     m_domainMaxText->position(m_position + ivec2(offset.x + gridMaxPos.x, 0));
-    m_domainMaxText->string(Util::numberString(gridMax.x, false, k_gridTextPrecision));
+    m_domainMaxText->value(gridMax.x);
 
     m_rangeMinText->position(m_position + ivec2(0, offset.y + gridMinPos.y));
-    m_rangeMinText->string(Util::numberString(gridMin.y, false, k_gridTextPrecision));
+    m_rangeMinText->value(gridMin.y);
     m_rangeMaxText->position(m_position + ivec2(0, offset.y + gridMaxPos.y));
-    m_rangeMaxText->string(Util::numberString(gridMax.y, false, k_gridTextPrecision));
+    m_rangeMaxText->value(gridMax.y);
 }
 
 
