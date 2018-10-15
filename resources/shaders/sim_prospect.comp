@@ -126,14 +126,9 @@ void main() {
     vec2 geoWindPos = screenToWind(vec2(texCoord) + color.gb);
     vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
 
-    // TODO: race condition here that may or may not be a problem
     // Set wind shadow
-    if (geoNormal.z < 0.0f) {
+    if (geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
         imageStore(u_shadImg, texCoord / 4, vec4(1.0f, 0.0f, 0.0f, 0.0f));
-    }
-    // Remove wind shadow
-    else {
-        imageStore(u_shadImg, texCoord / 4, vec4(0.0f, 0.0f, 0.0f, 0.0f));        
     }
 
     ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
