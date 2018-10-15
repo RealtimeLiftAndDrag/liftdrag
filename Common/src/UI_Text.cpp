@@ -55,6 +55,10 @@ namespace UI {
         }
         return true;
     }
+
+    void Text::reverify() {
+        string(m_text.string(""));
+    }
     
     
 
@@ -201,6 +205,10 @@ namespace UI {
         if (m_editing) cancelEditing();
     }
 
+    void TextField::actionCallback(std::function<void(void)> func) {
+        m_actionCallback = move(func);
+    }
+
     bool TextField::valid(char c) const {
         return Util::isPrintable(c) || c == '\n';
     }
@@ -214,7 +222,8 @@ namespace UI {
     void TextField::doneEditing() {
         m_editing = false;
         borderColor(vec4());
-        string(move(m_savedString));
+        string(m_text.string(""));
+        if (m_actionCallback) m_actionCallback();
     }
 
     void TextField::cancelEditing() {
@@ -260,13 +269,40 @@ namespace UI {
         return true;
     }
 
-
     void NumberField::value(double val) {
         string(Util::numberString(val, m_fixed, m_precision));
     }
 
     bool NumberField::valid(char c) const {
         return std::isdigit(c) || c == '.' || c == '-';
+    }
+
+    
+
+    BoundedNumberField::BoundedNumberField(double initVal, int align, const vec4 & color, int minWidth, int maxWidth, bool fixed, int precision, double minVal, double maxVal) :
+        NumberField(initVal, align, color, minWidth, maxWidth, fixed, precision),
+        m_minVal(minVal),
+        m_maxVal(maxVal)
+    {}
+
+    bool BoundedNumberField::verify(std::string & str) {
+        double val(Number::detValue(str));
+        if (std::isnan(val)) {
+            return false;
+        }
+        val = glm::clamp(val, m_minVal, m_maxVal);
+        m_value = val;
+        return true;
+    }
+
+    void BoundedNumberField::minVal(double minVal) {
+        m_minVal = minVal;
+        reverify();
+    }
+
+    void BoundedNumberField::maxVal(double maxVal) {
+        m_maxVal = maxVal;
+        reverify();
     }
 
     

@@ -2,6 +2,8 @@
 
 
 
+#include <functional>
+
 #include "UI.hpp"
 #include "Text.hpp"
 
@@ -39,6 +41,10 @@ namespace UI {
         virtual const vec4 & color() const { return m_text.color(); }
 
         virtual bool verify(std::string & str);
+        
+        protected:
+
+        virtual void reverify() final;
 
     };
 
@@ -97,6 +103,7 @@ namespace UI {
 
         bool m_editing;
         std::string m_savedString;
+        std::function<void(void)> m_actionCallback;
 
         public:
 
@@ -115,6 +122,8 @@ namespace UI {
         virtual void focusEvent() override;
 
         virtual void unfocusEvent() override;
+
+        virtual void actionCallback(std::function<void(void)> func) final;
 
         virtual bool valid(char c) const;
 
@@ -158,6 +167,25 @@ namespace UI {
 
         virtual double value() const final { return m_value; }
         virtual void value(double val);
+    
+    };
+
+    class BoundedNumberField : public NumberField {
+    
+        protected:
+
+        double m_minVal, m_maxVal;
+
+        public:
+        
+        BoundedNumberField(double initVal, int align, const vec4 & color, int minWidth, int maxWidth, bool fixed, int precision, double minVal, double maxVal);
+
+        virtual bool verify(std::string & string) override;
+
+        virtual double minVal() const final { return m_minVal; }
+        virtual double maxVal() const final { return m_maxVal; }
+        virtual void minVal(double minVal);
+        virtual void maxVal(double maxVal);
     
     };
 

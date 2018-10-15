@@ -111,7 +111,7 @@ static bool s_shouldAutoProgress(false);
 static shr<MainUIC> s_mainUIC;
 static shr<TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
 static shr<UI::String> s_angleLabel, s_angleLiftLabel, s_angleDragLabel, s_angleTorqueLabel;
-static shr<UI::Number> s_angleNum;
+static shr<UI::NumberField> s_angleField;
 static shr<UI::Vector> s_angleLiftNum, s_angleDragNum, s_angleTorqueNum;
 static shr<UI::String> s_rudderLabel, s_elevatorLabel, s_aileronLabel;
 static shr<UI::Number> s_rudderNum, s_elevatorNum, s_aileronNum;
@@ -138,10 +138,15 @@ static bool processArgs(int argc, char ** argv) {
     return true;
 }
 
-static void changeAngleOfAttack(float deltaAngle) {
-    s_angleOfAttack = glm::clamp(s_angleOfAttack + deltaAngle, -k_maxAngleOfAttack, k_maxAngleOfAttack);
+static void setAngleOfAttack(float angle) {
+    if (angle >= k_minAngleOfAttack && angle <= k_maxAngleOfAttack) {
+        s_angleOfAttack = angle;
+        s_isInfoChange = true;
+    }    
+}
 
-    s_isInfoChange = true;
+static void changeAngleOfAttack(float deltaAngle) {
+    setAngleOfAttack(s_angleOfAttack + deltaAngle);
 }
 
 static void changeRudderAngle(float deltaAngle) {
@@ -409,7 +414,12 @@ static bool setup() {
     s_elevatorLabel   .reset(new UI::String("Elevator: ", 1, vec4(1.0f)));
     s_aileronLabel    .reset(new UI::String("Aileron: ", 1, vec4(1.0f)));
 
-    s_angleNum      .reset(new UI::Number(0.0, 1, vec4(1.0f), 5, 0, false, 3));
+    s_angleField    .reset(new UI::BoundedNumberField(0.0, 1, vec4(1.0f), 5, 0, true, 1, k_minAngleOfAttack, k_maxAngleOfAttack));
+    s_angleField->actionCallback([&](){
+        if (rld::slice() == 0 && !s_shouldAutoProgress) {
+            setAngleOfAttack(float(s_angleField->value()));
+        }
+    });
     s_angleLiftNum  .reset(new UI::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
     s_angleDragNum  .reset(new UI::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
     s_angleTorqueNum.reset(new UI::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
@@ -445,7 +455,7 @@ static bool setup() {
     infoGroup->add(angleLiftGroup);
     shr<UI::HorizontalGroup> angleGroup(new UI::HorizontalGroup());
     angleGroup->add(s_angleLabel);
-    angleGroup->add(s_angleNum);
+    angleGroup->add(s_angleField);
     infoGroup->add(angleGroup);
 
     shr<UI::HorizontalGroup> bottomGroup(new UI::HorizontalGroup());
@@ -468,7 +478,7 @@ static void cleanup() {
 }
 
 static void updateInfoText() {
-    s_angleNum->value(s_angleOfAttack);
+    s_angleField->value(s_angleOfAttack);
     s_angleLiftNum->value(rld::lift());
     s_angleDragNum->value(rld::drag());
     s_angleTorqueNum->value(rld::torque());}
