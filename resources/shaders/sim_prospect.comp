@@ -2,7 +2,7 @@
 
 #define MAX_GEO_PER_AIR 3
 
-layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 
@@ -20,8 +20,9 @@ struct GeoPixel {
 
 struct AirPixel {
     vec2 windPos;
+    vec2 velocity;
     vec2 backforce;
-    vec4 velocity; // fourth component is turbulence
+    vec2 turbulence; // x component is turbulence
 };
 
 struct AirGeoMapElement {
@@ -31,6 +32,10 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
+const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
+
+float k_airDensity = 1.0f;
+
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0,        rgba8) uniform image2D u_fboImg;
@@ -38,6 +43,8 @@ layout (binding = 1, rgba16_snorm) uniform image2D u_fboNormImg;
 layout (binding = 3,           r8) uniform image2D u_turbImg;
 layout (binding = 4,           r8) uniform image2D u_prevTurbImg;
 layout (binding = 5,           r8) uniform image2D u_shadImg;
+
+layout (binding = 2) uniform sampler2D u_shadTex;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -87,6 +94,9 @@ layout (binding = 4, std430) restrict buffer Results {
     Result u_results[];
 };
 
+// Shared ----------------------------------------------------------------------
+
+shared vec3 s_accumulationArray[k_workGroupSize];
 
 // Functions -------------------------------------------------------------------
 
@@ -105,44 +115,108 @@ ivec2 getPixelDelta(vec2 dir) {
     }
 }
 
+float screenToWindDist(float screenDist) {
+    return screenDist / float(u_screenSize) * u_windframeSize;
+}
+
+bool isScreenInShadow(vec2 screenPos) {
+    return texture2D(u_shadTex, screenPos / u_screenSize).r > 0.0f;    
+}
+
+void accumulate() {
+    uint workI = gl_LocalInvocationIndex;
+    for (uint n = k_workGroupSize / 2; n > 0; n /= 2) {
+        barrier();
+        if (workI < n) s_accumulationArray[workI] += s_accumulationArray[workI + n];
+    }
+}
+
 void main() {
-    ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
-    if (texCoord.x >= u_screenSize || texCoord.y >= u_screenSize) {
-        return;
+    // TODO: switch back to many work groups if don't need to use shared
+    //ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
+    //if (texCoord.x >= u_screenSize || texCoord.y >= u_screenSize) {
+    //    return;
+    //}
+
+    int workI = int(gl_LocalInvocationIndex);
+    ivec2 workCoord = ivec2(gl_LocalInvocationID.xy);    
+    s_accumulationArray[gl_LocalInvocationIndex] = vec3(0.0f);
+    
+    float pixelArea = screenToWindDist(1.0f);
+    pixelArea *= pixelArea;
+
+    vec3 totalDrag = vec3(0.0f);
+    vec3 totalTorq = vec3(0.0f);
+
+    // Zero results
+    if (workI == 0) {
+        u_results[u_slice].lift = vec4(0.0f);
+        u_results[u_slice].drag = vec4(0.0f);
+        u_results[u_slice].torq = vec4(0.0f);
     }
 
-    // Copy turbulence texture to previous turbulence texture
-    if (all(lessThan(texCoord, ivec2(u_screenSize)))) {
-        imageStore(u_prevTurbImg, texCoord, imageLoad(u_turbImg, texCoord));
+    ivec2 texCoord;
+    for (texCoord.y = workCoord.y; texCoord.y < u_screenSize; texCoord.y += int(gl_WorkGroupSize.y)) {
+        for (texCoord.x = workCoord.x; texCoord.x < u_screenSize; texCoord.x += int(gl_WorkGroupSize.x)) {
+
+            // If not geometry, ignore
+            vec4 color = imageLoad(u_fboImg, texCoord);
+            if (color.r == 0.0f) {
+                continue;
+            }
+
+            imageStore(u_fboImg, texCoord, vec4(color.r, 0.0f, 0.0f, 0.0f)); // TODO: totally unnecessary??
+
+            vec2 geoWindPos = screenToWind(vec2(texCoord) + color.gb);
+            vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
+
+            // Set wind shadow
+            if (geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
+                imageStore(u_shadImg, texCoord / 4, vec4(1.0f, 0.0f, 0.0f, 0.0f));
+            }
+            // Calculate drag and torque
+            else if (!isScreenInShadow(vec2(texCoord) + 0.5f)) {
+                float dragFactor = 0.5f * k_airDensity * u_windSpeed * u_windSpeed * pixelArea * geoNormal.z;
+                dragFactor *= u_dragC;
+                vec3 drag = -geoNormal * dragFactor;
+                totalDrag += drag;
+
+                vec3 torq = cross(vec3(geoWindPos, u_sliceZ), drag); // TODO: is this right
+                totalTorq += torq;
+            }
+
+            ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
+            vec4 nextColor = imageLoad(u_fboImg, nextTexCoord);
+            if (nextColor.r != 0.0f) {
+                continue;
+            }
+
+            int geoI = atomicAdd(u_geoCount, 1);
+            if (geoI >= u_maxGeoPixels) {
+                continue;
+            }
+
+            u_geoPixels[geoI].windPos = geoWindPos.xy;
+            u_geoPixels[geoI].normal = vec4(geoNormal, 0.0f);
+            u_geoPixels[geoI].texCoord = texCoord;
+        }
     }
 
-    vec4 color = imageLoad(u_fboImg, texCoord);
-    if (color.r == 0.0f) {
-        return;
+    // TODO: probably move this to dedicated gl call
+    // Copy turbulence textue to previous turbulence texture
+    for (texCoord.y = workCoord.y; texCoord.y < u_screenSize / 4; texCoord.y += int(gl_WorkGroupSize.y)) {
+        for (texCoord.x = workCoord.x; texCoord.x < u_screenSize / 4; texCoord.x += int(gl_WorkGroupSize.x)) {
+            imageStore(u_prevTurbImg, texCoord, imageLoad(u_turbImg, texCoord));
+        }
     }
+    
+    // Accumulate drag
+    s_accumulationArray[workI] = totalDrag;
+    accumulate();
+    if (workI == 0) u_results[u_slice].drag.xyz += s_accumulationArray[0];
 
-    imageStore(u_fboImg, texCoord, vec4(color.r, 0.0f, 0.0f, 0.0f));
-
-    vec2 geoWindPos = screenToWind(vec2(texCoord) + color.gb);
-    vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
-
-    // Set wind shadow
-    if (geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
-        imageStore(u_shadImg, texCoord / 4, vec4(1.0f, 0.0f, 0.0f, 0.0f));
-    }
-
-    ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
-    vec4 nextColor = imageLoad(u_fboImg, nextTexCoord);
-    if (nextColor.r != 0.0f) {
-        return;
-    }
-
-    int geoI = atomicAdd(u_geoCount, 1);
-    if (geoI >= u_maxGeoPixels) {
-        return;
-    }
-
-    u_geoPixels[geoI].windPos = geoWindPos.xy;
-    u_geoPixels[geoI].normal = vec4(geoNormal, 0.0f);
-    u_geoPixels[geoI].texCoord = texCoord;
+    // Accumulate torque
+    s_accumulationArray[workI] = totalTorq;
+    accumulate();
+    if (workI == 0) u_results[u_slice].torq.xyz += s_accumulationArray[0];
 }

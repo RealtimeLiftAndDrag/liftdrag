@@ -31,8 +31,9 @@ namespace rld {
     // Mirrors GPU struct
     struct AirPixel {
         vec2 windPos;
+        vec2 velocity;
         vec2 backforce;
-        vec4 velocity;
+        vec2 turbulence;
     };
     
     // Mirrors GPU struct
@@ -333,7 +334,8 @@ namespace rld {
     static void computeProspect() {
         glUseProgram(s_prospectProg);
 
-        glDispatchCompute((s_texSize + 7) / 8, (s_texSize + 7) / 8, 1); // Must also tweak in shader
+        //glDispatchCompute((s_texSize + 7) / 8, (s_texSize + 7) / 8, 1); // Must also tweak in shader
+        glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all     
     }
 

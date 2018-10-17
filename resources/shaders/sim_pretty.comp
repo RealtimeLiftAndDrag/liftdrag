@@ -1,10 +1,12 @@
 #version 450 core
 
-layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 
 // Constants -------------------------------------------------------------------
+
+const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -32,7 +34,7 @@ layout (binding = 0, std140) uniform Constants {
 
 // Shared ----------------------------------------------------------------------
 
-shared vec4 sideVals[gl_WorkGroupSize.y];
+shared vec4 s_sideVals[k_workGroupSize];
 
 // Functions -------------------------------------------------------------------
 
@@ -41,13 +43,14 @@ float windToScreen(float wind) {
 }
 
 void main() {
+    int workI = int(gl_LocalInvocationIndex);
     int sideX = int(windToScreen(u_sliceZ));
 
-    ivec2 workCoord = ivec2(gl_LocalInvocationID.xy);
-    for (ivec2 texCoord = workCoord; texCoord.y < u_screenSize; texCoord.y += int(gl_WorkGroupSize.y)) {
-        sideVals[workCoord.y] = vec4(0.0f);
+    ivec2 texCoord;
+    for (texCoord.y = workI; texCoord.y < u_screenSize; texCoord.y += int(k_workGroupSize)) {
+        s_sideVals[workI] = vec4(0.0f);
 
-        for (texCoord.x = workCoord.x; texCoord.x < u_screenSize; texCoord.x += int(gl_WorkGroupSize.x)) {
+        for (texCoord.x = 0; texCoord.x < u_screenSize; ++texCoord.x) {
             vec4 color = imageLoad(u_fboImg, texCoord);
             float geo = color.r;
             float air = color.g;
@@ -61,20 +64,22 @@ void main() {
             color.a = 1.0f;
             imageStore(u_fboImg, texCoord, color);
 
-            sideVals[workCoord.y] = max(sideVals[workCoord.y], vec4(geo, air, turb, shad));
+            vec4 val = vec4(geo, air, turb, shad);
+            s_sideVals[workI] = max(s_sideVals[workI], val);
         }
 
         barrier();
         
         ivec2 sideTexCoord = ivec2(sideX, texCoord.y);
         vec4 color = imageLoad(u_sideImg, sideTexCoord);
-        vec4 val = sideVals[workCoord.y];
+        vec4 val = s_sideVals[workI];
+
         float geo = val.x;
         float air = val.y;
         float turb = val.z;
         float shad = val.w;
 
-        color.rgb = max(color.rgb, vec3(geo * 0.5f));
+        //color.rgb = max(color.rgb, vec3(geo * 0.5f));
         color.r += shad * 0.5f;
         color.g += air;
         color.b += turb * 0.5f;

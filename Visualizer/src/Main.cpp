@@ -325,7 +325,7 @@ void MainUIC::keyEvent(int key, int action, int mods) {
 
 static bool setupModel() {
     switch (k_simModel) {
-        case SimModel::airfoil: s_model = Model::load(s_resourceDir + "/models/8412.obj"  ); break;
+        case SimModel::airfoil: s_model = Model::load(s_resourceDir + "/models/0012.obj"  ); break;
         case SimModel::    f18: s_model = Model::load(s_resourceDir + "/models/f18.grl"   ); break;
         case SimModel:: sphere: s_model = Model::load(s_resourceDir + "/models/sphere.obj"); break;
     }

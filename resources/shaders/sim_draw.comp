@@ -20,8 +20,9 @@ struct GeoPixel {
 
 struct AirPixel {
     vec2 windPos;
+    vec2 velocity;
     vec2 backforce;
-    vec4 velocity; // fourth component is turbulence
+    vec2 turbulence; // x component is turbulence
 };
 
 struct AirGeoMapElement {
@@ -30,6 +31,8 @@ struct AirGeoMapElement {
 };
 
 // Constants -------------------------------------------------------------------
+
+const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
@@ -96,9 +99,9 @@ vec2 windToScreen(vec2 wind) {
 }
 
 void main() {
-    int workI = int(gl_LocalInvocationID.x);
+    int workI = int(gl_LocalInvocationIndex);
 
-    for (int prevAirI = workI; prevAirI < u_prevAirCount; prevAirI += int(gl_WorkGroupSize.x)) {
+    for (int prevAirI = workI; prevAirI < u_prevAirCount; prevAirI += int(k_workGroupSize)) {
 
         vec2 windPos = u_prevAirPixels[prevAirI].windPos;
         
