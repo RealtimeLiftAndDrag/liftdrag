@@ -50,7 +50,7 @@ public:
 };
 
 static const bool k_windDebug(false);
-static const ivec2 k_windowSize(1280, 1280);
+static const ivec2 k_windowSize(1920, 1080);
 static const std::string k_windowTitle("RLD Flight Simulator");
 static const std::string k_resourceDir("../resources");
 
@@ -164,6 +164,13 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 	else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
 		s_simObject->a_pos.y -= 0.03125;
 	}
+
+	else if (key == GLFW_KEY_T && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		s_simObject->pos.y += 0.8;
+	}
+	else if (key == GLFW_KEY_G && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+		s_simObject->pos.y -= 0.8;
+	}
 }
 
 
@@ -196,9 +203,10 @@ static bool setupModel(const std::string &resourceDir) {
 	s_simObject->setMaxThrust(62.3 * 1000.f * 2.f); //dry thrust from wiki without afterburner (62.3kN per enginer)
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
-    s_simObject->pos.y = 30.f; //in meters
+    s_simObject->pos.y = 155.f; //in meters
 	s_simObject->vel.z = -120.f; //in m/s
-	//s_simObject->a_pos.y = 0.001; //in m/s
+	s_simObject->a_pos.x = PIQ/2.0f; //in m/s
+	s_simObject->a_pos.z = PIQ;
 
     return true;
 }
@@ -351,7 +359,7 @@ static void render(float frametime) {
 	mat4 simRotateMat = s_simObject->getRotate();
     mat4 simTranslateMat = s_simObject->getTranslate();
 
-	vec3 camOffset = vec3(simRotateMat * vec4(0, 0, 25.0, 1));
+	vec3 camOffset = vec3(simRotateMat * vec4(0, 3, -25.0, 1));
     vec3 camPos = s_simObject->pos + camOffset;
 	mat4 viewMat = getViewMatrix(camPos);
 
@@ -388,13 +396,13 @@ static void render(float frametime) {
 	}*/
 	//torque *= 10.f;
     s_simObject->addAngularForce(torque);
-    s_simObject->update(frametime);
-	std::cout << "lift: " << glm::to_string(lift) << std::endl;
+    //s_simObject->update(frametime);
+	//std::cout << "lift: " << glm::to_string(lift) << std::endl;
 	//std::cout << "drag: " << glm::to_string(drag) << std::endl;
-	std::cout << "torque: " << torque.y /1000.f << std::endl;
+	//std::cout << "torque: " << torque.y /1000.f << std::endl;
 	//std::cout << "y angle (in degrees) " << glm::degrees(s_simObject->a_pos.y) << std::endl;
 	//std::cout << "y angle (in radians) " << s_simObject->a_pos.y << std::endl;
-	std::cout << "angle: " << s_simObject->a_pos.y << std::endl;
+	std::cout << "pos: " << s_simObject->pos.y << std::endl;
 
 	//std::cout << "pos " << glm::to_string(s_simObject->pos) << std::endl;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);

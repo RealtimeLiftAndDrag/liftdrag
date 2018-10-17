@@ -29,19 +29,15 @@ void main() {
 
 
 	//color.rgb = vec3(1, 0, 0);
-	color.rgb = mix(tcol.rgb, ncol.rgb, oscillate(time, 0.1f, 1.0f));
+	color.rgb = tcol.rgb; //mix(tcol.rgb, ncol.rgb, oscillate(time, 0.1f, 1.0f));
 	
 	//float y = normalizeFloat(vertex_tex.y, 0.0f, 0.5f);
 
-	if (vertex_tex.y > 0.44) {
-		color.rgb = mix(color.rgb, vec3(0.5, 0.6, 0.7) * 0.5, normalizeFloat(vertex_tex.y, 0.44, 0.5));
-		//color.rgb = vec3(1);
-	}
-	 if (vertex_tex.y > 0.5) {
-		color.rgb = vec3(0.5, 0.6, 0.7) * 0.5;
-	}
 
-	color.rgb = mix(color.rgb, vec3(1.0, 0.6, 0.2), oscillate(time * 2, 0.0f, 0.3f));
+		//color.rgb = mix(color.rgb, vec3(0.5, 0.6, 0.7) * 0.5, normalizeFloat(vertex_tex.y, 0.44, 0.5));
+	color.rgb = vec3(0, 1, 1);
+
+	//color.rgb = mix(color.rgb, vec3(1.0, 0.6, 0.2), oscillate(time * 2, 0.0f, 0.3f));
 
 	//color.rgb = vec3(vertex_tex.y, 0, 0);
 	//color.rgb = applyFog(color.rgb, length(campos - vertex_pos), 0.001f);

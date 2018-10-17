@@ -27,6 +27,18 @@
     <None Include="..\resources\shaders\phong.vert">
       <Filter>shaders</Filter>
     </None>
+    <None Include="..\resources\shaders\skyfrag.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\skyvertex.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\tex.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\height_frag.glsl">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\SimObject.hpp">

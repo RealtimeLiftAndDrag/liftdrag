@@ -138,7 +138,7 @@ void main()
 	// Blend cliff texture using the y component of the normal
 	vec3 cliffMixed = mix(cliffDiffused, color.rgb, pow(vertex_norm.y, 5));
 	// Reduce cliffs at lower vertex Y values
-	color.rgb = mix(color.rgb, cliffMixed, min(vertex_pos.y / 0.7f, 1));
+	color.rgb = mix(color.rgb, cliffMixed, min(vertex_pos.y / 0.7f, 1)) * 1.5f;
 
 
 	float sTime = sin(time);

@@ -22,7 +22,7 @@ void main() {
     vec3 normal = normalize(in_norm);
     
     // Ambient calculation
-    vec3 ambientColor = vec3(0);
+    vec3 ambientColor = vec3(0.2f, 0.2f, 0.2f);
     
     // Diffuse calculation
     //float diffuseFactor = max(dot(lightDir, normal), 0); // Clamp to prevent color from reaching back side
@@ -37,6 +37,6 @@ void main() {
     vec3 specularColor = vec3(1) * specularFactor * specularStrength;
 
     //output color
-    //out_color = vec4(ambientColor + diffuseColor + specularColor, 1);
-    out_color = vec4(normal, 1) * 0.5 + 0.5;
+    out_color = vec4(ambientColor + diffuseColor + specularColor, 1);
+    //out_color = vec4(normal, 1) * 0.5 + 0.5;
 }

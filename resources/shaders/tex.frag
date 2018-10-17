@@ -19,6 +19,6 @@ void main() {
     ivec2 grid = (ivec2(gl_FragCoord.xy) & 0xF) >> 3;
     vec3 outColor = vec3(mix(0.1f, 0.2f, float(grid.x ^ grid.y)));
 
-    out_color.rgb = mix(outColor, inColor, inside);
+    out_color.rgb = inColor;//mix(outColor, inColor, inside);
     out_color.a = 1.0f;
 }

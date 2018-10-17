@@ -443,10 +443,10 @@ namespace ProgTerrain {
 
         vec3 camp = -camPos;
         mat4 TransXYZ = glm::translate(glm::mat4(1.0f), camp);
-        TransXYZ = glm::translate(TransXYZ, vec3(0, -0.2, 0));
+        TransXYZ = glm::translate(TransXYZ, vec3(0, -0.8, 0));
         mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, 3.0f));
 
-        mat4 M = TransXYZ * S;
+		mat4 M = TransXYZ * S * glm::rotate(glm::mat4(), 3.14f / 8.f, vec3(1, 0, 0));
 
 
         progSky->bind();

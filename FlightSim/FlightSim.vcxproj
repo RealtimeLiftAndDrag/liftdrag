@@ -151,8 +151,12 @@
     <ClCompile Include="src\SimObject.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\resources\shaders\height_frag.glsl" />
     <None Include="..\resources\shaders\phong.frag" />
     <None Include="..\resources\shaders\phong.vert" />
+    <None Include="..\resources\shaders\skyfrag.glsl" />
+    <None Include="..\resources\shaders\skyvertex.glsl" />
+    <None Include="..\resources\shaders\tex.frag" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ProgTerrain.hpp" />
