@@ -379,14 +379,14 @@ static void render(float frametime) {
 	
 	//std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
 	//std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
-    //s_simObject->addTranslationalForce(combinedForce * 10.f);
+    s_simObject->addTranslationalForce(combinedForce * 10.f);
 	float mEV = 100000.f;
 	/*if (length(torque) > mEV || length(lift) > mEV || length(drag) > mEV) {
 		torque = vec3(0);
 		lift = vec3(0);
 		drag = vec3(0);
 	}*/
-	//torque *= 10.f;
+	torque *= 10.f;
     s_simObject->addAngularForce(torque);
     s_simObject->update(frametime);
 	std::cout << "lift: " << glm::to_string(lift) << std::endl;
