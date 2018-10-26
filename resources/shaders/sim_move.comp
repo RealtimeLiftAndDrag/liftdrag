@@ -49,11 +49,11 @@ const bool k_ignoreEdges = false;
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform  image2D u_fboImg;
-layout (binding = 1,    r8) uniform  image2D u_turbImg;
-layout (binding = 3,  r32i) uniform iimage2D u_flagImg;
-layout (binding = 4, rgba8) uniform  image2D u_sideImg;
+layout (binding = 2,  r32i) uniform iimage2D u_flagImg;
+layout (binding = 3,    r8) uniform  image2D u_turbImg;
 
-layout (binding = 0) uniform sampler2D u_prevTurbTex;
+layout (binding = 1) uniform sampler2D u_prevTurbTex;
+layout (binding = 2) uniform sampler2D u_shadTex;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -125,8 +125,16 @@ bool isWindTurbulent(vec2 windPos) {
     return isScreenTurbulent(windToScreen(windPos));
 }
 
+bool isScreenInShadow(vec2 screenPos) {
+    return texture2D(u_shadTex, screenPos / u_screenSize).r > 0.0f;    
+}
+
+bool isWindInShadow(vec2 windPos) {
+    return isScreenInShadow(windToScreen(windPos));
+}
+
 void setScreenTurbulent(vec2 screenPos) {
-    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(0.5f, 0.0f, 0.0f, 0.0f));    
+    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(1.0f, 0.0f, 0.0f, 0.0f));    
 }
 
 void setWindTurbulent(vec2 windPos) {
@@ -287,7 +295,7 @@ void main() {
             vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
             float dist = distance(airWindPos, geoWindPos);
 
-            float area = pixelSize * u_sliceSize / max(sqrt(1.0f - geoNormal.z * geoNormal.z), 0.000001f); // TODO: fix this for horizontal normals
+            float area = pixelSize * u_sliceSize / sqrt(1.0f - geoNormal.z * geoNormal.z); // TODO: needs to not be able to be infinity
 
             // Calculate backforce
             vec2 thisBackforce = normalize(-geoNormal.xy) * dist * dist;// = dist*dist*a + dist*b + c;
@@ -302,7 +310,7 @@ void main() {
             vec3 thisLift = geoNormal * liftFactor;
 
             // Calculate drag
-            float dragFactor = 0.5f * k_airDensity * windSpeed2 * max(-dot(geoNormal, vec3(0.0f, 0.0f, -1.0f)), 0.0f) * area; // TODO: issue with air velocity
+            float dragFactor = 0.5f * k_airDensity * windSpeed2 * max(-dot(geoNormal, vec3(0.0f, 0.0f, -1.0f)), 0.0f) * area;
             dragFactor *= dragFunc(dist);
             dragFactor *= u_dragC;
             vec3 thisDrag = -geoNormal * dragFactor;
@@ -335,20 +343,13 @@ void main() {
             if (dragFactor >= 0.01f) color.b = dragFactor * 0.5f;
             else if (liftFactor >= 0.01f) color.b = liftFactor * 0.5f + 0.5f;
             imageStore(u_fboImg, texCoord, color);
-
-            if (!k_ignoreEdges || abs(airWindPos.x) <= 0.5f) {
-                ivec2 sideTexCoord = ivec2(windToScreen(vec2(u_sliceZ, airWindPos.y)));
-                color = imageLoad(u_sideImg, sideTexCoord);
-                color.g = 1.0f;
-                if (dragFactor >= 0.01f) color.b = dragFactor * 0.5f;
-                else if (liftFactor >= 0.01f) color.b = liftFactor * 0.5f + 0.5f;
-                imageStore(u_sideImg, sideTexCoord, color);
-            }
         }
 
         // Update velocity
         airVelocity.xy += backforce;
-        airVelocity.z = -u_windSpeed;
+        if (!isScreenInShadow(airScreenPos)) {
+            airVelocity.z = -u_windSpeed;
+        }
         airVelocity = normalize(airVelocity) * u_windSpeed;
 
         // Update location
@@ -363,15 +364,15 @@ void main() {
     // Accumulate lift
     accumulationArray[workI] = totalLift;
     accumulate();
-    if (workI == 0) u_results[u_slice].lift.xyz = accumulationArray[0];
+    if (workI == 0) u_results[u_slice].lift.xyz += accumulationArray[0];
 
     // Accumulate drag
     accumulationArray[workI] = totalDrag;
     accumulate();
-    if (workI == 0) u_results[u_slice].drag.xyz = accumulationArray[0];
+    if (workI == 0) u_results[u_slice].drag.xyz += accumulationArray[0];
     
     // Accumulate torque
     accumulationArray[workI] = totalTorq;
     accumulate();
-    if (workI == 0) u_results[u_slice].torq.xyz = accumulationArray[0];
+    if (workI == 0) u_results[u_slice].torq.xyz += accumulationArray[0];
 }
