@@ -34,7 +34,7 @@ struct AirGeoMapElement {
 
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
 
-const float k_turbulenceDist = 0.025f;
+const float k_turbulenceDist = 0.045f; // Must also change in move shader
 const float k_maxSearchDist = 2.0f * k_turbulenceDist; // In wind space
 const bool k_doTurbulence = true;
 
@@ -48,7 +48,8 @@ const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
 const bool k_ignoreEdges = false;
 
-float k_airDensity = 1.0f;
+const float k_airDensity = 1.0f;
+const float k_initVelC = 0.5f;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -66,6 +67,7 @@ layout (binding = 0, std140) uniform Constants {
     float u_liftC;
     float u_dragC;
     float u_windframeSize;
+    float u_windframeDepth;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -268,8 +270,20 @@ void main() {
             u_airGeoMap[airI].geoIndices[0] = geoI;
 
             vec2 airWindPos = geoWindPos;
+            // TODO: which is better?
             vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
-            vec2 airVelocity = (refl * u_windSpeed).xy;
+            vec2 airVelocity = refl.xy * u_windSpeed;
+            // TOOD: optimize
+            //vec3 right = cross(geoNormal, vec3(0.0f, 0.0f, 1.0f));
+            //vec3 up = cross(vec3(0.0f, 0.0f, 1.0f), right);
+            //vec2 airVelocity = (refl.z > 0.0f ? up : refl).xy * u_windSpeed;
+            // TODO: optimize
+            //vec3 bitan = cross(vec3(0.0f, 0.0f, 1.0f), geoNormal);
+            //vec3 tangent = cross(bitan, geoNormal);
+            //vec2 airVelocity = (tangent * u_windSpeed).xy;
+            //vec3 atrocity = normalize(refl + tangent);
+            //vec2 airVelocity = (atrocity * u_windSpeed).xy;
+            airVelocity *= k_initVelC;
 
             u_airPixels[airI].windPos = airWindPos;
             u_airPixels[airI].velocity = airVelocity;

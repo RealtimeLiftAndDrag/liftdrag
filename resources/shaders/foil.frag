@@ -30,6 +30,7 @@ layout (binding = 0, std140) uniform Constants {
     float u_liftC;
     float u_dragC;
     float u_windframeSize;
+    float u_windframeDepth;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;

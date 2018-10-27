@@ -50,6 +50,7 @@ namespace rld {
         float liftC;
         float dragC;
         float windframeSize;
+        float windframeDepth;
         float sliceSize;
         float windSpeed;
         float dt;
@@ -460,6 +461,7 @@ namespace rld {
         s_constants.liftC = s_liftC;
         s_constants.dragC = s_dragC;
         s_constants.windframeSize = s_windframeWidth;
+        s_constants.windframeDepth = s_windframeDepth;
         s_constants.sliceSize = s_sliceSize;
         s_constants.windSpeed = s_windSpeed;
         s_constants.dt = s_dt;
@@ -645,9 +647,9 @@ namespace rld {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO[s_swap]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);
 
+        clearFlagTex();
         renderGeometry(); // Render geometry to fbo
         computeProspect(); // Scan fbo and generate geo pixels
-        clearFlagTex();
         computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
         computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry

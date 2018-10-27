@@ -173,6 +173,14 @@ namespace Results {
         return true;
     }
 
+    const std::map<float, Entry> & angleRecord() {
+        return s_angleRecord;
+    }
+
+    const std::map<int, Entry> & sliceRecord() {
+        return s_sliceRecord;
+    }
+
     shr<Graph> angleGraph() {
         return s_angleGraph;
     }

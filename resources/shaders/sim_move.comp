@@ -36,14 +36,17 @@ const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGr
 
 float k_airDensity = 1.0f;
 
+const float k_shadDist = 0.1f; // Must also change in pretty shader
+const float k_backforceC = 1000000.0f;//64000000.0f;
+const float k_flowbackFactor = 0.01f; // Fraction of lateral velocity to remain after 1 unit of distance
+
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
-const float k_turbulenceDist = 0.025f;
+const float k_turbulenceDist = 0.045f; // Must also change in outline shader
 const float k_maxSearchDist = 2.0f * k_turbulenceDist; // In wind space
 const bool k_doTurbulence = true;
 
-const float k_dragThreshold = 0.005f; // max distance for drag // TODO: should depend on wind speed?
-const float k_liftThreshold = 0.025f; // max distance for lift // TODO: should depend on wind speed?
+const bool k_doWindShadow = true;
 
 const bool k_doLineSearch = true;
 
@@ -66,6 +69,7 @@ layout (binding = 0, std140) uniform Constants {
     float u_liftC;
     float u_dragC;
     float u_windframeSize;
+    float u_windframeDepth;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -128,12 +132,18 @@ bool isWindTurbulent(vec2 windPos) {
     return isScreenTurbulent(windToScreen(windPos));
 }
 
-bool isScreenInShadow(vec2 screenPos) {
-    return texture2D(u_shadTex, screenPos / u_screenSize).r > 0.0f;    
+float getShadFactor(float shad) {
+    float shadDepth = shad * u_windframeDepth;
+    float currDepth = u_slice * u_sliceSize;
+    return float(shad != 0.0f) * max((1.0f - (currDepth - shadDepth) / k_shadDist), 0.0f);
 }
 
-bool isWindInShadow(vec2 windPos) {
-    return isScreenInShadow(windToScreen(windPos));
+float getScreenShadFactor(vec2 screenPos) {
+    return getShadFactor(texture2D(u_shadTex, screenPos / u_screenSize).r);    
+}
+
+float getWindShadFactor(vec2 windPos) {
+    return getScreenShadFactor(windToScreen(windPos));
 }
 
 void setScreenTurbulent(vec2 screenPos) {
@@ -150,22 +160,6 @@ void accumulate() {
         barrier();
         if (workI < n) s_accumulationArray[workI] += s_accumulationArray[workI + n];
     }
-}
-
-float dragFunc(float dist) {
-    //float v = (dist - k_dragThreshold) / k_dragThreshold;
-    //v = clamp(v, 0.0f, 1.0f);
-    //v = 1.0f - v;
-    //return v * v;
-    return step(dist, k_dragThreshold);
-}
-
-float liftFunc(float dist) {
-    float v = (dist - k_dragThreshold) / (k_liftThreshold - k_dragThreshold);
-    //v = clamp(v, 0.0f, 1.0f);
-    //float v2 = v * v;
-    //return 16.0f * v2 * (v2 - 2.0f * v + 1.0f);
-    return v;
 }
 
 void main() {
@@ -302,13 +296,13 @@ void main() {
             float area = pixelSize * u_sliceSize * (1.0f - abs(dot(geoNormal, normalize(vec3(airVelocity, -u_windSpeed)))));
 
             // Calculate backforce
-            vec2 thisBackforce = normalize(-geoNormal.xy) * dist * dist;// = dist*dist*a + dist*b + c;
-            thisBackforce *= 2000.0f; // TODO: magic number;
+            vec2 thisBackforce = normalize(-geoNormal.xy) * dist;// * dist;// = dist*dist*a + dist*b + c;
+            thisBackforce *= k_backforceC;
             backforce += thisBackforce;
 
             // Calculate lift
             float liftFactor = 0.5f * k_airDensity * windSpeed2 * area;
-            liftFactor *= liftFunc(dist);
+            liftFactor *= dist / k_turbulenceDist;
             liftFactor *= u_liftC;
             if (airTurbulence > 0.0f) liftFactor = 0.0f;
             vec3 thisLift = geoNormal * liftFactor;
@@ -349,10 +343,17 @@ void main() {
         }
 
         // Update velocity
-        airVelocity += backforce;
-        if (!isScreenInShadow(airScreenPos)) {
-            airVelocity *= 0.85f; // TODO: make dependent on slice size
+        airVelocity += backforce * u_dt;
+        // Sweep back by diminishing xy components
+        float factor;
+        if (false && k_doWindShadow) {
+            factor = mix(k_flowbackFactor, 1.0f, getScreenShadFactor(airScreenPos));
         }
+        else {
+            factor = k_flowbackFactor;
+        }
+        factor = pow(factor, u_sliceSize);
+        airVelocity *= factor;
 
         // Update location
         airWindPos += airVelocity * u_dt;

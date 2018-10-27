@@ -1,4 +1,5 @@
 #include <string>
+#include <map>
 
 #include "Common/Graph.hpp"
 
@@ -33,6 +34,10 @@ namespace Results {
     // Returns the linearly interpolated lift and drag values at the given angle (in
     // degrees) and true, or false if the angle is out of interpolation range
     bool valAt(float angle, Entry & r_entry);
+
+    const std::map<float, Entry> & angleRecord();
+
+    const std::map<int, Entry> & sliceRecord();
 
     shr<Graph> angleGraph();
     shr<Graph> sliceGraph();

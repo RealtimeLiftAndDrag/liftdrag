@@ -8,6 +8,8 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
 
+const float k_shadDist = 0.1f; // Must also change in move shader
+
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
@@ -24,6 +26,7 @@ layout (binding = 0, std140) uniform Constants {
     float u_liftC;
     float u_dragC;
     float u_windframeSize;
+    float u_windframeDepth;
     float u_sliceSize;
     float u_windSpeed;
     float u_dt;
@@ -42,9 +45,16 @@ float windToScreen(float wind) {
     return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
 }
 
+float getShadFactor(float shad) {
+    float shadDepth = shad * u_windframeDepth;
+    float currDepth = u_slice * u_sliceSize;
+    return float(shad != 0.0f) * max((1.0f - (currDepth - shadDepth) / k_shadDist), 0.0f);
+}
+
 void main() {
     int workI = int(gl_LocalInvocationIndex);
     int sideX = int(windToScreen(u_sliceZ));
+    float depth = u_slice * u_sliceSize;
 
     ivec2 texCoord;
     for (texCoord.y = workI; texCoord.y < u_screenSize; texCoord.y += int(k_workGroupSize)) {
@@ -58,7 +68,7 @@ void main() {
             float shad = texture(u_shadTex, (vec2(texCoord) + 0.5f) / float(u_screenSize)).r;
 
             color.rgb = vec3(geo * 0.5f);
-            color.r += shad * 0.5f;
+            color.r += getShadFactor(shad) * 0.5f;
             color.g += air;
             color.b += turb * 0.5f;
             color.a = 1.0f;
@@ -80,7 +90,7 @@ void main() {
         float shad = val.w;
 
         //color.rgb = max(color.rgb, vec3(geo * 0.5f));
-        color.r += shad * 0.5f;
+        color.r += getShadFactor(shad) * 0.5f;
         color.g += air;
         color.b += turb * 0.5f;
         color.a = 1.0f;

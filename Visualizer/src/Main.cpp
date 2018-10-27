@@ -57,24 +57,21 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::f18);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
 static constexpr float k_simLiftC = 1.0f;
 static constexpr float k_simDragC = 0.8f;
+static constexpr float k_defWindSpeed = 100.0f;
 
 static const std::string k_defResourceDir("../resources");
 static const ivec2 k_defWindowSize(1280, 720);
 
-static constexpr float k_minAngleOfAttack(-90.0f), k_maxAngleOfAttack(90.0f);
-static constexpr float k_minRudderAngle(-90.0f), k_maxRudderAngle(90.0f);
-static constexpr float k_minAileronAngle(-90.0f), k_maxAileronAngle(90.0f);
-static constexpr float k_minElevatorAngle(-90.0f), k_maxElevatorAngle(90.0f);
+static constexpr float k_maxAutoAoA(45.0f);
 
-static constexpr float k_angleOfAttackIncrement(1.0f); // the granularity of angle of attack
+static constexpr float k_autoAngleIncrement(1.0f); // how many degrees to change the angle of attack by when auto progressing
 static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
-static constexpr float k_autoAngleIncrement(7.0f); // how many degrees to change the angle of attack by when auto progressing
 
 static const std::string k_controlsString(
     "Controls"                                      "\n"
@@ -98,7 +95,7 @@ static unq<Model> s_model;
 static mat4 s_modelMat;
 static mat3 s_normalMat;
 static float s_windframeWidth, s_windframeDepth;
-static float s_windSpeed;
+static float s_windSpeed = k_defWindSpeed;
 
 //all in degrees
 static float s_angleOfAttack(0.0f);
@@ -140,8 +137,12 @@ static bool processArgs(int argc, char ** argv) {
     return true;
 }
 
+static float nearestVal(float v, float increment) {
+    return glm::round(v / increment) * increment;
+}
+
 static void setAngleOfAttack(float angle) {
-    if (angle >= k_minAngleOfAttack && angle <= k_maxAngleOfAttack) {
+    if (glm::abs(angle) <= 90.0f) {
         s_angleOfAttack = angle;
         s_isInfoChange = true;
     }    
@@ -151,40 +152,58 @@ static void changeAngleOfAttack(float deltaAngle) {
     setAngleOfAttack(s_angleOfAttack + deltaAngle);
 }
 
+static void setRudderAngle(float angle) {
+    if (glm::abs(angle) <= 90.0f) {
+        s_rudderAngle = angle;
+
+        mat4 modelMat(glm::rotate(mat4(), s_rudderAngle, vec3(0.0f, 1.0f, 0.0f)));
+        mat3 normalMat(modelMat);
+        s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
+        s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
+
+        s_isF18Change = true;        
+    }
+}
+
 static void changeRudderAngle(float deltaAngle) {
-    s_rudderAngle = glm::clamp(s_rudderAngle + deltaAngle, -k_maxRudderAngle, k_maxRudderAngle);
+    setRudderAngle(s_rudderAngle + deltaAngle);
+}
 
-    mat4 modelMat(glm::rotate(mat4(), s_rudderAngle, vec3(0.0f, 1.0f, 0.0f)));
-    mat3 normalMat(modelMat);
-    s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
-    s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
+static void setAileronAngle(float angle) {
+    if (glm::abs(angle) <= 90.0f) {
+        s_aileronAngle = angle;
 
-    s_isF18Change = true;
+        mat4 modelMat(glm::rotate(mat4(), s_aileronAngle, vec3(1.0f, 0.0f, 0.0f)));
+        mat3 normalMat(modelMat);
+        s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
+
+        modelMat = glm::rotate(mat4(), -s_aileronAngle, vec3(1.0f, 0.0f, 0.0f));
+        normalMat = modelMat;
+        s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
+    
+        s_isF18Change = true;
+    }
 }
 
 static void changeAileronAngle(float deltaAngle) {
-    s_aileronAngle = glm::clamp(s_aileronAngle + deltaAngle, -k_maxAileronAngle, k_maxAileronAngle);
+    setAileronAngle(s_aileronAngle + deltaAngle);
+}
 
-    mat4 modelMat(glm::rotate(mat4(), s_aileronAngle, vec3(1.0f, 0.0f, 0.0f)));
-    mat3 normalMat(modelMat);
-    s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
+static void setElevatorAngle(float angle) {
+    if (glm::abs(angle) <= 90.0f) {
+        s_elevatorAngle = angle;
 
-    modelMat = glm::rotate(mat4(), -s_aileronAngle, vec3(1.0f, 0.0f, 0.0f));
-    normalMat = modelMat;
-    s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
+        mat4 modelMat(glm::rotate(mat4(), s_elevatorAngle, vec3(1.0f, 0.0f, 0.0f)));
+        mat3 normalMat(modelMat);
+        s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
+        s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
     
-    s_isF18Change = true;
+        s_isF18Change = true;
+    }
 }
 
 static void changeElevatorAngle(float deltaAngle) {
-    s_elevatorAngle = glm::clamp(s_elevatorAngle + deltaAngle, -k_maxElevatorAngle, k_maxElevatorAngle);
-
-    mat4 modelMat(glm::rotate(mat4(), s_elevatorAngle, vec3(1.0f, 0.0f, 0.0f)));
-    mat3 normalMat(modelMat);
-    s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
-    s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
-    
-    s_isF18Change = true;
+    setElevatorAngle(s_elevatorAngle + deltaAngle);
 }
 
 static void setSimulation(float angleOfAttack, bool debug) {
@@ -227,9 +246,10 @@ static void doAllAngles() {
     double then(glfwGetTime());
 
     int count(0);
-    for (float angle(k_minAngleOfAttack); angle <= k_maxAngleOfAttack; angle += k_angleOfAttackIncrement) {
+    for (float angle(0.0f); angle <= k_maxAutoAoA; angle += k_autoAngleIncrement) {
         doFastSweep(angle);
-        ++count;
+        doFastSweep(-angle);
+        count += 2;
     }
 
     double dt(glfwGetTime() - then);
@@ -268,13 +288,13 @@ void MainUIC::keyEvent(int key, int action, int mods) {
     // If up arrow is pressed, increase angle of attack
     else if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         if (rld::slice() == 0 && !s_shouldAutoProgress) {
-            changeAngleOfAttack(k_angleOfAttackIncrement);
+            changeAngleOfAttack(k_manualAngleIncrement);
         }
     }
     // If down arrow is pressed, decrease angle of attack
     else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         if (rld::slice() == 0 && !s_shouldAutoProgress) {
-            changeAngleOfAttack(-k_angleOfAttackIncrement);
+            changeAngleOfAttack(-k_manualAngleIncrement);
         }
     }
     // If O key is pressed, increase rudder angle
@@ -341,20 +361,17 @@ static bool setupModel() {
             s_modelMat = glm::scale(mat4(), vec3(0.5f, 1.0f, 1.0f)) * s_modelMat;
             s_windframeWidth = 1.25f;
             s_windframeDepth = 1.5f;
-            s_windSpeed = 10.0f;
             break;
 
         case SimModel::f18:
             s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
             s_windframeWidth = 14.5f;
             s_windframeDepth = 22.0f;
-            s_windSpeed = 10.0f;
             break;
 
         case SimModel::sphere:
             s_windframeWidth = 2.5f;
             s_windframeDepth = 2.5f;
-            s_windSpeed = 10.0f;
             break;
     }
     
@@ -399,7 +416,6 @@ static bool setup() {
 
     shr<UI::HorizontalGroup> displayGroup(new UI::HorizontalGroup());
     displayGroup->add(s_frontTexViewer);
-    //displayGroup->add(s_turbTexViewer);
     displayGroup->add(s_sideTexViewer);
 
     shr<Graph> angleGraph(Results::angleGraph());
@@ -416,7 +432,7 @@ static bool setup() {
     s_elevatorLabel   .reset(new UI::String("Elevator: ", 1, vec4(1.0f)));
     s_aileronLabel    .reset(new UI::String("Aileron: ", 1, vec4(1.0f)));
 
-    s_angleField    .reset(new UI::BoundedNumberField(0.0, 1, vec4(1.0f), 5, 0, true, 1, k_minAngleOfAttack, k_maxAngleOfAttack));
+    s_angleField    .reset(new UI::BoundedNumberField(0.0, 1, vec4(1.0f), 5, 0, true, 1, -90.0f, 90.0f));
     s_angleField->actionCallback([&](){
         if (rld::slice() == 0 && !s_shouldAutoProgress) {
             setAngleOfAttack(float(s_angleField->value()));
@@ -512,7 +528,11 @@ static void update() {
 
             if (s_shouldAutoProgress) {
                 s_angleOfAttack += k_autoAngleIncrement;
-                s_angleOfAttack = std::fmod(s_angleOfAttack - k_minAngleOfAttack, k_maxAngleOfAttack - k_minAngleOfAttack) + k_minAngleOfAttack;
+                s_angleOfAttack = nearestVal(s_angleOfAttack, k_autoAngleIncrement);
+                if (s_angleOfAttack > k_maxAutoAoA) {
+                    s_angleOfAttack = nearestVal(-k_maxAutoAoA, k_autoAngleIncrement);
+                    if (s_angleOfAttack < -k_maxAutoAoA) s_angleOfAttack += k_autoAngleIncrement;
+                }
                 s_shouldSweep = true;
             }
         }
