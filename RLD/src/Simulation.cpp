@@ -150,10 +150,6 @@ namespace rld {
             std::cerr << "Failed to load foil shader" << std::endl;
             return false;
         }
-        s_foilProg->addUniform("u_projMat");
-        s_foilProg->addUniform("u_viewMat");
-        s_foilProg->addUniform("u_modelMat");
-        s_foilProg->addUniform("u_normalMat");
 
         // Prospect Compute Shader
         if (!(s_prospectProg = Shader::load(shadersPath + "prospect.comp"))) {
@@ -342,12 +338,12 @@ namespace rld {
             zNear, // near
             zNear + s_sliceSize // far
         ));
-        glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&projMat));
+        s_foilProg->uniform("u_projMat", projMat);
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        s_model->draw(s_modelMat, s_normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
+        s_model->draw(s_modelMat, s_normalMat, s_foilProg->uniformLocation("u_modelMat"), s_foilProg->uniformLocation("u_normalMat"));
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        s_model->draw(s_modelMat, s_normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
+        s_model->draw(s_modelMat, s_normalMat, s_foilProg->uniformLocation("u_modelMat"), s_foilProg->uniformLocation("u_normalMat"));
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
 

@@ -42,17 +42,16 @@ class Shader {
     void bind();
     void unbind();
 
-    void addAttribute(const std::string & name);
-    void addUniform(const std::string & name);
-    s32 getAttribute(const std::string & name) const;
-    s32 getUniform(const std::string & name) const;
+    template <typename T> bool uniform(const std::string & name, const T & val);
+    template <typename T> bool uniform(s32 location, const T & val);
+
+    s32 uniformLocation(const std::string & name);
 
     private:
 
     Shader(u32 glId);
 
     u32 m_glId;
-    std::unordered_map<std::string, s32> m_attributes;
     std::unordered_map<std::string, s32> m_uniforms;
 
 };

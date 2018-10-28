@@ -364,17 +364,6 @@ namespace ProgTerrain {
             std::cin >> hold;
             exit(1);
         }
-        heightshader->addUniform("P");
-        heightshader->addUniform("V");
-        heightshader->addUniform("M");
-        heightshader->addUniform("camoff");
-        heightshader->addUniform("campos");
-        heightshader->addUniform("time");
-        heightshader->addUniform("resolution");
-        heightshader->addUniform("meshsize");
-        heightshader->addUniform("drawGrey");
-        heightshader->addAttribute("vertPos");
-        heightshader->addAttribute("vertTex");
 
         // Initialize the GLSL progSkyram.
         if (!(progSky = Shader::load(shadersPath + "skyvertex.glsl", shadersPath + "skyfrag.glsl"))) {
@@ -383,13 +372,6 @@ namespace ProgTerrain {
             std::cin >> hold;
             exit(1);
         }
-        progSky->addUniform("P");
-        progSky->addUniform("V");
-        progSky->addUniform("M");
-        progSky->addUniform("campos");
-        progSky->addUniform("time");
-        progSky->addAttribute("vertPos");
-        progSky->addAttribute("vertTex");
 
         // Initialize the GLSL program.
         if (!(progWater = Shader::load(shadersPath + "water_vertex.glsl", shadersPath + "water_fragment.glsl"))) {
@@ -398,14 +380,6 @@ namespace ProgTerrain {
             std::cin >> hold;
             exit(1);
         }
-        progWater->addUniform("P");
-        progWater->addUniform("V");
-        progWater->addUniform("M");
-        progWater->addUniform("camoff");
-        progWater->addUniform("campos");
-        progWater->addUniform("time");
-        progWater->addAttribute("vertPos");
-        progWater->addAttribute("vertTex");
     }
 
 
@@ -431,11 +405,11 @@ namespace ProgTerrain {
         mat4 M = TransXYZ * S;
 
         progSky->bind();
-        glUniformMatrix4fv(progSky->getUniform("P"), 1, GL_FALSE, &P[0][0]);
-        glUniformMatrix4fv(progSky->getUniform("V"), 1, GL_FALSE, &V[0][0]);
-        glUniformMatrix4fv(progSky->getUniform("M"), 1, GL_FALSE, &M[0][0]);
-        glUniform3fv(progSky->getUniform("campos"), 1, &camPos[0]);
-        glUniform1f(progSky->getUniform("time"), time);
+        progSky->uniform("P", P);
+        progSky->uniform("V", V);
+        progSky->uniform("M", M);
+        progSky->uniform("campos", camPos);
+        progSky->uniform("time", time);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, SkyTexture);
@@ -453,13 +427,13 @@ namespace ProgTerrain {
         //glPolygonMode(GL_FRONT_AND_BACK, GL_LINES);
         mat4 M = glm::translate(glm::mat4(1.0f), glm::vec3(centerOffset, 2.0f, centerOffset));
 
-        glUniformMatrix4fv(progWater->getUniform("M"), 1, GL_FALSE, &M[0][0]);
-        glUniformMatrix4fv(progWater->getUniform("P"), 1, GL_FALSE, &P[0][0]);
-        glUniformMatrix4fv(progWater->getUniform("V"), 1, GL_FALSE, &V[0][0]);
+        progWater->uniform("M", M);
+        progWater->uniform("P", P);
+        progWater->uniform("V", V);
 
-        glUniform3fv(progWater->getUniform("camoff"), 1, &offset[0]);
-        glUniform3fv(progWater->getUniform("campos"), 1, &camPos[0]);
-        glUniform1f(progWater->getUniform("time"), time);
+        progWater->uniform("camoff", offset);
+        progWater->uniform("campos", camPos);
+        progWater->uniform("time", time);
         glBindVertexArray(WaterVertexArrayID);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, WaterIndexBufferIDBox);
         //glDisable(GL_DEPTH_TEST);
@@ -474,18 +448,16 @@ namespace ProgTerrain {
         // Draw the terrain -----------------------------------------------------------------
         heightshader->bind();
         mat4 M = glm::translate(glm::mat4(1.0f), glm::vec3(centerOffset, 0.0f, centerOffset));
-        glUniformMatrix4fv(heightshader->getUniform("M"), 1, GL_FALSE, &M[0][0]);
-        glUniformMatrix4fv(heightshader->getUniform("P"), 1, GL_FALSE, &P[0][0]);
-        glUniformMatrix4fv(heightshader->getUniform("V"), 1, GL_FALSE, &V[0][0]);
+        heightshader->uniform("M", M);
+        heightshader->uniform("P", P);
+        heightshader->uniform("V", V);
 
-
-
-        glUniform3fv(heightshader->getUniform("camoff"), 1, &offset[0]);
-        glUniform3fv(heightshader->getUniform("campos"), 1, &camPos[0]);
-        glUniform1f(heightshader->getUniform("time"), time);
-        glUniform1i(heightshader->getUniform("meshsize"), k_meshSize);
-        glUniform1f(heightshader->getUniform("resolution"), k_meshRes);
-        glUniform1i(heightshader->getUniform("drawGrey"), k_drawGrey);
+        heightshader->uniform("camoff", offset);
+        heightshader->uniform("campos", camPos);
+        heightshader->uniform("time", time);
+        heightshader->uniform("meshsize", k_meshSize);
+        heightshader->uniform("resolution", k_meshRes);
+        heightshader->uniform("drawGrey", k_drawGrey);
         glBindVertexArray(TerrainVertexArrayID);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferIDBox);
         glActiveTexture(GL_TEXTURE0);
@@ -508,9 +480,7 @@ namespace ProgTerrain {
         glPatchParameteri(GL_PATCH_VERTICES, 3);
         glDrawElements(GL_PATCHES, k_meshSize*k_meshSize * 6, GL_UNSIGNED_INT, (void*)0);
 
-
         heightshader->unbind();
-
     }
 
     void render(const mat4 &V, const mat4 &P, const vec3 &camPos) {

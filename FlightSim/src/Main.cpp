@@ -210,10 +210,6 @@ static bool setupShader() {
         std::cerr << "Failed to load foil shader" << std::endl;
         return false;
     }
-    s_phongProg->addUniform("u_projMat");
-    s_phongProg->addUniform("u_viewMat");
-    s_phongProg->addUniform("u_modelMat");
-    s_phongProg->addUniform("u_normalMat");
 
     return true;
 }
@@ -422,9 +418,9 @@ static void render(float frametime) {
     glEnable(GL_DEPTH_TEST);
 
     s_phongProg->bind();
-    glUniformMatrix4fv(s_phongProg->getUniform("u_projMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&projMat));
-    glUniformMatrix4fv(s_phongProg->getUniform("u_viewMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&viewMat));
-    s_model->draw(modelMat, normalMat, s_phongProg->getUniform("u_modelMat"), s_phongProg->getUniform("u_normalMat"));
+    s_phongProg->uniform("u_projMat", projMat);
+    s_phongProg->uniform("u_viewMat", viewMat);
+    s_model->draw(modelMat, normalMat, s_phongProg->uniformLocation("u_modelMat"), s_phongProg->uniformLocation("u_normalMat"));
 
     s_phongProg->unbind();
 

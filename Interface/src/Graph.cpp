@@ -107,19 +107,12 @@ namespace UI {
             std::cerr << "Failed to load curve program" << std::endl;
             return false;
         }
-        s_curveProg->addUniform("u_viewMin");
-        s_curveProg->addUniform("u_viewMax");
-        s_curveProg->addUniform("u_color");
 
         // Setup lines shader
         if (!(s_linesProg = Shader::load(shadersPath + k_linesVertFilename, shadersPath + k_linesFragFilename))) {
             std::cerr << "Failed to load lines program" << std::endl;
             return false;
         }
-        s_linesProg->addUniform("u_origin");
-        s_linesProg->addUniform("u_orient");
-        s_linesProg->addUniform("u_delta");
-        s_linesProg->addUniform("u_color");
 
         // Setup line vao
         float points[2]{ -1.0f, 1.0f };
@@ -178,34 +171,34 @@ namespace UI {
         vec2 gridLinesOrigin(1.0f - glm::fract(m_graph.m_viewMin / m_graph.m_gridSize));
         gridLinesOrigin = -1.0f + gridLinesOrigin * gridDelta;
 
-        glUniform3f(s_linesProg->getUniform("u_color"), k_gridColor.r, k_gridColor.g, k_gridColor.b);
+        s_linesProg->uniform("u_color", k_gridColor);
 
         // Vertical
-        glUniform2f(s_linesProg->getUniform("u_origin"), gridLinesOrigin.x, 0.0f);
-        glUniform2f(s_linesProg->getUniform("u_orient"), 0.0f, 1.0f);
-        glUniform2f(s_linesProg->getUniform("u_delta"), gridDelta.x, 0.0f);
+        s_linesProg->uniform("u_origin", vec2(gridLinesOrigin.x, 0.0f));
+        s_linesProg->uniform("u_orient", vec2(0.0f, 1.0f));
+        s_linesProg->uniform("u_delta", vec2(gridDelta.x, 0.0f));
         glDrawArraysInstanced(GL_LINES, 0, 2, grideLineCounts.x);
         // Horizontal
-        glUniform2f(s_linesProg->getUniform("u_origin"), 0.0f, gridLinesOrigin.y);
-        glUniform2f(s_linesProg->getUniform("u_orient"), 1.0f, 0.0f);
-        glUniform2f(s_linesProg->getUniform("u_delta"), 0.0f, gridDelta.y);
+        s_linesProg->uniform("u_origin", vec2(0.0f, gridLinesOrigin.y));
+        s_linesProg->uniform("u_orient", vec2(1.0f, 0.0f));
+        s_linesProg->uniform("u_delta", vec2(0.0f, gridDelta.y));
         glDrawArraysInstanced(GL_LINES, 0, 2, grideLineCounts.y);
 
         // Origin lines
 
         vec2 gridOrigin(-viewCenter * viewToScreen);
 
-        glUniform3f(s_linesProg->getUniform("u_color"), k_originColor.r, k_originColor.g, k_originColor.b);
+        s_linesProg->uniform("u_color", k_originColor);
 
         // Vertical
-        glUniform2f(s_linesProg->getUniform("u_origin"), gridOrigin.x, 0.0f);
-        glUniform2f(s_linesProg->getUniform("u_orient"), 0.0f, 1.0f);
-        glUniform2f(s_linesProg->getUniform("u_delta"), 0.0f, 0.0f);
+        s_linesProg->uniform("u_origin", vec2(gridOrigin.x, 0.0f));
+        s_linesProg->uniform("u_orient", vec2(0.0f, 1.0f));
+        s_linesProg->uniform("u_delta", vec2(0.0f, 0.0f));
         glDrawArrays(GL_LINES, 0, 2);
         // Horizontal
-        glUniform2f(s_linesProg->getUniform("u_origin"), 0.0f, gridOrigin.y);
-        glUniform2f(s_linesProg->getUniform("u_orient"), 1.0f, 0.0f);
-        glUniform2f(s_linesProg->getUniform("u_delta"), 0.0f, 0.0f);
+        s_linesProg->uniform("u_origin", vec2(0.0f, gridOrigin.y));
+        s_linesProg->uniform("u_orient", vec2(1.0f, 0.0f));
+        s_linesProg->uniform("u_delta", vec2(0.0f, 0.0f));
         glDrawArrays(GL_LINES, 0, 2);
 
         // Focus
@@ -213,19 +206,19 @@ namespace UI {
         if (m_graph.m_isFocusX) {
             float focusOrigin((m_graph.m_focusX - viewCenter.x) * viewToScreen.x);
 
-            glUniform3f(s_linesProg->getUniform("u_color"), k_focusColor.r, k_focusColor.g, k_focusColor.b);
+            s_linesProg->uniform("u_color", k_focusColor);
             // Vertical
-            glUniform2f(s_linesProg->getUniform("u_origin"), focusOrigin, 0.0f);
-            glUniform2f(s_linesProg->getUniform("u_orient"), 0.0f, 1.0f);
-            glUniform2f(s_linesProg->getUniform("u_delta"), 0.0f, 0.0f);
+            s_linesProg->uniform("u_origin", vec2(focusOrigin, 0.0f));
+            s_linesProg->uniform("u_orient", vec2(0.0f, 1.0f));
+            s_linesProg->uniform("u_delta", vec2(0.0f, 0.0f));
             glDrawArrays(GL_LINES, 0, 2);
         }
 
         // Render curves
 
         s_curveProg->bind();
-        glUniform2f(s_curveProg->getUniform("u_viewMin"), m_graph.m_viewMin.x, m_graph.m_viewMin.y);
-        glUniform2f(s_curveProg->getUniform("u_viewMax"), m_graph.m_viewMax.x, m_graph.m_viewMax.y);
+        s_curveProg->uniform("u_viewMin", m_graph.m_viewMin);
+        s_curveProg->uniform("u_viewMax", m_graph.m_viewMax);
 
         // Draw in reverse order
         for (auto rit (m_graph.m_curves.crbegin()); rit != m_graph.m_curves.crend(); ++rit) {
@@ -247,7 +240,7 @@ namespace UI {
                 curve.isChange = false;
             }
 
-            glUniform3f(s_curveProg->getUniform("u_color"), curve.color.r, curve.color.g, curve.color.b);
+            s_curveProg->uniform("u_color", curve.color);
             glBindVertexArray(curve.vao);
             if (curve.points.size() == 1) {
                 glDrawArrays(GL_POINTS, 0, 1);

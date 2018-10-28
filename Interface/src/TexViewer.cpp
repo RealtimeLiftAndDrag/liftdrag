@@ -26,10 +26,8 @@ namespace UI {
             std::cerr << "Failed to load tex program" << std::endl;
             return false;
         }
-        s_texProg->addUniform("u_tex");
-        s_texProg->addUniform("u_viewBounds");
         s_texProg->bind();
-        glUniform1i(s_texProg->getUniform("u_tex"), 0);
+        s_texProg->uniform("u_tex", 0);
         glUseProgram(0);
 
         // Setup square vao
@@ -79,7 +77,7 @@ namespace UI {
         glBindTexture(GL_TEXTURE_2D, m_tex);
 
         vec2 corner(m_center - m_viewSize * 0.5f);
-        glUniform4f(s_texProg->getUniform("u_viewBounds"), corner.x, corner.y, m_viewSize.x, m_viewSize.y);
+        s_texProg->uniform("u_viewBounds", vec4(corner, m_viewSize));
 
         glBindVertexArray(s_squareVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);

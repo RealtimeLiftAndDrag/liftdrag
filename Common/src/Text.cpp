@@ -80,13 +80,9 @@ bool Text::setup() {
         std::cerr << "Failed to load program" << std::endl;
         return false;
     }
-    s_prog->addUniform("u_fontSize");
-    s_prog->addUniform("u_viewportSize");
-    s_prog->addUniform("u_tex");
-    s_prog->addUniform("u_color");
     s_prog->bind();
-    glUniform2f(s_prog->getUniform("u_fontSize"), float(s_fontSize.x), float(s_fontSize.y));
-    glUniform1i(s_prog->getUniform("u_tex"), 0);
+    s_prog->uniform("u_fontSize", vec2(s_fontSize));
+    s_prog->uniform("u_tex", 0);
     s_prog->unbind();
 
     if (glGetError() != GL_NO_ERROR) {
@@ -184,8 +180,8 @@ void Text::render(const ivec2 & position) const {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, s_fontTex);
 
-    glUniform4fv(s_prog->getUniform("u_color"), 1, &m_color.r);
-    glUniform2f(s_prog->getUniform("u_viewportSize"), float(m_size.x), float(m_size.y));
+    s_prog->uniform("u_color", m_color);
+    s_prog->uniform("u_viewportSize", vec2(m_size));
 
     glBindVertexArray(m_vao);
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, int(m_string.length()));

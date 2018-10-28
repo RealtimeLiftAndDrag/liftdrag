@@ -102,9 +102,9 @@ namespace UI {
         }
 
         s_compProg->bind();
-        glUniform2f(s_compProg->getUniform("u_viewportSize"), float(m_size.x), float(m_size.y));
-        glUniform4fv(s_compProg->getUniform("u_backColor"), 1, &m_backColor.r);
-        glUniform4fv(s_compProg->getUniform("u_borderColor"), 1, &m_borderColor.r);
+        s_compProg->uniform("u_viewportSize", vec2(m_size));
+        s_compProg->uniform("u_backColor", m_backColor);
+        s_compProg->uniform("u_borderColor", m_borderColor);
         glViewport(m_position.x, m_position.y, m_size.x, m_size.y);
         glBindVertexArray(s_squareVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -390,9 +390,6 @@ namespace UI {
             std::cerr << "Failed to load comp program" << std::endl;
             return false;
         }
-        s_compProg->addUniform("u_viewportSize");
-        s_compProg->addUniform("u_backColor");
-        s_compProg->addUniform("u_borderColor");
 
         // Setup square vao and vbo
         vec2 locs[6]{

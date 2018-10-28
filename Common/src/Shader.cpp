@@ -291,26 +291,93 @@ void Shader::unbind() {
     glUseProgram(0);
 }
 
-void Shader::addAttribute(const std::string & name) {
-    m_attributes[name] = GLSL::getAttribLocation(m_glId, name.c_str());
+template <typename T>
+bool Shader::uniform(const std::string & name, const T & val) {
+    s32 location(uniformLocation(name));
+    if (location == -1) {
+        return false;
+    }
+    return uniform(location, val);
 }
+// Explicit template instatiation
+template bool Shader::uniform<float>(const std::string &, const float &);
+template bool Shader::uniform< vec2>(const std::string &, const  vec2 &);
+template bool Shader::uniform< vec3>(const std::string &, const  vec3 &);
+template bool Shader::uniform< vec4>(const std::string &, const  vec4 &);
+template bool Shader::uniform<  s32>(const std::string &, const   s32 &);
+template bool Shader::uniform<ivec2>(const std::string &, const ivec2 &);
+template bool Shader::uniform<ivec3>(const std::string &, const ivec3 &);
+template bool Shader::uniform<ivec4>(const std::string &, const ivec4 &);
+template bool Shader::uniform<  u32>(const std::string &, const   u32 &);
+template bool Shader::uniform<uvec2>(const std::string &, const uvec2 &);
+template bool Shader::uniform<uvec3>(const std::string &, const uvec3 &);
+template bool Shader::uniform<uvec4>(const std::string &, const uvec4 &);
+template bool Shader::uniform< bool>(const std::string &, const  bool &);
+template bool Shader::uniform<bvec2>(const std::string &, const bvec2 &);
+template bool Shader::uniform<bvec3>(const std::string &, const bvec3 &);
+template bool Shader::uniform<bvec4>(const std::string &, const bvec4 &);
+template bool Shader::uniform< mat2>(const std::string &, const  mat2 &);
+template bool Shader::uniform< mat3>(const std::string &, const  mat3 &);
+template bool Shader::uniform< mat4>(const std::string &, const  mat4 &);
 
-void Shader::addUniform(const std::string & name) {
-    m_uniforms[name] = GLSL::getUniformLocation(m_glId, name.c_str());
+template <typename T>
+bool Shader::uniform(s32 location, const T & val) {
+    if      constexpr (std::is_same_v<T, float>) glUniform1f (location, val);
+    else if constexpr (std::is_same_v<T,  vec2>) glUniform2f (location, val.x, val.y);
+    else if constexpr (std::is_same_v<T,  vec3>) glUniform3f (location, val.x, val.y, val.z);
+    else if constexpr (std::is_same_v<T,  vec4>) glUniform4f (location, val.x, val.y, val.z, val.w);
+    else if constexpr (std::is_same_v<T,   s32>) glUniform1i (location, val);
+    else if constexpr (std::is_same_v<T, ivec2>) glUniform2i (location, val.x, val.y);
+    else if constexpr (std::is_same_v<T, ivec3>) glUniform3i (location, val.x, val.y, val.z);
+    else if constexpr (std::is_same_v<T, ivec4>) glUniform4i (location, val.x, val.y, val.z, val.w);
+    else if constexpr (std::is_same_v<T,   u32>) glUniform1ui(location, val);
+    else if constexpr (std::is_same_v<T, uvec2>) glUniform2ui(location, val.x, val.y);
+    else if constexpr (std::is_same_v<T, uvec3>) glUniform3ui(location, val.x, val.y, val.z);
+    else if constexpr (std::is_same_v<T, uvec4>) glUniform4ui(location, val.x, val.y, val.z, val.w);
+    else if constexpr (std::is_same_v<T,  bool>) glUniform1i (location, val);
+    else if constexpr (std::is_same_v<T, bvec2>) glUniform2i (location, val.x, val.y);
+    else if constexpr (std::is_same_v<T, bvec3>) glUniform3i (location, val.x, val.y, val.z);
+    else if constexpr (std::is_same_v<T, bvec4>) glUniform4i (location, val.x, val.y, val.z, val.w);
+    else if constexpr (std::is_same_v<T,  mat2>) glUniformMatrix2fv(location, 1, false, reinterpret_cast<const float *>(&val));
+    else if constexpr (std::is_same_v<T,  mat3>) glUniformMatrix3fv(location, 1, false, reinterpret_cast<const float *>(&val));
+    else if constexpr (std::is_same_v<T,  mat4>) glUniformMatrix4fv(location, 1, false, reinterpret_cast<const float *>(&val));
+    else static_assert(false, "Uniform type unsupported");
+    return true;
 }
+// Explicit template instatiation
+template bool Shader::uniform<float>(s32, const float &);
+template bool Shader::uniform< vec2>(s32, const  vec2 &);
+template bool Shader::uniform< vec3>(s32, const  vec3 &);
+template bool Shader::uniform< vec4>(s32, const  vec4 &);
+template bool Shader::uniform<  s32>(s32, const   s32 &);
+template bool Shader::uniform<ivec2>(s32, const ivec2 &);
+template bool Shader::uniform<ivec3>(s32, const ivec3 &);
+template bool Shader::uniform<ivec4>(s32, const ivec4 &);
+template bool Shader::uniform<  u32>(s32, const   u32 &);
+template bool Shader::uniform<uvec2>(s32, const uvec2 &);
+template bool Shader::uniform<uvec3>(s32, const uvec3 &);
+template bool Shader::uniform<uvec4>(s32, const uvec4 &);
+template bool Shader::uniform< bool>(s32, const  bool &);
+template bool Shader::uniform<bvec2>(s32, const bvec2 &);
+template bool Shader::uniform<bvec3>(s32, const bvec3 &);
+template bool Shader::uniform<bvec4>(s32, const bvec4 &);
+template bool Shader::uniform< mat2>(s32, const  mat2 &);
+template bool Shader::uniform< mat3>(s32, const  mat3 &);
+template bool Shader::uniform< mat4>(s32, const  mat4 &);
 
-GLint Shader::getAttribute(const std::string & name) const {
-    auto it(m_attributes.find(name.c_str()));
-    return it == m_attributes.end() ? -1 : it->second;
-}
-
-GLint Shader::getUniform(const std::string & name) const {
-    auto it(m_uniforms.find(name.c_str()));
-    return it == m_uniforms.end() ? -1 : it->second;
+s32 Shader::uniformLocation(const std::string & name) {
+    auto it(m_uniforms.find(name));
+    if (it == m_uniforms.end()) {
+        s32 loc(glGetUniformLocation(m_glId, name.c_str()));
+        if (loc < 0) {
+            return -1;
+        }
+        it = m_uniforms.emplace(name, loc).first;
+    }
+    return it->second;
 }
 
 Shader::Shader(u32 glId) :
     m_glId(glId),
-    m_attributes(),
     m_uniforms()
 {}
