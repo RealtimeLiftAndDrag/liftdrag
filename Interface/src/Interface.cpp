@@ -2,17 +2,17 @@
 
 
 
-#include "UI.hpp"
+#include "Interface.hpp"
 
 #include <iostream>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
+#include "Common/Text.hpp"
+#include "Common/Shader.hpp"
 
-#include "Text.hpp"
 #include "Graph.hpp"
 #include "TexViewer.hpp"
-#include "Program.h"
 
 
 
@@ -20,7 +20,8 @@ namespace UI {
 
     static const ivec2 k_tooltipOffset(12, -12);
 
-    static const std::string k_compVertFilename("ui_comp.vert"), k_compFragFilename("ui_comp.frag");
+    static const std::string & k_compVertFilename("ui_comp.vert"), k_compFragFilename("ui_comp.frag");
+    static const std::string & k_localResourcesPath("/Interface");
 
 
 
@@ -32,8 +33,8 @@ namespace UI {
     static bool s_cursorInside;
     static bool s_isTooltipChange;
     static Component * s_focus;
-    
-    static unq<Program> s_compProg;
+
+    static unq<Shader> s_compProg;
     static uint s_squareVBO, s_squareVAO;
 
 
@@ -100,7 +101,7 @@ namespace UI {
             return;
         }
 
-        glUseProgram(s_compProg->pid);
+        s_compProg->bind();
         glUniform2f(s_compProg->getUniform("u_viewportSize"), float(m_size.x), float(m_size.y));
         glUniform4fv(s_compProg->getUniform("u_backColor"), 1, &m_backColor.r);
         glUniform4fv(s_compProg->getUniform("u_borderColor"), 1, &m_borderColor.r);
@@ -165,7 +166,7 @@ namespace UI {
         }
         return m_minSize;
     }
-    
+
     const ivec2 & Group::maxSize() const {
         if (!m_areSizeExtremaValid) {
             detSizeExtrema();
@@ -346,9 +347,9 @@ namespace UI {
         if (!isMaxHeight) m_maxSize.y = 0;
     }
 
-    
 
-    bool setup(const ivec2 & windowSize, const std::string & windowTitle, int majorGLVersion, int minorGLVersion, bool vSync, const std::string & resourceDir) {
+
+    bool setup(const ivec2 & windowSize, const std::string & windowTitle, int majorGLVersion, int minorGLVersion, bool vSync) {
         glfwSetErrorCallback(errorCallback);
         if (!glfwInit()) {
             std::cerr << "Failed to initialize GLFW" << std::endl;
@@ -384,10 +385,9 @@ namespace UI {
         }
 
         // Setup comp shader
-        s_compProg.reset(new Program());
-        s_compProg->setShaderNames(resourceDir + "/shaders/" + k_compVertFilename, resourceDir + "/shaders/" + k_compFragFilename);
-        if (!s_compProg->init()) {
-            std::cerr << "Failed to initialize comp program" << std::endl;
+        std::string shadersPath(g_resourcesDir + "/Interface/shaders/");
+        if (!(s_compProg = Shader::load(shadersPath + k_compVertFilename, shadersPath + k_compFragFilename))) {
+            std::cerr << "Failed to load comp program" << std::endl;
             return false;
         }
         s_compProg->addUniform("u_viewportSize");
@@ -417,17 +417,17 @@ namespace UI {
             return false;
         }
 
-        if (!Text::setup(resourceDir)) {
+        if (!Text::setup()) {
             std::cerr << "Failed to setup text" << std::endl;
             return false;
         }
 
-        if (!Graph::setup(resourceDir)) {
+        if (!Graph::setup()) {
             std::cerr << "Failed to setup graph" << std::endl;
             return false;
         }
 
-        if (!TexViewer::setup(resourceDir)) {
+        if (!TexViewer::setup()) {
             std::cerr << "Failed to setup texture viewer" << std::endl;
             return false;
         }
@@ -474,7 +474,7 @@ namespace UI {
     void render() {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    
+
         s_root->render();
 
         if (s_tooltip && s_cursorInside) {

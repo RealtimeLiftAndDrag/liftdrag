@@ -4,7 +4,7 @@
 
 #include <vector>
 
-#include "Global.hpp"
+#include "Common/Global.hpp"
 
 
 
@@ -18,7 +18,7 @@ namespace UI {
         ivec2 m_size;
         vec4 m_backColor;
         vec4 m_borderColor;
-    
+
         public:
 
         virtual void update() {};
@@ -99,7 +99,7 @@ namespace UI {
     class Group : public Component {
 
         protected:
-        
+
         std::vector<shr<Component>> m_components;
 
         mutable Component * m_cursorOverComp;
@@ -165,7 +165,7 @@ namespace UI {
 
     };
 
-    bool setup(const ivec2 & windowSize, const std::string & windowTitle, int majorGLVersion, int minorGLVersion, bool vSync, const std::string & resourceDir);
+    bool setup(const ivec2 & windowSize, const std::string & windowTitle, int majorGLVersion, int minorGLVersion, bool vSync);
 
     void setRootComponent(shr<Component> root);
 

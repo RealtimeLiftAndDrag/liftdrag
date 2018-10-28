@@ -14,7 +14,6 @@ extern "C" {
 
 
 #include <iostream>
-#include <sstream>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
@@ -27,15 +26,18 @@ extern "C" {
 
 #include "RLD/Simulation.hpp"
 #include "Common/Model.hpp"
-#include "Common/Program.h"
-#include "Common/UI.hpp"
+#include "Common/Shader.hpp"
+#include "Interface/Interface.hpp"
+
 
 #include "SimObject.hpp"
 #include "ProgTerrain.hpp"
 
 #include "xboxcontroller.h"
 
-
+#define PI 3.1415926
+#define PIH 3.1415926f/2.f
+#define PIQ 3.1415926f/4.f
 
 CXBOXController XBOXController(1);
 
@@ -48,22 +50,21 @@ public:
 };
 
 static const bool k_windDebug(false);
-static const ivec2 k_windowSize(1280, 720);
-static const std::string k_windowTitle("RLD Flight Simulator");
-static const std::string k_resourceDir("../resources");
+static const ivec2 k_windowSize(1280, 1280);
+static const std::string & k_windowTitle("RLD Flight Simulator");
 
-static constexpr int k_simTexSize(720);
-static constexpr int k_simSliceCount(100);
-static constexpr float k_simLiftC(0.2f);
-static constexpr float k_simDragC(0.1f);
+static constexpr int k_simTexSize = 1024;
+static constexpr int k_simSliceCount = 100;
+static constexpr float k_simLiftC = 0.2f;
+static constexpr float k_simDragC = 0.1f;
 
-static const float k_timeScale(1.0f);
-static const float k_thrust(0.5f);
-static const float k_thrustIncrease(0.1f);
+static const float k_timeScale(1.f);
+static const float k_thrust(.5f);
+static const float k_thrustIncrease(.1f);
 
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
-static shr<Program> s_phongProg;
+static unq<Shader> s_phongProg;
 
 static mat4 s_modelMat;
 static mat3 s_normalMat;
@@ -83,7 +84,8 @@ static constexpr float k_minElevatorAngle(-90.0f), k_maxElevatorAngle(90.0f);
 
 static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
 
-static shr<MainUIC> s_mainUIC;
+
+static GLFWwindow * s_window;
 
 
 
@@ -98,6 +100,7 @@ static void changeRudderAngle(float deltaAngle) {
     mat3 normalMat(modelMat);
     s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
     s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
+
 }
 
 static void changeAileronAngle(float deltaAngle) {
@@ -123,7 +126,7 @@ static void changeElevatorAngle(float deltaAngle) {
 
 }
 
-void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mods) {
+void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     // If A key is pressed, increase rudder angle (i.e. turn left)
     if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         changeRudderAngle(k_manualAngleIncrement);
@@ -152,19 +155,29 @@ void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mod
     else if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
         s_increaseThrust = true;
     }
+
+    else if (key == GLFW_KEY_L && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+        s_simObject->a_pos.y += 0.03125;
+    }
+
+    else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
+        s_simObject->a_pos.y -= 0.03125;
+    }
 }
 
 
-static bool setupModel(const std::string & resourceDir) {
-    s_model = Model::load(resourceDir + "/models/f18.grl");
+static bool setupModel() {
+    s_model = Model::load(g_resourcesDir + "/models/f18.grl");
     if (!s_model) {
         std::cerr << "Failed to load model" << std::endl;
         return false;
     }
 
-    s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f));
+    s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)); //upside down at first
+    s_modelMat = s_modelMat * glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)); //upside down at first
+    //s_modelMat = glm::translate(mat4(), vec3(0, 0, 1)) * s_modelMat;
     s_momentOfInertia = 1.0f;
-    s_windframeWidth = 14.5f;
+    s_windframeWidth = 20.5f;
     s_windframeDepth = 22.0f;
 
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
@@ -178,25 +191,23 @@ static bool setupModel(const std::string & resourceDir) {
         std::cerr << "Failed to create sim object" << std::endl;
         return false;
     }
-    s_simObject->setMass(16769.0f); // gross weight in kg pulled from wiki
-    s_simObject->setMaxThrust(62.3f * 1000.0f * 2.0f); // dry thrust from wiki without afterburner (62.3 kN per engine)
+    s_simObject->setMass(16769); //gross weight in kg pulled from wiki
+    s_simObject->setMaxThrust(62.3 * 1000.f * 2.f); //dry thrust from wiki without afterburner (62.3kN per enginer)
     s_simObject->setGravityOn(false);
     s_simObject->setTimeScale(k_timeScale);
-    s_simObject->pos.y = 30.0f;
-    s_simObject->vel.z = 20.0f;
+    s_simObject->pos.y = 30.f; //in meters
+    s_simObject->vel.z = -120.f; //in m/s
+    //s_simObject->a_pos.y = 0.001; //in m/s
 
     return true;
 }
 
-static bool setupShader(const std::string & resourcesDir) {
-    std::string shadersDir(resourcesDir + "/shaders");
+static bool setupShader() {
+    std::string shadersPath(g_resourcesDir + "/FlightSim/shaders/");
 
     // Foil Shader
-    s_phongProg = std::make_shared<Program>();
-    s_phongProg->setVerbose(true);
-    s_phongProg->setShaderNames(shadersDir + "/phong.vert", shadersDir + "/phong.frag");
-    if (!s_phongProg->init()) {
-        std::cerr << "Failed to initialize foil shader" << std::endl;
+    if (!(s_phongProg = Shader::load(shadersPath + "phong.vert", shadersPath + "phong.frag"))) {
+        std::cerr << "Failed to load foil shader" << std::endl;
         return false;
     }
     s_phongProg->addUniform("u_projMat");
@@ -209,10 +220,8 @@ static bool setupShader(const std::string & resourcesDir) {
 
 
 static bool setup() {
-    if (XBOXController.IsConnected()) {
+    if (XBOXController.IsConnected())
         std::cout << "xbos controller connected" << std::endl;
-    }
-
     // Setup window
     glfwSetErrorCallback(errorCallback);
     if (!glfwInit()) {
@@ -241,27 +250,29 @@ static bool setup() {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 
+
     // Setup simulation
-    if (!rld::setup(k_resourceDir, k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
+    if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
 
     //setup model for sim
-    if (!setupModel(k_resourceDir)) {
+    if (!setupModel()) {
         std::cerr << "Failed to load model for Sim" << std::endl;
         return false;
     }
 
     //load shader for sim
-    if (!setupShader(k_resourceDir)) {
+    if (!setupShader()) {
         std::cerr << "Failed to load shader for Sim" << std::endl;
         return false;
     }
 
+
     //setup progterrain
-    ProgTerrain::init_shaders(k_resourceDir);
-    ProgTerrain::init_geom(k_resourceDir);
+    ProgTerrain::init_shaders();
+    ProgTerrain::init_geom();
 
     return true;
 }
@@ -284,10 +295,23 @@ static mat4 getPerspectiveMatrix() {
     return glm::perspective(fov, aspect, 0.01f, 1000.f);
 }
 
+static mat4 getOrthographicMatrix() {
+    float windframeRadius(s_windframeWidth * 0.5f);
+
+    return glm::ortho(
+        -windframeRadius, // left
+        windframeRadius,  // right
+        -windframeRadius, // bottom
+        windframeRadius,  // top
+        0.01f, // near
+        100.f // far
+    );
+}
+
 static mat4 getViewMatrix(vec3 camPos) {
     vec3 lookPos = s_simObject->pos;
     vec3 viewVec = lookPos - camPos;
-    vec3 right = glm::cross(viewVec, vec3(0.0f, 1.0f, 0.0f));
+    vec3 right = glm::cross(viewVec, vec3(0, 1, 0));
     vec3 up = glm::cross(right, viewVec);
     return glm::lookAt(
         camPos,
@@ -297,46 +321,49 @@ static mat4 getViewMatrix(vec3 camPos) {
 }
 
 static mat4 getWindViewMatrix(vec3 wind) {
-    vec3 up = vec3(0.0f, 1.0f, 0.0f);//glm::cross(wind, vec3(1, 0, 0));
     return glm::lookAt(
-        vec3(), // camPos
-        wind, // looking in the direction of the wind
-        up // don't care about roll so just determined above by cross product of wind and left vector
+        vec3(0, 0, 0), //camPos
+        wind, //looking in the direction of the wind
+        vec3(0, 1, 0) //don't care about roll so just always global up
     );
 }
 
-static std::string matrixToString(const mat4 & m) {
-    std::stringstream ss;
-    for (int i(0); i < 4; ++i) {
-        ss << "[" << m[0][i] << ", " << m[1][i] << ", " << m[2][i] << ", " << m[3][i] << "]" << std::endl;
+static std::string matrixToString(mat4 m) {
+    std::string mstring = "";
+    for (int i = 0; i < 4; i++) {
+        mstring += "[" + std::to_string(m[0][i]) + ", " + std::to_string(m[1][i]) + ", " + std::to_string(m[2][i]) + ", " + std::to_string(m[3][i]) + "]\n";
     }
-    return ss.str();
+    return mstring;
 }
 
+
 static void render(float frametime) {
+    //glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    vec3 wind = -(s_simObject->vel); // wind is equivalent to opposite direction/speed of velocity
+    vec3 wind = -(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
     s_windSpeed = length(s_simObject->vel);
-    mat4 windViewMatrix = getWindViewMatrix(wind); // TODO: not sure why this needs to be negative. Works but still trying to figure out why
+    mat4 windViewMatrix = getWindViewMatrix(wind);
     mat4 simRotateMat = s_simObject->getRotate();
     mat4 simTranslateMat = s_simObject->getTranslate();
 
-    vec3 camOffset = vec3(vec4(0.0f, 0.0f, -17.5f, 1.0f) * glm::inverse(s_simObject->getRotate())); // TODO: not sure why i have to inverse this
+    vec3 camOffset = vec3(simRotateMat * vec4(0, 0, 25.0, 1));
     vec3 camPos = s_simObject->pos + camOffset;
+    mat4 viewMat = getViewMatrix(camPos);
+
     //std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
     //std::cout << "torque: " << glm::to_string(torque) << std::endl;
     //std::cout << "time scale: " << k_timeScale << std::endl;
     //std::cout << "curPos: " << glm::to_string(s_simObject->pos) << std::endl;
     //std::cout << "curAngle: " << glm::to_string(s_simObject->a_pos) << std::endl;
-    //std::cout << "Wind vector" << glm::to_string(wind) << std::endl;
+    //std::cout << "Wind vector: " << glm::to_string(wind) << std::endl;
     //std::cout << "sim rotate mat\n" << matrixToString(simRotateMat) << std::endl << std::endl;
     //std::cout << "wind view matrix\n" << matrixToString(windViewMatrix) << std::endl << std::endl;
     //std::cout << "s_model matrix\n" << matrixToString(s_modelMat) << std::endl << std::endl;
     //std::cout << "Final rld modelMat\n" << matrixToString(windViewMatrix * simRotateMat * s_modelMat) << std::endl << std::endl;
-    ////std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(1, 0, 0))) << std::endl << std::endl;
-    //std::cout << std::endl;
+    //std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(0, 0, 1))) << std::endl << std::endl;
     //
+    s_normalMat = glm::transpose(glm::inverse(s_modelMat));
     rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
@@ -345,32 +372,52 @@ static void render(float frametime) {
     vec3 drag = rld::drag();
     vec3 combinedForce = lift + drag;
     vec3 torque = rld::torque();
-    std::cout << "lift: " << glm::to_string(lift) << std::endl;
-    std::cout << "drag: " << glm::to_string(drag) << std::endl;
-    std::cout << "torque: " << glm::to_string(torque) << std::endl;
-    std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
-    std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
-    s_simObject->addTranslationalForce(combinedForce);
+
+    //std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
+    //std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
+    s_simObject->addTranslationalForce(combinedForce * 10.f);
+    float mEV = 100000.f;
+    /*if (length(torque) > mEV || length(lift) > mEV || length(drag) > mEV) {
+        torque = vec3(0);
+        lift = vec3(0);
+        drag = vec3(0);
+    }*/
+    torque *= 10.f;
     s_simObject->addAngularForce(torque);
     s_simObject->update(frametime);
+    std::cout << "lift: " << glm::to_string(lift) << std::endl;
+    //std::cout << "drag: " << glm::to_string(drag) << std::endl;
+    std::cout << "torque: " << torque.y /1000.f << std::endl;
+    //std::cout << "y angle (in degrees) " << glm::degrees(s_simObject->a_pos.y) << std::endl;
+    //std::cout << "y angle (in radians) " << s_simObject->a_pos.y << std::endl;
+    std::cout << "angle: " << s_simObject->a_pos.y << std::endl;
+
+    //std::cout << "pos " << glm::to_string(s_simObject->pos) << std::endl;
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
+    std::cout << std::endl;
+
 
     mat4 modelMat, normalMat;
-    mat4 projMat, viewMat;
+    mat4 projMat;
 
     modelMat = s_modelMat;
     normalMat = s_normalMat;
 
+
+    //modelMat = mat4();
+
     if (k_windDebug) {
-        modelMat = windViewMatrix * simRotateMat * modelMat; // what the wind sees (use for debugging)
-        viewMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -17.5f));
+        projMat = getOrthographicMatrix();
+        modelMat = windViewMatrix * simRotateMat * s_modelMat; //what the wind sees (use for debugging)
+        viewMat = glm::translate(mat4(), vec3(0, 0, -17.5)); //just move model away so we can see it on screen. Just for debugging not used anywhere for sim
     }
     else {
-        modelMat = simTranslateMat * simRotateMat * modelMat; // what should be rendered
-        viewMat = getViewMatrix(camPos);
         projMat = getPerspectiveMatrix();
-        ProgTerrain::render(viewMat, projMat, -camPos); // TODO: no idea why I have to invert this
+        modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
+        normalMat = glm::transpose(glm::inverse(modelMat));
+        ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
     }
+
 
     glEnable(GL_DEPTH_TEST);
 
@@ -381,13 +428,16 @@ static void render(float frametime) {
 
     s_phongProg->unbind();
 
-    // reset gl variables set to not mess up rld sim
+
+    //reset gl variables set to not mess up rld sim
     glDisable(GL_DEPTH_TEST);
+
 }
 
-void process_stick(float frametime) {
+void process_stick(double frametime)
+{
 
-    float maxrudderspeed = 2.0f * frametime;
+    float maxrudderspeed = 2.0f * float(frametime);
 
     /*   s_aileronAngle(0.0f);
     static float s_rudderAngle(0.0f);
@@ -398,19 +448,25 @@ void process_stick(float frametime) {
     SHORT rx = XBOXController.GetState().Gamepad.sThumbRX;
     SHORT rsh = XBOXController.GetState().Gamepad.bRightTrigger;
 
-    float angle_r = 0.0f, angle_x = 0.0f, angle_y = 0.0f;
-    if (abs(ly) > 3000) {
-        angle_x = ((float)ly / 32768.0f) * glm::pi<float>() * 0.25f;
+    float angle_r = 0.0, angle_x = 0.0, angle_y = 0.0;
+    if (abs(ly) > 3000)
+    {
+        angle_x = ((float)ly / 32768.0f) * PIQ;
 
     }
-    if (abs(lx) > 3000) {
-        angle_y = ((float)lx / 32768.0f) * glm::pi<float>() * 0.25f;
+    if (abs(lx) > 3000)
+    {
+        angle_y = ((float)lx / 32768.0f) * PIQ;
     }
-    if (abs(rx) > 3000) {
-        angle_r = ((float)rx / 32768.0f) * glm::pi<float>() * 0.25f;
+    if (abs(rx) > 3000)
+    {
+        angle_r = ((float)rx / 32768.0f) * PIQ;
     }
 
     s_simObject->thrust = rsh / 255.0f;
+
+
+
 
     float delta_r = angle_r - s_rudderAngle;
     if (delta_r > maxrudderspeed)   delta_r = maxrudderspeed;
@@ -422,11 +478,14 @@ void process_stick(float frametime) {
     if (delta_y > maxrudderspeed)   delta_y = maxrudderspeed;
     if (delta_y < (-maxrudderspeed)) delta_y = -maxrudderspeed;
 
+
+
     s_rudderAngle += delta_r;
     mat4 modelMat(glm::rotate(mat4(), s_rudderAngle, vec3(0.0f, 1.0f, 0.0f)));
     mat3 normalMat(modelMat);
     s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
     s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
+
 
     s_elevatorAngle += delta_x;
 
@@ -442,13 +501,14 @@ void process_stick(float frametime) {
     modelMat = glm::rotate(mat4(), -s_aileronAngle, vec3(1.0f, 0.0f, 0.0f));
     normalMat = modelMat;
     s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
+
 }
 
-double get_last_elapsed_time() {
-    static double lasttime(glfwGetTime());
-
-    double actualtime(glfwGetTime());
-    double difference(actualtime - lasttime);
+double get_last_elapsed_time()
+{
+    static double lasttime = glfwGetTime();
+    double actualtime = glfwGetTime();
+    double difference = actualtime - lasttime;
     lasttime = actualtime;
     return difference;
 }
@@ -462,7 +522,7 @@ int main(int argc, char ** argv) {
     }
 
     while (!glfwWindowShouldClose(s_window)) {
-        float frametime = float(get_last_elapsed_time());
+        float frametime{float(get_last_elapsed_time())};
         glfwPollEvents();
 
         // TODO

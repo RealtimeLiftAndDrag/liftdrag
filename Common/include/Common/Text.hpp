@@ -3,16 +3,15 @@
 
 
 #include <vector>
+#include <string>
 
 #include "Global.hpp"
-
-
 
 class Text {
 
     public:
 
-    static bool setup(const std::string & resourceDir);
+    static bool setup();
 
     static const ivec2 & fontSize();
 

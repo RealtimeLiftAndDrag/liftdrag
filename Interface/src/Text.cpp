@@ -1,17 +1,17 @@
-#include "UI_Text.hpp"
+#include "Text.hpp"
 
 #include <cctype>
 
 #include "GLFW/glfw3.h"
 
-#include "Util.hpp"
+#include "Common/Util.hpp"
 
 
 
 namespace UI {
 
-    bool Text::setup(const std::string & resourceDir) {
-        return ::Text::setup(resourceDir);
+    bool Text::setup() {
+        return ::Text::setup();
     }
 
     Text::Text(const std::string & string, const ivec2 & align, const vec4 & color) :
@@ -59,8 +59,8 @@ namespace UI {
     void Text::reverify() {
         string(m_text.string(""));
     }
-    
-    
+
+
 
     String::String(const std::string & initStr, int align, const vec4 & color) :
         String(initStr, align, color, ::Text::detDimensions(initStr).x, ::Text::detDimensions(initStr).x)
@@ -78,7 +78,7 @@ namespace UI {
         }
         return true;
     }
-    
+
 
 
     double Number::detValue(const std::string & str) {
@@ -116,7 +116,7 @@ namespace UI {
         string(Util::numberString(val, m_fixed, m_precision));
     }
 
-    
+
 
     Vector::Vector(const vec3 & initVal, const vec4 & color, int compWidth, bool fixed, int precision) :
         m_x(new Number(initVal.x, 0, color, compWidth, compWidth, fixed, precision)),
@@ -142,7 +142,7 @@ namespace UI {
         return vec3(m_x->value(), m_y->value(), m_z->value());
     }
 
-    
+
 
     TextField::TextField(const std::string & initStr, const ivec2 & align, const vec4 & color, const ivec2 & minDimensions, const ivec2 & maxDimensions) :
         Text("", align, color, minDimensions, maxDimensions),
@@ -182,7 +182,7 @@ namespace UI {
                 unfocus();
             }
             else if ((action == GLFW_PRESS || action == GLFW_REPEAT) && (mods & GLFW_MOD_SHIFT)) {
-                charEvent('\n');  
+                charEvent('\n');
             }
         }
     }
@@ -190,7 +190,7 @@ namespace UI {
     void TextField::charEvent(char c) {
         if (m_editing && valid(c)) m_text.string(m_text.string() + c);
     }
-    
+
     void TextField::mouseButtonEvent(int button, int action, int mods) {
         if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS && !mods) {
             UI::focus(this);
@@ -232,7 +232,7 @@ namespace UI {
         m_text.string(move(m_savedString));
     }
 
-    
+
 
     StringField::StringField(const std::string & initStr, int align, const vec4 & color, int minWidth, int maxWidth) :
         TextField(initStr, ivec2(align, 0), color, ivec2(minWidth, 1), ivec2(maxWidth, 1))
@@ -251,7 +251,7 @@ namespace UI {
         return Util::isPrintable(c);
     }
 
-    
+
 
     NumberField::NumberField(double initVal, int align, const vec4 & color, int minWidth, int maxWidth, bool fixed, int precision) :
         StringField(Util::numberString(initVal, fixed, precision), align, color, minWidth, maxWidth),
@@ -277,7 +277,7 @@ namespace UI {
         return std::isdigit(c) || c == '.' || c == '-';
     }
 
-    
+
 
     BoundedNumberField::BoundedNumberField(double initVal, int align, const vec4 & color, int minWidth, int maxWidth, bool fixed, int precision, double minVal, double maxVal) :
         NumberField(initVal, align, color, minWidth, maxWidth, fixed, precision),
@@ -305,7 +305,7 @@ namespace UI {
         reverify();
     }
 
-    
+
 
     VectorField::VectorField(const vec3 & initVal, const vec4 & color, int compWidth, bool fixed, int precision) :
         m_x(new NumberField(initVal.x, 0, color, compWidth, compWidth, fixed, precision)),

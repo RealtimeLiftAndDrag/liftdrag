@@ -75,7 +75,7 @@ namespace grl {
             }
 
             std::stringstream ss(line);
-            
+
             ss >> word;
 
             // Skip comment

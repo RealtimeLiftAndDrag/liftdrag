@@ -1,8 +1,7 @@
 #pragma once
 
-
-
 #include <memory>
+#include <string>
 
 #include "glm/glm.hpp"
 
@@ -41,9 +40,11 @@ using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
 
-using std::pair;
-
 template <typename T> using unq = std::unique_ptr<T>;
 template <typename T> using shr = std::shared_ptr<T>;
 
+template <typename T1, typename T2> using pair = std::pair<T1, T2>;
+
 using std::move;
+
+extern std::string g_resourcesDir;

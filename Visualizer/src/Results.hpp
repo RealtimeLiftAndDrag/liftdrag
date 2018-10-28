@@ -1,7 +1,6 @@
-#include <string>
 #include <map>
 
-#include "Common/Graph.hpp"
+#include "Interface/Graph.hpp"
 
 
 
@@ -13,7 +12,7 @@ namespace Results {
 
     struct Entry { vec3 lift, drag, torq; };
 
-    bool setup(const std::string & resourcesDir, int sliceCount);
+    bool setup(int sliceCount);
 
     void update();
 
@@ -39,8 +38,8 @@ namespace Results {
 
     const std::map<int, Entry> & sliceRecord();
 
-    shr<Graph> angleGraph();
-    shr<Graph> sliceGraph();
+    shr<UI::Graph> angleGraph();
+    shr<UI::Graph> sliceGraph();
 
     void resetGraphs();
 

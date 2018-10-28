@@ -105,7 +105,7 @@ void main() {
     for (int prevAirI = workI; prevAirI < u_prevAirCount; prevAirI += int(k_workGroupSize)) {
 
         vec2 windPos = u_prevAirPixels[prevAirI].windPos;
-        
+
         ivec2 texCoord = ivec2(windToScreen(windPos.xy));
         ivec2 sideTexCoord;
         if (bool(u_debug)) {
@@ -121,7 +121,7 @@ void main() {
         if (color.r != 0.0f) {
             continue;
         }
-        
+
         // Move to current air pixel buffer
         int airI = atomicAdd(u_airCount, 1);
         if (airI >= u_maxAirPixels) {
@@ -132,9 +132,9 @@ void main() {
 
         // Store air index
         imageStore(u_flagImg, texCoord, ivec4(airI + 1, 0, 0, 0));
-        
+
         // Draw to front view
         color.g = k_inactiveVal;
         imageStore(u_fboImg, texCoord, color);
-    }        
+    }
 }

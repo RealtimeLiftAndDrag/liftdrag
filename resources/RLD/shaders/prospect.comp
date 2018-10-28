@@ -121,7 +121,7 @@ float screenToWindDist(float screenDist) {
 }
 
 bool isScreenInShadow(vec2 screenPos) {
-    return texture2D(u_shadTex, screenPos / u_screenSize).r > 0.0f;    
+    return texture2D(u_shadTex, screenPos / u_screenSize).r > 0.0f;
 }
 
 void accumulate() {
@@ -140,9 +140,9 @@ void main() {
     //}
 
     int workI = int(gl_LocalInvocationIndex);
-    ivec2 workCoord = ivec2(gl_LocalInvocationID.xy);    
+    ivec2 workCoord = ivec2(gl_LocalInvocationID.xy);
     s_accumulationArray[gl_LocalInvocationIndex] = vec3(0.0f);
-    
+
     float pixelArea = screenToWindDist(1.0f);
     pixelArea *= pixelArea;
 
@@ -210,7 +210,7 @@ void main() {
             imageStore(u_prevTurbImg, texCoord, imageLoad(u_turbImg, texCoord));
         }
     }
-    
+
     // Accumulate drag
     s_accumulationArray[workI] = totalDrag;
     accumulate();

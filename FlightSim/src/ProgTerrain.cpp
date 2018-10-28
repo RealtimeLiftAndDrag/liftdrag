@@ -1,14 +1,14 @@
 #include "glad/glad.h"
 #include "Common/GLSL.h"
 #include "stb_image.h"
-#include "Common/Program.h"
+#include "Common/Shader.hpp"
 #include "ProgTerrain.hpp"
 #include "Common/Model.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
 namespace ProgTerrain {
     // Our shader program
-    std::shared_ptr<Program> heightshader, progSky, progWater;
+    unq<Shader> heightshader, progSky, progWater;
 
     unq<Model> skySphere;
     static const bool k_drawLines(false);
@@ -162,14 +162,16 @@ namespace ProgTerrain {
             glBindVertexArray(0);
         }
 
-        void init_textures(const std::string & textureDir) {
+        void init_textures() {
+            std::string texturesPath(g_resourcesDir + "/FlightSim/textures/");
+
             int width, height, channels;
             char filepath[1000];
             std::string str;
             unsigned char* data;
 
             // Grass texture
-            str = textureDir + "/grass.jpg";
+            str = texturesPath + "grass.jpg";
             strcpy_s(filepath, str.c_str());
             data = stbi_load(filepath, &width, &height, &channels, 4);
             glGenTextures(1, &GrassTexture);
@@ -184,7 +186,7 @@ namespace ProgTerrain {
             glGenerateMipmap(GL_TEXTURE_2D);
 
             // Grass normal map
-            str = textureDir + "/grass_normal.png";
+            str = texturesPath + "grass_normal.png";
             strcpy_s(filepath, str.c_str());
             data = stbi_load(filepath, &width, &height, &channels, 4);
             glGenTextures(1, &GrassNormal);
@@ -198,10 +200,8 @@ namespace ProgTerrain {
             //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 3);
             glGenerateMipmap(GL_TEXTURE_2D);
 
-
-
             // Snow texture
-            str = textureDir + "/snow.jpg";
+            str = texturesPath + "snow.jpg";
             strcpy_s(filepath, str.c_str());
             data = stbi_load(filepath, &width, &height, &channels, 4);
             glGenTextures(1, &SnowTexture);
@@ -216,7 +216,7 @@ namespace ProgTerrain {
             glGenerateMipmap(GL_TEXTURE_2D);
 
             // Snow normal map
-            str = textureDir + "/snow_normal.png";
+            str = texturesPath + "snow_normal.png";
             strcpy_s(filepath, str.c_str());
             data = stbi_load(filepath, &width, &height, &channels, 4);
             glGenTextures(1, &SnowNormal);
@@ -230,10 +230,8 @@ namespace ProgTerrain {
             //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 3);
             glGenerateMipmap(GL_TEXTURE_2D);
 
-
-
             // Sand texture
-            str = textureDir + "/sand.jpg";
+            str = texturesPath + "sand.jpg";
             strcpy_s(filepath, str.c_str());
             data = stbi_load(filepath, &width, &height, &channels, 4);
             glGenTextures(1, &SandTexture);
@@ -248,7 +246,7 @@ namespace ProgTerrain {
             glGenerateMipmap(GL_TEXTURE_2D);
 
             // Sand normal map
-            str = textureDir + "/sand_normal.png";
+            str = texturesPath + "sand_normal.png";
             strcpy_s(filepath, str.c_str());
             data = stbi_load(filepath, &width, &height, &channels, 4);
             glGenTextures(1, &SandNormal);
@@ -263,7 +261,7 @@ namespace ProgTerrain {
             glGenerateMipmap(GL_TEXTURE_2D);
 
             // Cliff texture
-            str = textureDir + "/cliff.jpg";
+            str = texturesPath + "cliff.jpg";
             strcpy_s(filepath, str.c_str());
             data = stbi_load(filepath, &width, &height, &channels, 4);
             glGenTextures(1, &CliffTexture);
@@ -278,7 +276,7 @@ namespace ProgTerrain {
             glGenerateMipmap(GL_TEXTURE_2D);
 
             // Cliff normal map
-            str = textureDir + "/cliff_normal.png";
+            str = texturesPath + "cliff_normal.png";
             strcpy_s(filepath, str.c_str());
             data = stbi_load(filepath, &width, &height, &channels, 4);
             glGenTextures(1, &CliffNormal);
@@ -293,7 +291,7 @@ namespace ProgTerrain {
             glGenerateMipmap(GL_TEXTURE_2D);
 
             // Skybox Texture
-            str = textureDir + "/sky.jpg";
+            str = texturesPath + "sky.jpg";
             strcpy_s(filepath, str.c_str());
             data = stbi_load(filepath, &width, &height, &channels, 4);
             glGenTextures(1, &SkyTexture);
@@ -307,7 +305,7 @@ namespace ProgTerrain {
             glGenerateMipmap(GL_TEXTURE_2D);
 
             // Skybox Texture
-            str = textureDir + "/sky2.jpg";
+            str = texturesPath + "sky2.jpg";
             strcpy_s(filepath, str.c_str());
             data = stbi_load(filepath, &width, &height, &channels, 4);
             glGenTextures(1, &NightTexture);
@@ -324,19 +322,19 @@ namespace ProgTerrain {
         void assign_textures() {
             //[TWOTEXTURES]
             //set the 2 textures to the correct samplers in the fragment shader:
-            GLuint TextureLocation, GrassTextureLocation, SnowTextureLocation, SandTextureLocation, CliffTextureLocation, SkyTextureLocation, NightTextureLocation;
+            GLuint GrassTextureLocation, SnowTextureLocation, SandTextureLocation, CliffTextureLocation, SkyTextureLocation, NightTextureLocation;
             GLuint GrassNormalLocation, SnowNormalLocation, SandNormalLocation, CliffNormalLocation;
 
-            GrassTextureLocation = glGetUniformLocation(heightshader->pid, "grassSampler");
-            GrassNormalLocation = glGetUniformLocation(heightshader->pid, "grassNormal");
-            SnowTextureLocation = glGetUniformLocation(heightshader->pid, "snowSampler");
-            SnowNormalLocation = glGetUniformLocation(heightshader->pid, "snowNormal");
-            SandTextureLocation = glGetUniformLocation(heightshader->pid, "sandSampler");
-            SandNormalLocation = glGetUniformLocation(heightshader->pid, "sandNormal");
-            CliffTextureLocation = glGetUniformLocation(heightshader->pid, "cliffSampler");
-            CliffNormalLocation = glGetUniformLocation(heightshader->pid, "cliffNormal");
+            GrassTextureLocation = glGetUniformLocation(heightshader->glId(), "grassSampler");
+            GrassNormalLocation = glGetUniformLocation(heightshader->glId(), "grassNormal");
+            SnowTextureLocation = glGetUniformLocation(heightshader->glId(), "snowSampler");
+            SnowNormalLocation = glGetUniformLocation(heightshader->glId(), "snowNormal");
+            SandTextureLocation = glGetUniformLocation(heightshader->glId(), "sandSampler");
+            SandNormalLocation = glGetUniformLocation(heightshader->glId(), "sandNormal");
+            CliffTextureLocation = glGetUniformLocation(heightshader->glId(), "cliffSampler");
+            CliffNormalLocation = glGetUniformLocation(heightshader->glId(), "cliffNormal");
             // Then bind the uniform samplers to texture units:
-            glUseProgram(heightshader->pid);
+            glUseProgram(heightshader->glId());
             glUniform1i(GrassTextureLocation, 0);
             glUniform1i(SnowTextureLocation, 1);
             glUniform1i(SandTextureLocation, 2);
@@ -346,25 +344,21 @@ namespace ProgTerrain {
             glUniform1i(GrassNormalLocation, 6);
             glUniform1i(SandNormalLocation, 7);
 
-            SkyTextureLocation = glGetUniformLocation(progSky->pid, "dayTexSampler");
-            NightTextureLocation = glGetUniformLocation(progSky->pid, "nightTexSampler");
-            glUseProgram(progSky->pid);
+            SkyTextureLocation = glGetUniformLocation(progSky->glId(), "dayTexSampler");
+            NightTextureLocation = glGetUniformLocation(progSky->glId(), "nightTexSampler");
+            glUseProgram(progSky->glId());
             glUniform1i(SkyTextureLocation, 0);
             glUniform1i(NightTextureLocation, 1);
         }
     }
-    void init_shaders(const std::string &resourceDir) {
+    void init_shaders() {
         GLSL::checkVersion();
 
-        const std::string shaderDir(resourceDir + "/shaders");
+        const std::string & shadersPath(g_resourcesDir + "/FlightSim/shaders/");
 
 
         // Initialize the GLSL program.
-        heightshader = std::make_shared<Program>();
-        heightshader->setVerbose(true);
-        heightshader->setShaderNames(shaderDir + "/height_vertex.glsl", shaderDir + "/height_frag.glsl", shaderDir + "/tesscontrol.glsl", shaderDir + "/tesseval.glsl");
-        if (!heightshader->init())
-        {
+        if (!(heightshader = Shader::load(shadersPath + "height_vertex.glsl", shadersPath + "tesscontrol.glsl", shadersPath + "tesseval.glsl", shadersPath + "height_frag.glsl"))) {
             std::cerr << "Heightmap shaders failed to compile... exiting!" << std::endl;
             int hold;
             std::cin >> hold;
@@ -383,11 +377,7 @@ namespace ProgTerrain {
         heightshader->addAttribute("vertTex");
 
         // Initialize the GLSL progSkyram.
-        progSky = std::make_shared<Program>();
-        progSky->setVerbose(true);
-        progSky->setShaderNames(shaderDir + "/skyvertex.glsl", shaderDir + "/skyfrag.glsl");
-        if (!progSky->init())
-        {
+        if (!(progSky = Shader::load(shadersPath + "skyvertex.glsl", shadersPath + "skyfrag.glsl"))) {
             std::cerr << "Skybox shaders failed to compile... exiting!" << std::endl;
             int hold;
             std::cin >> hold;
@@ -402,11 +392,7 @@ namespace ProgTerrain {
         progSky->addAttribute("vertTex");
 
         // Initialize the GLSL program.
-        progWater = std::make_shared<Program>();
-        progWater->setVerbose(true);
-        progWater->setShaderNames(shaderDir + "/water_vertex.glsl", shaderDir + "/water_fragment.glsl");
-        if (!progWater->init())
-        {
+        if (!(progWater = Shader::load(shadersPath + "water_vertex.glsl", shadersPath + "water_fragment.glsl"))) {
             std::cerr << "Water shaders failed to compile... exiting!" << std::endl;
             int hold;
             std::cin >> hold;
@@ -424,30 +410,25 @@ namespace ProgTerrain {
 
 
 
-    void init_geom(const std::string & resourceDir)
+    void init_geom()
     {
-        const std::string shaderDir = resourceDir + "/shaders";
-
         init_mesh();
         init_water();
 
-        skySphere = Model::load(resourceDir + "/models/sphere.obj");
+        skySphere = Model::load(g_resourcesDir + "/models/sphere.obj");
 
-        init_textures(resourceDir + "/textures");
+        init_textures();
         assign_textures();
 
     }
 
     void drawSkyBox(const mat4 &V, const mat4 &P, const vec3 &camPos) {
-        float sangle = 3.1415926 / 2.;
-
         vec3 camp = -camPos;
         mat4 TransXYZ = glm::translate(glm::mat4(1.0f), camp);
         TransXYZ = glm::translate(TransXYZ, vec3(0, -0.2, 0));
         mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, 3.0f));
 
         mat4 M = TransXYZ * S;
-
 
         progSky->bind();
         glUniformMatrix4fv(progSky->getUniform("P"), 1, GL_FALSE, &P[0][0]);
@@ -524,7 +505,7 @@ namespace ProgTerrain {
         glActiveTexture(GL_TEXTURE7);
         glBindTexture(GL_TEXTURE_2D, SandNormal);
 
-        glPatchParameteri(GL_PATCH_VERTICES, 3.0f);
+        glPatchParameteri(GL_PATCH_VERTICES, 3);
         glDrawElements(GL_PATCHES, k_meshSize*k_meshSize * 6, GL_UNSIGNED_INT, (void*)0);
 
 

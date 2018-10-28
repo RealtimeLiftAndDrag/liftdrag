@@ -20,15 +20,15 @@ void main() {
     vec3 lightDir = normalize(in_lightPos - in_pos);
     vec3 viewDir = normalize(-in_pos);
     vec3 normal = normalize(in_norm);
-    
+
     // Ambient calculation
     vec3 ambientColor = vec3(0);
-    
+
     // Diffuse calculation
     //float diffuseFactor = max(dot(lightDir, normal), 0); // Clamp to prevent color from reaching back side
     float diffuseFactor = (dot(lightDir, normal) + 1) / 2; // Normalize so the color bleeds onto the back side
     vec3 diffuseColor = vec3(0.5, 0.5, 0.5) * diffuseFactor;
-    
+
     // Specular calculation
     float specularStrength = 0.5f;
     vec3 reflectDir = reflect(-lightDir, normal);

@@ -5,7 +5,10 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="shaders">
+    <Filter Include="resources">
+      <UniqueIdentifier>{9a9a1b2c-59c5-4fe6-a00f-4bbf95e0c7fe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\shaders">
       <UniqueIdentifier>{da59fdeb-3901-4fb3-88a7-d9d67bed0d2a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -21,14 +24,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\resources\shaders\phong.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\resources\shaders\phong.vert">
-      <Filter>shaders</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="src\SimObject.hpp">
       <Filter>src</Filter>
     </ClInclude>
@@ -41,5 +36,46 @@
     <ClInclude Include="src\xboxcontroller.h">
       <Filter>src</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\FlightSim\shaders\height_frag.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\height_frag_o.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\height_vertex.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\height_vertex_o.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\phong.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\phong.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\skyfrag.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\skyvertex.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\tesscontrol.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\tesseval.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\tesseval_pass.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\water_fragment.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\water_vertex.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

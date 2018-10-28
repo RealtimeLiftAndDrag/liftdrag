@@ -53,7 +53,7 @@ float calculateTessFactCutoff(vec3 camPosition, vec3 vertexPosition) {
 
 
 void main(void)
-{ 
+{
 	float tessfact = calculateTessFactLinear();
 
 	gl_TessLevelInner[0] = tessfact;

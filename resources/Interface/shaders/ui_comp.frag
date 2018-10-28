@@ -10,7 +10,7 @@ uniform vec4 u_borderColor;
 
 float isWithin(vec2 p, vec2 bottomLeft, vec2 topRight) {
     vec2 s = step(bottomLeft, p) - step(topRight, p);
-    return s.x * s.y;   
+    return s.x * s.y;
 }
 
 void main() {

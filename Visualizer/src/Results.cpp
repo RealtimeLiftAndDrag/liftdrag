@@ -8,9 +8,8 @@
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 #include "Common/GLSL.h"
-#include "Common/Program.h"
-#include "Common/Graph.hpp"
-#include "Common/Text.hpp"
+#include "Common/Shader.hpp"
+#include "Interface/Graph.hpp"
 
 
 
@@ -23,13 +22,13 @@ namespace Results {
     static constexpr float k_angleGraphExcessFactor(1.025f);
     static const ivec2 k_minAngleGraphSize(300, 100);
     static const ivec2 k_maxAngleGraphSize(0, 300);
-    static const std::string k_angleGraphTitleString("Lift and Drag Force (N) by Angle of Attack (\u00B0)");
-    
+    static const std::string & k_angleGraphTitleString("Lift and Drag Force (N) by Angle of Attack (\u00B0)");
+
     static constexpr float k_initSliceGraphRangeMin(-1.5f), k_initSliceGraphRangeMax(1.5f);
     static constexpr float k_sliceGraphExcessFactor(k_angleGraphExcessFactor);
     static const ivec2 k_minSliceGraphSize(k_minAngleGraphSize);
     static const ivec2 k_maxSliceGraphSize(k_maxAngleGraphSize);
-    static const std::string k_sliceGraphTitleString("Lift and Drag Force (N) by Slice");
+    static const std::string & k_sliceGraphTitleString("Lift and Drag Force (N) by Slice");
 
 
     static int s_sliceCount;
@@ -40,11 +39,11 @@ namespace Results {
     static std::map<int, Entry> s_sliceRecord;
     static bool s_isSliceRecordChange;
 
-    static shr<Graph> s_angleGraph, s_sliceGraph;
+    static shr<UI::Graph> s_angleGraph, s_sliceGraph;
 
 
 
-    bool setup(const std::string & resourcesDir, int sliceCount) {
+    bool setup(int sliceCount) {
         s_sliceCount = sliceCount;
 
         // Angle graph
@@ -57,7 +56,7 @@ namespace Results {
         min = center - size * 0.5f;
         max = center + size * 0.5f;
 
-        s_angleGraph.reset(new Graph(
+        s_angleGraph.reset(new UI::Graph(
             k_angleGraphTitleString,
             "Angle",
             min,
@@ -79,7 +78,7 @@ namespace Results {
         min = center - size * 0.5f;
         max = center + size * 0.5f;
 
-        s_sliceGraph.reset(new Graph(
+        s_sliceGraph.reset(new UI::Graph(
             k_sliceGraphTitleString,
             "Slice",
             min,
@@ -181,11 +180,11 @@ namespace Results {
         return s_sliceRecord;
     }
 
-    shr<Graph> angleGraph() {
+    shr<UI::Graph> angleGraph() {
         return s_angleGraph;
     }
 
-    shr<Graph> sliceGraph() {
+    shr<UI::Graph> sliceGraph() {
         return s_sliceGraph;
     }
 

@@ -77,7 +77,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../Interface/include;include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -91,7 +91,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../Interface/include;include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -107,7 +107,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../Interface/include;include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_OPENGL_ERROR_CHECKS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
@@ -126,7 +126,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../Interface/include;include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_OPENGL_ERROR_CHECKS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
@@ -141,6 +141,9 @@
     <ProjectReference Include="..\Common\Common.vcxproj">
       <Project>{6885343a-9037-492e-b9bc-c7d8bf9542a9}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\Interface\Interface.vcxproj">
+      <Project>{c0760aea-3b68-46a4-a8ec-31052e867619}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\RLD\RLD.vcxproj">
       <Project>{7189f2a1-f8ef-4599-be9f-73d44e329e09}</Project>
     </ProjectReference>
@@ -151,14 +154,25 @@
     <ClCompile Include="src\SimObject.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\resources\shaders\phong.frag" />
-    <None Include="..\resources\shaders\phong.vert" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="src\ProgTerrain.hpp" />
     <ClInclude Include="src\SimObject.hpp" />
     <ClInclude Include="src\stb_image.h" />
     <ClInclude Include="src\xboxcontroller.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\FlightSim\shaders\height_frag.glsl" />
+    <None Include="..\resources\FlightSim\shaders\height_frag_o.glsl" />
+    <None Include="..\resources\FlightSim\shaders\height_vertex.glsl" />
+    <None Include="..\resources\FlightSim\shaders\height_vertex_o.glsl" />
+    <None Include="..\resources\FlightSim\shaders\phong.frag" />
+    <None Include="..\resources\FlightSim\shaders\phong.vert" />
+    <None Include="..\resources\FlightSim\shaders\skyfrag.glsl" />
+    <None Include="..\resources\FlightSim\shaders\skyvertex.glsl" />
+    <None Include="..\resources\FlightSim\shaders\tesscontrol.glsl" />
+    <None Include="..\resources\FlightSim\shaders\tesseval.glsl" />
+    <None Include="..\resources\FlightSim\shaders\tesseval_pass.glsl" />
+    <None Include="..\resources\FlightSim\shaders\water_fragment.glsl" />
+    <None Include="..\resources\FlightSim\shaders\water_vertex.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

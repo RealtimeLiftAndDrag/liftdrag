@@ -123,7 +123,7 @@ float screenToWindDist(float screenDist) {
 }
 
 bool isScreenTurbulent(vec2 screenPos) {
-    return texture2D(u_prevTurbTex, screenPos / u_screenSize).r > 0.0f;    
+    return texture2D(u_prevTurbTex, screenPos / u_screenSize).r > 0.0f;
 }
 
 bool isWindTurbulent(vec2 windPos) {
@@ -131,7 +131,7 @@ bool isWindTurbulent(vec2 windPos) {
 }
 
 void setScreenTurbulent(vec2 screenPos) {
-    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(1.0f, 0.0f, 0.0f, 0.0f));    
+    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(1.0f, 0.0f, 0.0f, 0.0f));
 }
 
 void setWindTurbulent(vec2 windPos) {
@@ -165,7 +165,7 @@ void main() {
 
         bool shouldSpawn = geoNormal.z >= k_minNormalZ && geoNormal.z <= k_maxNormalZ;
         bool shouldSearch = true;
-        
+
         // If geo is in turbulence, forget it
         if (k_doTurbulence && isScreenTurbulent(geoScreenPos)) {
             shouldSearch = false;
@@ -181,7 +181,7 @@ void main() {
             float totalDist = 0.0f;
 
             // Search along line in direction of geo normal
-            while (true) {            
+            while (true) {
                 if (k_doLineSearch) {
                     // TODO: optimize
                     vec2 delta = corner - (screenPos - vec2(pixel));
@@ -227,7 +227,7 @@ void main() {
                     break;
                 }
                 if (color.g != 0.0f) { // we found an air pixel
-                    int airI = imageLoad(u_flagImg, pixel).x;               
+                    int airI = imageLoad(u_flagImg, pixel).x;
                     if (airI != 0) { // TODO: this should not be necessary, just here for sanity
                         --airI;
 
@@ -238,7 +238,7 @@ void main() {
                             // Don't need to write turbulence at air because it happens in move shader
                             // Write turbulence pixel half way between air and geometry
                             setScreenTurbulent((geoScreenPos + screenPos) * 0.5f);
-                            
+
                             shouldSpawn = false;
                             break;
                         }
@@ -249,7 +249,7 @@ void main() {
                         }
                         u_airGeoMap[airI].geoIndices[mapI] = geoI;
 
-                        shouldSpawn = false;   
+                        shouldSpawn = false;
                         break;
                     }
                 }
@@ -258,7 +258,7 @@ void main() {
 
         // Overwrite flag image with geometry index
         imageStore(u_flagImg, geoTexCoord, ivec4(geoI + 1, 0, 0, 0));
-    
+
         // Make a new air pixel
         if (shouldSpawn) {
             int airI = atomicAdd(u_airCount, 1);
@@ -321,7 +321,7 @@ void main() {
     //s_accumulationArray[workI] = totalDrag;
     //accumulate();
     //if (workI == 0) u_results[u_slice].drag.xyz += s_accumulationArray[0];
-    
+
     // Accumulate torque
     //s_accumulationArray[workI] = totalTorq;
     //accumulate();

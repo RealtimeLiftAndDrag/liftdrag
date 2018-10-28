@@ -5,22 +5,22 @@
 #include "glad/glad.h"
 #include "stb/stb_image.h"
 
-#include "Program.h"
+#include "Shader.hpp"
 
 
 
-static const std::string k_fontTextureFilename("ubuntu_mono.png");
-static const std::string k_vertFilename("text.vert"), k_fragFilename("text.frag");
+static const std::string & k_fontTextureFilename("ubuntu_mono.png");
+static const std::string & k_vertFilename("text.vert"), k_fragFilename("text.frag");
 
 static uint s_squareVBO;
 static uint s_fontTex;
 static ivec2 s_fontSize;
-static unq<Program> s_prog;
+static unq<Shader> s_prog;
 static vec2 s_charTexCoords[256];
 
 
 
-bool Text::setup(const std::string & resourceDir) {
+bool Text::setup() {
 
     // Setup square vao
 
@@ -31,7 +31,7 @@ bool Text::setup(const std::string & resourceDir) {
         { 1.0f, 1.0f },
         { 0.0f, 1.0f },
         { 0.0f, 0.0f }
-    }; 
+    };
     glGenBuffers(1, &s_squareVBO);
     glBindBuffer(GL_ARRAY_BUFFER, s_squareVBO);
     glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(vec2), locs, GL_STATIC_DRAW);
@@ -43,9 +43,11 @@ bool Text::setup(const std::string & resourceDir) {
     }
 
     // Setup font texture
-
+    
+    // TODO: abstract this out
     int texWidth(0), texHeight(0), texChannels(0);
-    unsigned char * texData(stbi_load((resourceDir + "/" + k_fontTextureFilename).c_str(), &texWidth, &texHeight, &texChannels, 1));
+    std::string resourcesPath(g_resourcesDir + "/Common/");
+    unsigned char * texData(stbi_load((resourcesPath + k_fontTextureFilename).c_str(), &texWidth, &texHeight, &texChannels, 1));
     if (!texData) {
         std::cerr << stbi_failure_reason() << std::endl;
         std::cerr << "Failed to load font texture" << std::endl;
@@ -73,10 +75,9 @@ bool Text::setup(const std::string & resourceDir) {
 
     // Setup shader
 
-    s_prog.reset(new Program());
-    s_prog->setShaderNames(resourceDir + "/shaders/" + k_vertFilename, resourceDir + "/shaders/" + k_fragFilename);
-    if (!s_prog->init()) {
-        std::cerr << "Failed to initialize program" << std::endl;
+    std::string shadersPath(resourcesPath + "shaders/");
+    if (!(s_prog = Shader::load(shadersPath + k_vertFilename, shadersPath + k_fragFilename))) {
+        std::cerr << "Failed to load program" << std::endl;
         return false;
     }
     s_prog->addUniform("u_fontSize");
@@ -323,11 +324,11 @@ void Text::upload() const {
         else if (m_align.x < 0) charPos.x = m_size.x - lineWidth;
         else charPos.x = (m_size.x - lineWidth) / 2;
 
-        for (int i(0); i < lineLength; ++i) {        
+        for (int i(0); i < lineLength; ++i) {
             charData.emplace_back(charPos);
             charData.emplace_back(s_charTexCoords[unsigned char(m_string[strI + i])]);
 
-            charPos.x += s_fontSize.x;            
+            charPos.x += s_fontSize.x;
         }
 
         charPos.y -= s_fontSize.y;

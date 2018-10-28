@@ -29,13 +29,13 @@ extern "C" {
 #include "glm/glm.hpp"
 #include "glm/gtc/constants.hpp"
 #include "glm/gtc/matrix_transform.hpp"
-#include "Common/Model.hpp"
-#include "Common/Program.h"
-#include "Common/UI.hpp"
-#include "Common/UI_Text.hpp"
-#include "Common/Graph.hpp"
-#include "Common/TexViewer.hpp"
 #include "Common/Util.hpp"
+#include "Common/Model.hpp"
+#include "Common/Shader.hpp"
+#include "Interface/Interface.hpp"
+#include "Interface/Text.hpp"
+#include "Interface/Graph.hpp"
+#include "Interface/TexViewer.hpp"
 
 #include "RLD/Simulation.hpp"
 
@@ -46,7 +46,7 @@ extern "C" {
 class MainUIC : public UI::VerticalGroup {
 
     public:
-    
+
     virtual void keyEvent(int key, int action, int mods) override;
 
 };
@@ -57,7 +57,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::f18);
+static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
@@ -65,7 +65,6 @@ static constexpr float k_simLiftC = 1.0f;
 static constexpr float k_simDragC = 0.8f;
 static constexpr float k_defWindSpeed = 100.0f;
 
-static const std::string k_defResourceDir("../resources");
 static const ivec2 k_defWindowSize(1280, 720);
 
 static constexpr float k_maxAutoAoA(45.0f);
@@ -73,7 +72,7 @@ static constexpr float k_maxAutoAoA(45.0f);
 static constexpr float k_autoAngleIncrement(1.0f); // how many degrees to change the angle of attack by when auto progressing
 static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
 
-static const std::string k_controlsString(
+static const std::string & k_controlsString(
     "Controls"                                      "\n"
     "  space       : step to next slice"            "\n"
     "  shift-space : sweep through all steps"       "\n"
@@ -86,9 +85,6 @@ static const std::string k_controlsString(
     "  =           : reset UI elements"
 );
 
-
-
-static std::string s_resourceDir(k_defResourceDir);
 
 
 static unq<Model> s_model;
@@ -108,7 +104,7 @@ static bool s_shouldSweep(true);
 static bool s_shouldAutoProgress(false);
 
 static shr<MainUIC> s_mainUIC;
-static shr<TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
+static shr<UI::TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
 static shr<UI::String> s_angleLabel, s_angleLiftLabel, s_angleDragLabel, s_angleTorqueLabel;
 static shr<UI::NumberField> s_angleField;
 static shr<UI::Vector> s_angleLiftNum, s_angleDragNum, s_angleTorqueNum;
@@ -131,7 +127,7 @@ static bool processArgs(int argc, char ** argv) {
     }
 
     if (argc == 2) {
-        s_resourceDir = argv[1];
+        g_resourcesDir = argv[1];
     }
 
     return true;
@@ -145,7 +141,7 @@ static void setAngleOfAttack(float angle) {
     if (glm::abs(angle) <= 90.0f) {
         s_angleOfAttack = angle;
         s_isInfoChange = true;
-    }    
+    }
 }
 
 static void changeAngleOfAttack(float deltaAngle) {
@@ -161,7 +157,7 @@ static void setRudderAngle(float angle) {
         s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
         s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
 
-        s_isF18Change = true;        
+        s_isF18Change = true;
     }
 }
 
@@ -180,7 +176,7 @@ static void setAileronAngle(float angle) {
         modelMat = glm::rotate(mat4(), -s_aileronAngle, vec3(1.0f, 0.0f, 0.0f));
         normalMat = modelMat;
         s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
-    
+
         s_isF18Change = true;
     }
 }
@@ -197,7 +193,7 @@ static void setElevatorAngle(float angle) {
         mat3 normalMat(modelMat);
         s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
         s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
-    
+
         s_isF18Change = true;
     }
 }
@@ -344,10 +340,11 @@ void MainUIC::keyEvent(int key, int action, int mods) {
 }
 
 static bool setupModel() {
+    std::string modelsPath(g_resourcesDir + "/models/");
     switch (k_simModel) {
-        case SimModel::airfoil: s_model = Model::load(s_resourceDir + "/models/0012.obj"  ); break;
-        case SimModel::    f18: s_model = Model::load(s_resourceDir + "/models/f18.grl"   ); break;
-        case SimModel:: sphere: s_model = Model::load(s_resourceDir + "/models/sphere.obj"); break;
+        case SimModel::airfoil: s_model = Model::load(modelsPath + "0012.obj"  ); break;
+        case SimModel::    f18: s_model = Model::load(modelsPath + "f18.grl"   ); break;
+        case SimModel:: sphere: s_model = Model::load(modelsPath + "sphere.obj"); break;
     }
     if (!s_model) {
         std::cerr << "Failed to load model" << std::endl;
@@ -374,7 +371,7 @@ static bool setupModel() {
             s_windframeDepth = 2.5f;
             break;
     }
-    
+
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
 
     return true;
@@ -382,16 +379,16 @@ static bool setupModel() {
 
 static bool setup() {
     // Setup UI, which includes GLFW and GLAD
-    if (!UI::setup(k_defWindowSize, "Realtime Lift and Drag Visualizer", 4, 5, false, s_resourceDir)) {
+    if (!UI::setup(k_defWindowSize, "Realtime Lift and Drag Visualizer", 4, 5, false)) {
         std::cerr << "Failed to setup UI" << std::endl;
         return false;
     }
-    
+
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
-    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);  
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
 
     // Setup model
     if (!setupModel()) {
@@ -400,29 +397,26 @@ static bool setup() {
     }
 
     // Setup simulation
-    if (!rld::setup(s_resourceDir, k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
+    if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
 
-    if (!Results::setup(s_resourceDir, k_simSliceCount)) {
+    if (!Results::setup(k_simSliceCount)) {
         std::cerr << "Failed to setup results" << std::endl;
         return false;
     }
 
-    s_frontTexViewer.reset(new TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(128)));
-    s_turbTexViewer.reset(new TexViewer(rld::turbulenceTex(), ivec2(rld::texSize()) / 4, ivec2(128)));
-    s_sideTexViewer.reset(new TexViewer(rld::sideTex(), ivec2(rld::texSize()), ivec2(128)));
+    s_frontTexViewer.reset(new UI::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(128)));
+    s_turbTexViewer.reset(new UI::TexViewer(rld::turbulenceTex(), ivec2(rld::texSize()) / 4, ivec2(128)));
+    s_sideTexViewer.reset(new UI::TexViewer(rld::sideTex(), ivec2(rld::texSize()), ivec2(128)));
 
     shr<UI::HorizontalGroup> displayGroup(new UI::HorizontalGroup());
     displayGroup->add(s_frontTexViewer);
     displayGroup->add(s_sideTexViewer);
 
-    shr<Graph> angleGraph(Results::angleGraph());
-
-    shr<Graph> sliceGraph(Results::sliceGraph());
-
-    const int k_infoWidth(8);
+    shr<UI::Graph> angleGraph(Results::angleGraph());
+    shr<UI::Graph> sliceGraph(Results::sliceGraph());
 
     s_angleLabel      .reset(new UI::String("Angle: ", 1, vec4(1.0f)));
     s_angleLiftLabel  .reset(new UI::String("Lift: ", 1, vec4(1.0f)));
@@ -515,7 +509,7 @@ static void update() {
             setSimulation(s_angleOfAttack, true);
             Results::clearSlices();
         }
-        
+
         glDisable(GL_BLEND); // can't have blending for simulation
 
         if (rld::step()) { // That was the last slice
@@ -579,14 +573,14 @@ int main(int argc, char ** argv) {
 
     int fps(0);
     double then(glfwGetTime());
-    
+
     // Loop until the user closes the window.
     while (!UI::shouldClose()) {
         // Poll for and process events.
         UI::poll();
 
         update();
-        
+
         glDisable(GL_DEPTH_TEST); // don't want depth test for UI
         UI::render();
         glEnable(GL_DEPTH_TEST);

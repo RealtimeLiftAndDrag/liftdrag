@@ -1,9 +1,5 @@
 #pragma once
 
-
-
-#include <string>
-
 #include "Common/Global.hpp"
 #include "Common/Model.hpp"
 
@@ -15,7 +11,7 @@ struct GLFWwindow;
 
 namespace rld {
 
-    bool setup(const std::string & resourceDir, int texSize, int sliceCount, float liftC, float dragC);
+    bool setup(int texSize, int sliceCount, float liftC, float dragC);
 
     void cleanup();
 
@@ -50,7 +46,7 @@ namespace rld {
     void sweep();
 
     // Returns the index of the slice that would be NEXT
-    int slice();    
+    int slice();
 
     // Returns the total number of slices
     int sliceCount();
@@ -59,7 +55,7 @@ namespace rld {
     const vec3 & lift();
     // Returns the lifts for each slice
     const vec3 * lifts();
-    
+
     // Returns the drag of the sweep
     const vec3 & drag();
     // Returns the drags for each slice

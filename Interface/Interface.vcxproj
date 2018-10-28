@@ -19,32 +19,33 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Common\Common.vcxproj">
-      <Project>{6885343a-9037-492e-b9bc-c7d8bf9542a9}</Project>
-    </ProjectReference>
+    <ClCompile Include="src\Graph.cpp" />
+    <ClCompile Include="src\Interface.cpp" />
+    <ClCompile Include="src\TexViewer.cpp" />
+    <ClCompile Include="src\Text.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Simulation.cpp" />
+    <ClInclude Include="include\Interface\Graph.hpp" />
+    <ClInclude Include="include\Interface\Interface.hpp" />
+    <ClInclude Include="include\Interface\TexViewer.hpp" />
+    <ClInclude Include="include\Interface\Text.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\RLD\Simulation.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\resources\RLD\shaders\draw.comp" />
-    <None Include="..\resources\RLD\shaders\foil.frag" />
-    <None Include="..\resources\RLD\shaders\foil.vert" />
-    <None Include="..\resources\RLD\shaders\move.comp" />
-    <None Include="..\resources\RLD\shaders\outline.comp" />
-    <None Include="..\resources\RLD\shaders\pretty.comp" />
-    <None Include="..\resources\RLD\shaders\prospect.comp" />
+    <None Include="..\resources\Interface\shaders\graph_curve.frag" />
+    <None Include="..\resources\Interface\shaders\graph_curve.vert" />
+    <None Include="..\resources\Interface\shaders\graph_lines.frag" />
+    <None Include="..\resources\Interface\shaders\graph_lines.vert" />
+    <None Include="..\resources\Interface\shaders\tex.frag" />
+    <None Include="..\resources\Interface\shaders\tex.vert" />
+    <None Include="..\resources\Interface\shaders\ui_comp.frag" />
+    <None Include="..\resources\Interface\shaders\ui_comp.vert" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{7189F2A1-F8EF-4599-BE9F-73D44E329E09}</ProjectGuid>
+    <ProjectGuid>{C0760AEA-3B68-46A4-A8EC-31052E867619}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>RLD</RootNamespace>
+    <RootNamespace>Interface</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
-    <ProjectName>RLD</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -111,8 +112,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;include/RLD;../Common/include</AdditionalIncludeDirectories>
-      <AdditionalOptions>/std:c++latest</AdditionalOptions>
+      <AdditionalIncludeDirectories>include/Interface;../Common/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -127,8 +127,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;include/RLD;../Common/include</AdditionalIncludeDirectories>
-      <AdditionalOptions>/std:c++latest</AdditionalOptions>
+      <AdditionalIncludeDirectories>include/Interface;../Common/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -145,8 +144,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;include/RLD;../Common/include</AdditionalIncludeDirectories>
-      <AdditionalOptions>/std:c++latest</AdditionalOptions>
+      <AdditionalIncludeDirectories>include/Interface;../Common/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -165,8 +163,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;include/RLD;../Common/include</AdditionalIncludeDirectories>
-      <AdditionalOptions>/std:c++latest</AdditionalOptions>
+      <AdditionalIncludeDirectories>include/Interface;../Common/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

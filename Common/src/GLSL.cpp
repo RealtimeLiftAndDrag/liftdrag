@@ -74,7 +74,7 @@ void printShaderInfoLog(GLuint shader)
 			exit(1);
 		}
 
-		GLint charsWritten  = 0;
+		GLint charsWritten = 0;
 		CHECKED_GL_CALL(glGetShaderInfoLog(shader, infologLength, &charsWritten, infoLog));
 		printf("Shader InfoLog:\n%s\n\n", infoLog);
 		delete [] infoLog;
@@ -97,7 +97,7 @@ void printProgramInfoLog(GLuint program)
 			exit(1);
 		}
 
-		GLint charsWritten  = 0;
+		GLint charsWritten = 0;
 		CHECKED_GL_CALL(glGetProgramInfoLog(program, infologLength, &charsWritten, infoLog));
 		printf("Program InfoLog:\n%s\n\n", infoLog);
 		delete [] infoLog;

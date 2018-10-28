@@ -79,7 +79,7 @@ void main() {
         }
 
         barrier();
-        
+
         ivec2 sideTexCoord = ivec2(sideX, texCoord.y);
         vec4 color = imageLoad(u_sideImg, sideTexCoord);
         vec4 val = s_sideVals[workI];

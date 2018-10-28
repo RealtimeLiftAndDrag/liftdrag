@@ -2,7 +2,6 @@
 
 
 
-#include <string>
 #include <fstream>
 #include <sstream>
 
@@ -12,21 +11,20 @@
 
 namespace Util {
 
-
-
-    inline std::pair<bool, std::string> readTextFile(const std::string & filepath) {
-        std::ifstream ifs(filepath);
+    inline bool readTextFile(const std::string & file, std::string & r_dst) {
+        std::ifstream ifs(file);
         if (!ifs.good()) {
-            return {};
+            return false;
         }
         std::string str(
             std::istreambuf_iterator<char>(ifs),
             std::istreambuf_iterator<char>{}
         );
         if (!ifs.good()) {
-            return {};
+            return false;
         }
-        return { true, std::move(str) };
+        r_dst = move(str);
+        return true;
     }
 
     inline bool writeTextFile(const std::string & filepath, const std::string & str) {
@@ -82,7 +80,5 @@ namespace Util {
     inline bool isPrintable(char c) {
         return uchar(c) >= 32 && uchar(c) != 127 && uchar(c) != 255;
     }
-
-
 
 }

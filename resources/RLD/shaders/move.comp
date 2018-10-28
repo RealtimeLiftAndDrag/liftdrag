@@ -125,7 +125,7 @@ float screenToWindDist(float screenDist) {
 }
 
 bool isScreenTurbulent(vec2 screenPos) {
-    return texture2D(u_prevTurbTex, screenPos / u_screenSize).r > 0.0f;    
+    return texture2D(u_prevTurbTex, screenPos / u_screenSize).r > 0.0f;
 }
 
 bool isWindTurbulent(vec2 windPos) {
@@ -139,7 +139,7 @@ float getShadFactor(float shad) {
 }
 
 float getScreenShadFactor(vec2 screenPos) {
-    return getShadFactor(texture2D(u_shadTex, screenPos / u_screenSize).r);    
+    return getShadFactor(texture2D(u_shadTex, screenPos / u_screenSize).r);
 }
 
 float getWindShadFactor(vec2 windPos) {
@@ -147,7 +147,7 @@ float getWindShadFactor(vec2 windPos) {
 }
 
 void setScreenTurbulent(vec2 screenPos) {
-    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(1.0f, 0.0f, 0.0f, 0.0f));    
+    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(1.0f, 0.0f, 0.0f, 0.0f));
 }
 
 void setWindTurbulent(vec2 windPos) {
@@ -203,11 +203,11 @@ void main() {
             ivec2 pixel = ivec2(screenPos);
 
             vec2 searchDir = u_airPixels[airI].backforce.xy;
-            if (searchDir != vec2(0.0f)) {                
+            if (searchDir != vec2(0.0f)) {
                 vec2 screenDir = normalize(searchDir);
                 vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
                 float totalDist = 0.0f;
-                while (true) {            
+                while (true) {
                     if (k_doLineSearch) {
                         // TODO: optimize
                         vec2 delta = corner - (screenPos - vec2(pixel));
@@ -259,7 +259,7 @@ void main() {
 
                             ++geoCount;
                             ++u_airGeoMap[airI].geoCount;
-                            u_airGeoMap[airI].geoIndices[0] = geoI;      
+                            u_airGeoMap[airI].geoIndices[0] = geoI;
 
                             if (k_doTurbulence && totalDist > k_turbulenceDist) {
                                 // Set air pixel to be turbulent
@@ -269,8 +269,8 @@ void main() {
                                 setScreenTurbulent(airScreenPos);
                                 // Write turbulence pixel at air and half way between air and geometry
                                 setScreenTurbulent((airScreenPos + screenPos) * 0.5f);
-                            }             
- 
+                            }
+
                             break;
                         }
                     }
@@ -373,7 +373,7 @@ void main() {
     //s_accumulationArray[workI] = totalDrag;
     //accumulate();
     //if (workI == 0) u_results[u_slice].drag.xyz += s_accumulationArray[0];
-    
+
     // Accumulate torque
     s_accumulationArray[workI] = totalTorq;
     accumulate();

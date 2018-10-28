@@ -174,7 +174,7 @@ static unq<Model> loadGRL(const std::string & filename) {
     if (objects.empty()) {
         std::cerr << "Failed to load GRL" << std::endl;
         return nullptr;
-    }    
+    }
 
     std::vector<SubModel> subModels;
     for (grl::Object & object : objects) {
@@ -271,5 +271,5 @@ void Model::detSpan() {
     for (const SubModel & subModel : m_subModels) {
         m_spanMin = glm::min(m_spanMin, subModel.m_mesh.spanMin());
         m_spanMax = glm::max(m_spanMax, subModel.m_mesh.spanMax());
-    }    
+    }
 }

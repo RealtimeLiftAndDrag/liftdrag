@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="include">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="resources">
+      <UniqueIdentifier>{338c4c36-2014-4ad0-96c4-b73fb46417a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\shaders">
+      <UniqueIdentifier>{159aa491-7981-4659-adbd-ec49b5501fed}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Interface.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graph.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TexViewer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Text.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\Interface\Interface.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Interface\Graph.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Interface\TexViewer.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Interface\Text.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\Interface\shaders\graph_curve.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Interface\shaders\graph_curve.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Interface\shaders\graph_lines.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Interface\shaders\graph_lines.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Interface\shaders\tex.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Interface\shaders\tex.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Interface\shaders\ui_comp.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Interface\shaders\ui_comp.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+  </ItemGroup>
+</Project>
