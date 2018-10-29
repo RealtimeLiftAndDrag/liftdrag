@@ -577,7 +577,8 @@ int main(int argc, char ** argv) {
 
     if (!setup()) {
         std::cerr << "Failed setup" << std::endl;
-        return -1;
+        std::cin.get();
+        return EXIT_FAILURE;
     }
 
     int fps(0);
@@ -605,5 +606,5 @@ int main(int argc, char ** argv) {
 
     cleanup();
 
-    return 0;
+    return EXIT_SUCCESS;
 }

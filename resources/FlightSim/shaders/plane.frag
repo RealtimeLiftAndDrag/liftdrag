@@ -1,7 +1,5 @@
 #version 450 core
 
-// Types -----------------------------------------------------------------------
-
 // Inputs ----------------------------------------------------------------------
 
 layout (location = 0) in vec3 in_pos;
@@ -22,7 +20,7 @@ void main() {
     vec3 normal = normalize(in_norm);
 
     // Ambient calculation
-    vec3 ambientColor = vec3(0);
+    vec3 ambientColor = vec3(0.0f);
 
     // Diffuse calculation
     //float diffuseFactor = max(dot(lightDir, normal), 0); // Clamp to prevent color from reaching back side
@@ -37,6 +35,7 @@ void main() {
     vec3 specularColor = vec3(1) * specularFactor * specularStrength;
 
     //output color
-    out_color = vec4(ambientColor + diffuseColor + specularColor, 1);
-    //out_color = vec4(normal, 1);
+    //out_color.rgb = ambientColor + diffuseColor + specularColor;
+    out_color.rgb = (normal + 1.0f) * 0.5f;
+    out_color.a = 1.0f;
 }

@@ -50,12 +50,6 @@
     <None Include="..\resources\FlightSim\shaders\height_vertex_o.glsl">
       <Filter>resources\shaders</Filter>
     </None>
-    <None Include="..\resources\FlightSim\shaders\phong.frag">
-      <Filter>resources\shaders</Filter>
-    </None>
-    <None Include="..\resources\FlightSim\shaders\phong.vert">
-      <Filter>resources\shaders</Filter>
-    </None>
     <None Include="..\resources\FlightSim\shaders\skyfrag.glsl">
       <Filter>resources\shaders</Filter>
     </None>
@@ -75,6 +69,12 @@
       <Filter>resources\shaders</Filter>
     </None>
     <None Include="..\resources\FlightSim\shaders\water_vertex.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\plane.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\FlightSim\shaders\plane.frag">
       <Filter>resources\shaders</Filter>
     </None>
   </ItemGroup>

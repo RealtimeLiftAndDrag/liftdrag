@@ -20,22 +20,18 @@ extern "C" {
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/constants.hpp"
 #include "glm/gtx/string_cast.hpp"
+#include "xboxcontroller.h"
 
 #include "Common/Global.hpp"
-
-#include "RLD/Simulation.hpp"
 #include "Common/Model.hpp"
 #include "Common/Shader.hpp"
 #include "UI/Group.hpp"
+#include "RLD/Simulation.hpp"
 
 #include "SimObject.hpp"
 #include "ProgTerrain.hpp"
 
-#include "xboxcontroller.h"
 
-
-
-CXBOXController XBOXController(1);
 
 class MainUIC : public ui::VerticalGroup {
 
@@ -56,11 +52,10 @@ static constexpr float k_simDragC = 0.1f;
 
 static const float k_timeScale(1.0f);
 static const float k_thrust(0.5f);
-static const float k_thrustIncrease(0.1f);
 
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
-static unq<Shader> s_phongProg;
+static unq<Shader> s_planeShader;
 
 static mat4 s_modelMat;
 static mat3 s_normalMat;
@@ -69,8 +64,8 @@ static float s_windframeWidth, s_windframeDepth;
 static float s_windSpeed;
 
 // all in degrees
-static float s_aileronAngle(0.0f);
 static float s_rudderAngle(0.0f);
+static float s_aileronAngle(0.0f);
 static float s_elevatorAngle(0.0f);
 static bool s_increaseThrust(false);
 
@@ -78,10 +73,24 @@ static constexpr float k_maxRudderAngle(30.0f);
 static constexpr float k_maxAileronAngle(30.0f);
 static constexpr float k_maxElevatorAngle(30.0f);
 
-static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
-
+static constexpr float k_keyAngleSpeed(90.0f); // how quickly the rudders/ailerons/elevators will rotate when using the keyboard in degrees per second
+static constexpr float k_returnAngleSpeed(90.0f); // how quickly the rudders/ailerons/elevators will return to their default position in degrees per second
 
 static GLFWwindow * s_window;
+
+// These apply when using the keyboard to control the plane
+static bool s_keyboardYawCCW, s_keyboardYawCW;
+static bool s_keyboardPitchCCW, s_keyboardPitchCW;
+static bool s_keyboardRollCCW, s_keyboardRollCW;
+static bool s_keyboardThrust;
+
+// These apply when using a controller to control the plane
+static float s_controllerYaw;
+static float s_controllerPitch;
+static float s_controllerRoll;
+static float s_controllerThrust;
+
+static CXBOXController s_xboxController(1);
 
 
 
@@ -140,34 +149,38 @@ static void changeElevatorAngle(float deltaAngle) {
     setElevatorAngle(s_elevatorAngle + deltaAngle);
 }
 
-void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    // If A key is pressed, increase rudder angle (i.e. turn left)
-    if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        changeRudderAngle(k_manualAngleIncrement);
+static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    // A and D control yaw
+    if (key == GLFW_KEY_A) {
+        if (action == GLFW_PRESS && !mods) s_keyboardYawCCW = true;
+        else if (action == GLFW_RELEASE) s_keyboardYawCCW = false;
     }
-    // If D key is pressed, decrease rudder angle (i.e. turn right)
-    else if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        changeRudderAngle(-k_manualAngleIncrement);
+    else if (key == GLFW_KEY_D) {
+        if (action == GLFW_PRESS && !mods) s_keyboardYawCW = true;
+        else if (action == GLFW_RELEASE) s_keyboardYawCW = false;
     }
-    // If S key is pressed, increase elevator angle (i.e. decrease angle of attack)
-    else if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        changeElevatorAngle(k_manualAngleIncrement);
+    // W and S control pitch
+    if (key == GLFW_KEY_W) {
+        if (action == GLFW_PRESS && !mods) s_keyboardPitchCCW = true;
+        else if (action == GLFW_RELEASE) s_keyboardPitchCCW = false;
     }
-    // If W key is pressed, decrease elevator angle (i.e. increase angle of attack)
-    else if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        changeElevatorAngle(-k_manualAngleIncrement);
+    else if (key == GLFW_KEY_S) {
+        if (action == GLFW_PRESS && !mods) s_keyboardPitchCW = true;
+        else if (action == GLFW_RELEASE) s_keyboardPitchCW = false;
     }
-    // If E key is pressed, increase aileron angle (i.e. roll cw)
-    else if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        changeAileronAngle(k_manualAngleIncrement);
+    // E and Q control roll
+    if (key == GLFW_KEY_E) {
+        if (action == GLFW_PRESS && !mods) s_keyboardRollCCW = true;
+        else if (action == GLFW_RELEASE) s_keyboardRollCCW = false;
     }
-    // If Q key is pressed, decrease aileron angle (i.e. roll ccw)
-    else if (key == GLFW_KEY_Q && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        changeAileronAngle(-k_manualAngleIncrement);
+    else if (key == GLFW_KEY_Q) {
+        if (action == GLFW_PRESS && !mods) s_keyboardRollCW = true;
+        else if (action == GLFW_RELEASE) s_keyboardRollCW = false;
     }
-    //if space key is pressed, increase thrust
-    else if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        s_increaseThrust = true;
+    // Space controls thrust
+    else if (key == GLFW_KEY_SPACE) {
+        if (action == GLFW_PRESS && !mods) s_keyboardThrust = true;
+        else if (action == GLFW_RELEASE) s_keyboardThrust = false;
     }
 
     else if (key == GLFW_KEY_L && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
@@ -220,7 +233,7 @@ static bool setupShader() {
     std::string shadersPath(g_resourcesDir + "/FlightSim/shaders/");
 
     // Foil Shader
-    if (!(s_phongProg = Shader::load(shadersPath + "phong.vert", shadersPath + "phong.frag"))) {
+    if (!(s_planeShader = Shader::load(shadersPath + "plane.vert", shadersPath + "plane.frag"))) {
         std::cerr << "Failed to load foil shader" << std::endl;
         return false;
     }
@@ -230,8 +243,6 @@ static bool setupShader() {
 
 
 static bool setup() {
-    if (XBOXController.IsConnected())
-        std::cout << "xbos controller connected" << std::endl;
     // Setup window
     glfwSetErrorCallback(errorCallback);
     if (!glfwInit()) {
@@ -250,7 +261,6 @@ static bool setup() {
     glfwSwapInterval(1); // VSync on or off
     glfwSetKeyCallback(s_window, keyCallback);
 
-
     // Setup GLAD
     if (!gladLoadGL()) {
         std::cerr << "Failed to initialize GLAD" << std::endl;
@@ -259,7 +269,6 @@ static bool setup() {
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
-
 
     // Setup simulation
     if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
@@ -279,10 +288,14 @@ static bool setup() {
         return false;
     }
 
-
     //setup progterrain
     ProgTerrain::init_shaders();
     ProgTerrain::init_geom();
+
+    // Setup xbox controller
+    if (s_xboxController.IsConnected()) {
+        std::cout << "Xbox controller connected" << std::endl;
+    }
 
     return true;
 }
@@ -346,8 +359,95 @@ static std::string matrixToString(mat4 m) {
     return mstring;
 }
 
+static float stickVal(s16 v) {
+    constexpr float k_posNormFactor(1.0f / 32767.0f), k_negNormFactor(1.0f / 32768.0f);
+    float fv(v >= 0 ? v * k_posNormFactor : v * k_negNormFactor);
 
-static void render(float frametime) {
+    constexpr float k_threshold(0.25f);
+    constexpr float k_invFactor(1.0f / (1.0f - k_threshold));
+    if (fv >= +k_threshold) return (fv - k_threshold) * k_invFactor;
+    if (fv <= -k_threshold) return (fv + k_threshold) * k_invFactor;
+    return 0.0f;
+}
+
+static float triggerVal(u08 v) {
+    constexpr float k_normFactor(1.0f / 255.0f);
+    float fv(v * k_normFactor);
+
+    constexpr float k_threshold(0.25f);
+    constexpr float k_invFactor(1.0f / (1.0f - k_threshold));
+    return fv >= k_threshold ? (fv - k_threshold) * k_invFactor : 0.0f;
+}
+
+static void processController() {
+    XINPUT_STATE state(s_xboxController.GetState());
+    s_controllerYaw = stickVal(state.Gamepad.sThumbRX);
+    s_controllerPitch = stickVal(state.Gamepad.sThumbLY);
+    s_controllerRoll = stickVal(state.Gamepad.sThumbLX);
+    s_controllerThrust = triggerVal(state.Gamepad.bRightTrigger);
+}
+
+static void update(float dt) {
+    processController();
+
+    // Update yaw
+    if (s_controllerYaw) { // Controller takes priority
+        setRudderAngle(s_controllerYaw * k_maxRudderAngle);
+    }
+    else { // Otherwise keyboard
+        if (s_keyboardYawCCW || s_keyboardYawCW) {
+            float keyboardYaw(float(s_keyboardYawCCW) + -float(s_keyboardYawCW));
+            changeRudderAngle(keyboardYaw * k_keyAngleSpeed * dt);
+        }
+        else { // No input, return to default position
+            float newAngle(s_rudderAngle + k_returnAngleSpeed * -glm::sign(s_rudderAngle) * dt);
+            if (newAngle * s_rudderAngle < 0.0f) newAngle = 0.0f;
+            setRudderAngle(newAngle);
+        }
+    }
+
+    // Update pitch
+    if (s_controllerPitch) { // Controller takes priority
+        setElevatorAngle(s_controllerPitch * k_maxElevatorAngle);
+    }
+    else { // Otherwise keyboard
+        if (s_keyboardPitchCCW || s_keyboardPitchCW) {
+            float keyboardPitch(float(s_keyboardPitchCCW) + -float(s_keyboardPitchCW));
+            changeElevatorAngle(keyboardPitch * k_keyAngleSpeed * dt);
+        }
+        else { // No input, return to default position
+            float newAngle(s_elevatorAngle + k_returnAngleSpeed * -glm::sign(s_elevatorAngle) * dt);
+            if (newAngle * s_elevatorAngle < 0.0f) newAngle = 0.0f;
+            setElevatorAngle(newAngle);
+        }
+    }
+
+    // Update roll
+    if (s_controllerRoll) { // Controller takes priority
+        setAileronAngle(s_controllerRoll * k_maxAileronAngle);
+    }
+    else { // Otherwise keyboard
+        if (s_keyboardRollCCW || s_keyboardRollCW) {
+            float keyboardRoll(float(s_keyboardRollCCW) + -float(s_keyboardRollCW));
+            changeAileronAngle(keyboardRoll * k_keyAngleSpeed * dt);
+        }
+        else { // No input, return to default position
+            float newAngle(s_aileronAngle + k_returnAngleSpeed * -glm::sign(s_aileronAngle) * dt);
+            if (newAngle * s_aileronAngle < 0.0f) newAngle = 0.0f;
+            setAileronAngle(newAngle);
+        }
+    }
+
+    // Update thrust
+    if (s_controllerThrust) { // Controller takes priority
+        s_simObject->thrust = s_controllerThrust;
+    }
+    else { // Otherwise keyboard
+        s_simObject->thrust = float(s_keyboardThrust);
+    }
+}
+
+static void render(float dt) {
     //glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -394,7 +494,7 @@ static void render(float frametime) {
     }*/
     torque *= 10.f;
     s_simObject->addAngularForce(torque);
-    s_simObject->update(frametime);
+    s_simObject->update(dt);
     std::cout << "lift: " << glm::to_string(lift) << std::endl;
     //std::cout << "drag: " << glm::to_string(drag) << std::endl;
     std::cout << "torque: " << torque.y /1000.f << std::endl;
@@ -431,55 +531,17 @@ static void render(float frametime) {
 
     glEnable(GL_DEPTH_TEST);
 
-    s_phongProg->bind();
-    s_phongProg->uniform("u_projMat", projMat);
-    s_phongProg->uniform("u_viewMat", viewMat);
-    s_model->draw(modelMat, normalMat, s_phongProg->uniformLocation("u_modelMat"), s_phongProg->uniformLocation("u_normalMat"));
+    s_planeShader->bind();
+    s_planeShader->uniform("u_projMat", projMat);
+    s_planeShader->uniform("u_viewMat", viewMat);
+    s_model->draw(modelMat, normalMat, s_planeShader->uniformLocation("u_modelMat"), s_planeShader->uniformLocation("u_normalMat"));
 
-    s_phongProg->unbind();
+    s_planeShader->unbind();
 
 
     //reset gl variables set to not mess up rld sim
     glDisable(GL_DEPTH_TEST);
 
-}
-
-static float stickVal(s16 v) {
-    constexpr float k_posNormFactor(1.0f / 32767.0f), k_negNormFactor(1.0f / 32768.0f);
-    float fv(v >= 0 ? v * k_posNormFactor : v * k_negNormFactor);
-
-    constexpr float k_threshold(0.25f);
-    constexpr float k_invFactor(1.0f / (1.0f - k_threshold));
-    if (fv >= +k_threshold) return (fv - k_threshold) * k_invFactor;
-    if (fv <= -k_threshold) return (fv + k_threshold) * k_invFactor;
-    return 0.0f;
-}
-
-static float triggerVal(u08 v) {
-    constexpr float k_normFactor(1.0f / 255.0f);
-    float fv(v * k_normFactor);
-
-    constexpr float k_threshold(0.25f);
-    constexpr float k_invFactor(1.0f / (1.0f - k_threshold));
-    return fv >= k_threshold ? (fv - k_threshold) * k_invFactor : 0.0f;
-}
-
-static void processStick(float dt) {
-    XINPUT_STATE state(XBOXController.GetState());
-    float lx(stickVal(state.Gamepad.sThumbLX));
-    float ly(stickVal(state.Gamepad.sThumbLY));
-    float rx(stickVal(state.Gamepad.sThumbRX));
-    float rsh(triggerVal(state.Gamepad.bRightTrigger));
-
-    setRudderAngle(rx * k_maxRudderAngle);
-    setAileronAngle(lx * k_maxAileronAngle);
-    setElevatorAngle(ly * k_maxElevatorAngle);
-
-    if (rsh > 0.0f) {
-        int x = 9;
-    }
-
-    s_simObject->thrust = rsh;
 }
 
 double get_last_elapsed_time()
@@ -496,15 +558,20 @@ double get_last_elapsed_time()
 int main(int argc, char ** argv) {
     if (!setup()) {
         std::cerr << "Failed setup" << std::endl;
+        std::cin.get();
         return EXIT_FAILURE;
     }
 
+    double then(glfwGetTime());
     while (!glfwWindowShouldClose(s_window)) {
-        float frametime{float(get_last_elapsed_time())};
-        glfwPollEvents();
-        processStick(frametime);
+        double now(glfwGetTime());
+        float dt(float(now - then));
+        then = now;
 
-        render(frametime);
+        glfwPollEvents();
+
+        update(dt);
+        render(dt);
         glfwSwapBuffers(s_window);
     }
 

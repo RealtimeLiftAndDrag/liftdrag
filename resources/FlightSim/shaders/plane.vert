@@ -17,15 +17,16 @@ layout (location = 3) out vec3 out_lightPos;
 
 uniform mat4 u_modelMat;
 uniform mat3 u_normalMat;
-uniform mat4 u_projMat;
 uniform mat4 u_viewMat;
+uniform mat4 u_projMat;
 
 // Functions --------------------------------------------------------------------
 
 void main() {
-    gl_Position = u_projMat * u_viewMat * u_modelMat * vec4(in_pos, 1.0);
-    out_pos = vec4(u_viewMat * u_modelMat * vec4(in_pos, 1.0)).xyz;
-    out_norm = vec4(u_viewMat * u_modelMat * vec4(in_norm, 0.0)).xyz;
+    out_pos = vec3(u_viewMat * u_modelMat * vec4(in_pos, 1.0f));
+    out_norm = vec3(u_viewMat * u_modelMat * vec4(in_norm, 0.0f));
     out_texCoord = in_texCoord;
-    out_lightPos = vec3(u_viewMat * vec4(100, 100, 100, 1));
+    out_lightPos = vec3(u_viewMat * vec4(100.0f, 100.0f, 100.0f, 0.0f));
+
+    gl_Position = u_projMat * vec4(out_pos, 1.0f);
 }
