@@ -7,22 +7,13 @@
 
 
 
-using glm:: vec2;
-using glm:: vec3;
-using glm:: vec4;
-using glm::ivec2;
-using glm::ivec3;
-using glm::ivec4;
-using glm::uvec2;
-using glm::uvec3;
-using glm::uvec4;
-using glm::bvec2;
-using glm::bvec3;
-using glm::bvec4;
+using glm:: vec2, glm:: vec3, glm:: vec4;
+using glm::ivec2, glm::ivec3, glm::ivec4;
+using glm::uvec2, glm::uvec3, glm::uvec4;
+using glm::bvec2, glm::bvec3, glm::bvec4;
+using glm::dvec2, glm::dvec3, glm::dvec4;
 
-using glm::mat2;
-using glm::mat3;
-using glm::mat4;
+using glm::mat2, glm::mat3, glm::mat4;
 
 using uchar = unsigned char;
 using ushort = unsigned short;
@@ -41,11 +32,23 @@ using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
 
+namespace detail {
+    template <typename T> struct FPtr;
+    template <typename Ret, typename... Args>
+    struct FPtr<Ret(Args...)> {
+        using Type = Ret (*)(Args...);
+    };
+}
+template <typename T> using fptr = typename detail::FPtr<T>::Type;
+
 template <typename T> using unq = std::unique_ptr<T>;
 template <typename T> using shr = std::shared_ptr<T>;
 
 template <typename T1, typename T2> using pair = std::pair<T1, T2>;
+template <typename T> using duo = pair<T, T>;
 
 using std::move;
+
+using namespace std::string_literals;
 
 extern std::string g_resourcesDir;

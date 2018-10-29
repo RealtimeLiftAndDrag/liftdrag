@@ -2,13 +2,13 @@
 
 
 
-#include "Interface.hpp"
+#include "UI.hpp"
 
 
 
-namespace UI {
+namespace ui {
 
-    class TexViewer : public UI::Single {
+    class TexViewer : public ui::Single {
 
         public:
 
@@ -48,7 +48,6 @@ namespace UI {
         void zoomOut();
 
         void zoomReset();
-
 
     };
 

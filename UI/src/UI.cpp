@@ -2,7 +2,7 @@
 
 
 
-#include "Interface.hpp"
+#include "UI.hpp"
 
 #include <iostream>
 
@@ -16,51 +16,62 @@
 
 
 
-namespace UI {
+namespace ui {
 
     static const ivec2 k_tooltipOffset(12, -12);
 
     static const std::string & k_compVertFilename("ui_comp.vert"), k_compFragFilename("ui_comp.frag");
-    static const std::string & k_localResourcesPath("/Interface");
 
 
 
     static GLFWwindow * s_window;
     static ivec2 s_windowSize;
-    static shr<Component> s_root;
-    static shr<Component> s_tooltip;
     static ivec2 s_cursorPos;
     static bool s_cursorInside;
-    static bool s_isTooltipChange;
-    static Component * s_focus;
 
     static unq<Shader> s_compProg;
     static uint s_squareVBO, s_squareVAO;
+    
+    static shr<Component> s_root;
+    static shr<Component> s_tooltip;
+    static bool s_isTooltipChange;
+    static Component * s_focus;
+
+    /*
+    static fptr<void(int, int, int)> s_keyCallback;
+    static fptr<void(dvec2)> s_cursorPositionCallback;
+    static fptr<void(bool)> s_cursorEnterCallback;
+    static fptr<void(int, int, int)> s_mouseButtonCallback;
+    static fptr<void(dvec2)> s_scrollCallback;
+    static fptr<void()> s_exitCallback;
+    */
 
 
 
-    static void errorCallback(int error, const char * description) {
+    static void glfwErrorCallback(int error, const char * description) {
         std::cerr << "GLFW error " << error << ": " << description << std::endl;
     }
 
-    static void framebufferSizeCallback(GLFWwindow * window, int width, int height) {
+    static void glfwFramebufferSizeCallback(GLFWwindow * window, int width, int height) {
         s_windowSize.x = width;
         s_windowSize.y = height;
         s_root->size(s_windowSize);
         s_root->pack();
     }
 
-    static void keyCallback(GLFWwindow * window, int key, int scancode, int action, int mods) {
+    static void glfwKeyCallback(GLFWwindow * window, int key, int scancode, int action, int mods) {
         if (s_focus) s_focus->keyEvent(key, action, mods);
         else s_root->keyEvent(key, action, mods);
+
+        //if (s_keyCallback) s_keyCallback(key, action, mods);
     }
 
-    static void charCallback(GLFWwindow * window, unsigned int codepoint) {
+    static void glfwCharCallback(GLFWwindow * window, unsigned int codepoint) {
         if (s_focus) s_focus->charEvent(char(codepoint));
         else s_root->charEvent(char(codepoint));
     }
 
-    static void cursorPositionCallback(GLFWwindow * window, double xpos, double ypos) {
+    static void glfwCursorPositionCallback(GLFWwindow * window, double xpos, double ypos) {
         ivec2 prevCursorPos(s_cursorPos);
         s_cursorPos.x = int(xpos);
         s_cursorPos.y = s_windowSize.y - 1 - int(ypos);
@@ -70,21 +81,27 @@ namespace UI {
         s_isTooltipChange = true;
     }
 
-    static void cursorEnterCallback(GLFWwindow * window, int entered) {
+    static void glfwCursorEnterCallback(GLFWwindow * window, int entered) {
         s_cursorInside = entered;
         if (s_cursorInside) {
             s_root->cursorEnterEvent();
             s_root->cursorPositionEvent(s_cursorPos, ivec2());
         }
         else s_root->cursorExitEvent();
+
+        //if (s_cursorEnterCallback) s_cursorEnterCallback(entered);
     }
 
-    static void mouseButtonCallback(GLFWwindow * window, int button, int action, int mods) {
+    static void glfwMouseButtonCallback(GLFWwindow * window, int button, int action, int mods) {
         s_root->mouseButtonEvent(button, action, mods);
+
+        //if (s_mouseButtonCallback) s_mouseButtonCallback(button, action, mods);
     }
 
-    static void scrollCallback(GLFWwindow * window, double xoffset, double yoffset) {
+    static void glfwScrollCallback(GLFWwindow * window, double xoffset, double yoffset) {
         s_root->scrollEvent(ivec2(int(xoffset), int(yoffset)));
+
+        //if (s_scrollCallback) s_scrollCallback(dvec2(xoffset, yoffset));
     }
 
     static std::vector<int> distribute(int total, int n) {
@@ -95,7 +112,7 @@ namespace UI {
     }
 
 
-
+    
     void Component::render() const {
         if (m_backColor.a == 0.0f && m_borderColor.a == 0.0f) {
             return;
@@ -105,7 +122,7 @@ namespace UI {
         s_compProg->uniform("u_viewportSize", vec2(m_size));
         s_compProg->uniform("u_backColor", m_backColor);
         s_compProg->uniform("u_borderColor", m_borderColor);
-        glViewport(m_position.x, m_position.y, m_size.x, m_size.y);
+        setViewport();
         glBindVertexArray(s_squareVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
@@ -126,11 +143,11 @@ namespace UI {
     }
 
     void Component::focus() {
-        UI::focus(this);
+        ui::focus(this);
     }
 
     void Component::unfocus() {
-        if (this == s_focus) UI::focus(nullptr);
+        if (this == s_focus) ui::focus(nullptr);
     }
 
     bool Component::focused() const {
@@ -143,6 +160,10 @@ namespace UI {
 
     void Component::borderColor(const vec4 & borderColor) {
         m_borderColor = borderColor;
+    }
+
+    void Component::setViewport() const {
+        glViewport(m_position.x, m_position.y, m_size.x, m_size.y);
     }
 
 
@@ -161,7 +182,9 @@ namespace UI {
 
     const ivec2 & Group::minSize() const {
         if (!m_areSizeExtremaValid) {
-            detSizeExtrema();
+            auto [minSize, maxSize](detSizeExtrema());
+            m_minSize = minSize;
+            m_maxSize = maxSize;
             m_areSizeExtremaValid = true;
         }
         return m_minSize;
@@ -169,7 +192,9 @@ namespace UI {
 
     const ivec2 & Group::maxSize() const {
         if (!m_areSizeExtremaValid) {
-            detSizeExtrema();
+            auto [minSize, maxSize](detSizeExtrema());
+            m_minSize = minSize;
+            m_maxSize = maxSize;
             m_areSizeExtremaValid = true;
         }
         return m_maxSize;
@@ -227,130 +252,8 @@ namespace UI {
 
 
 
-    void HorizontalGroup::pack() {
-        std::vector<int> tempWidths(m_components.size());
-
-        int remainingWidth(m_size.x);
-        for (int i(0); i < int(m_components.size()); ++i) {
-            tempWidths[i] = m_components[i]->minSize().x;
-            remainingWidth -= tempWidths[i];
-        }
-
-        bool wasChange;
-        while (remainingWidth > 0) {
-            wasChange = false;
-            for (int i(0); i < int(m_components.size()); ++i) {
-                if (tempWidths[i] < m_components[i]->maxSize().x || !m_components[i]->maxSize().x) {
-                    ++tempWidths[i];
-                    --remainingWidth;
-                    wasChange = true;
-                    if (!remainingWidth) {
-                        break;
-                    }
-                }
-            }
-            if (!wasChange) {
-                break;
-            }
-        }
-
-        ivec2 pos(m_position);
-        for (int i(0); i < int(m_components.size()); ++i) {
-            m_components[i]->position(pos);
-            m_components[i]->size(ivec2(tempWidths[i], m_size.y));
-            pos.x += tempWidths[i];
-        }
-
-        packComponents();
-    }
-
-    void HorizontalGroup::detSizeExtrema() const {
-        m_minSize.x = 0;
-        m_minSize.y = 0;
-        m_maxSize.x = 0;
-        m_maxSize.y = std::numeric_limits<int>::max();
-        bool isMaxWidth(true);
-
-        for (const auto & comp : m_components) {
-            m_minSize.x += comp->minSize().x;
-
-            if (comp->minSize().y > m_minSize.y) m_minSize.y = comp->minSize().y;
-
-            if (comp->maxSize().x) m_maxSize.x += comp->maxSize().x;
-            else isMaxWidth = false;
-
-            if (comp->maxSize().y && comp->maxSize().y < m_maxSize.y) m_maxSize.y = comp->maxSize().y;
-        }
-
-        if (!isMaxWidth) m_maxSize.x = 0;
-        if (m_maxSize.y == std::numeric_limits<int>::max()) m_maxSize.y = 0;
-    }
-
-
-
-    void VerticalGroup::pack() {
-        std::vector<int> tempHeights(m_components.size());
-
-        int remainingHeight(m_size.y);
-        for (int i(0); i < int(m_components.size()); ++i) {
-            tempHeights[i] = m_components[i]->minSize().y;
-            remainingHeight -= tempHeights[i];
-        }
-
-        bool wasChange;
-        while (remainingHeight > 0) {
-            wasChange = false;
-            for (int i(0); i < int(m_components.size()); ++i) {
-                if (tempHeights[i] < m_components[i]->maxSize().y || !m_components[i]->maxSize().y) {
-                    ++tempHeights[i];
-                    --remainingHeight;
-                    wasChange = true;
-                    if (!remainingHeight) {
-                        break;
-                    }
-                }
-            }
-            if (!wasChange) {
-                break;
-            }
-        }
-
-        ivec2 pos(m_position);
-        for (int i(0); i < int(m_components.size()); ++i) {
-            m_components[i]->position(pos);
-            m_components[i]->size(ivec2(m_size.x, tempHeights[i]));
-            pos.y += tempHeights[i];
-        }
-
-        packComponents();
-    }
-
-    void VerticalGroup::detSizeExtrema() const {
-        m_minSize.x = 0;
-        m_minSize.y = 0;
-        m_maxSize.x = std::numeric_limits<int>::max();
-        m_maxSize.y = 0;
-        bool isMaxHeight(true);
-
-        for (const auto & comp : m_components) {
-            if (comp->minSize().x > m_minSize.x) m_minSize.x = comp->minSize().x;
-
-            m_minSize.y += comp->minSize().y;
-
-            if (comp->maxSize().x && comp->maxSize().x < m_maxSize.x) m_maxSize.x = comp->maxSize().x;
-
-            if (comp->maxSize().y) m_maxSize.y += comp->maxSize().y;
-            else isMaxHeight = false;
-        }
-
-        if (m_maxSize.x == std::numeric_limits<int>::max()) m_maxSize.x = 0;
-        if (!isMaxHeight) m_maxSize.y = 0;
-    }
-
-
-
     bool setup(const ivec2 & windowSize, const std::string & windowTitle, int majorGLVersion, int minorGLVersion, bool vSync) {
-        glfwSetErrorCallback(errorCallback);
+        glfwSetErrorCallback(glfwErrorCallback);
         if (!glfwInit()) {
             std::cerr << "Failed to initialize GLFW" << std::endl;
             return false;
@@ -368,13 +271,13 @@ namespace UI {
         glfwMakeContextCurrent(s_window);
         glfwSwapInterval(vSync ? 1 : 0);
 
-        glfwSetFramebufferSizeCallback(s_window, framebufferSizeCallback);
-        glfwSetKeyCallback(s_window, keyCallback);
-        glfwSetCharCallback(s_window, charCallback);
-        glfwSetCursorPosCallback(s_window, cursorPositionCallback);
-        glfwSetCursorEnterCallback(s_window, cursorEnterCallback);
-        glfwSetMouseButtonCallback(s_window, mouseButtonCallback);
-        glfwSetScrollCallback(s_window, scrollCallback);
+        glfwSetFramebufferSizeCallback(s_window, glfwFramebufferSizeCallback);
+        glfwSetKeyCallback(s_window, glfwKeyCallback);
+        glfwSetCharCallback(s_window, glfwCharCallback);
+        glfwSetCursorPosCallback(s_window, glfwCursorPositionCallback);
+        glfwSetCursorEnterCallback(s_window, glfwCursorEnterCallback);
+        glfwSetMouseButtonCallback(s_window, glfwMouseButtonCallback);
+        glfwSetScrollCallback(s_window, glfwScrollCallback);
 
         glfwGetFramebufferSize(s_window, &s_windowSize.x, &s_windowSize.y);
 
@@ -432,29 +335,27 @@ namespace UI {
         return true;
     }
 
-    void setRootComponent(shr<Component> root) {
-        s_root = root;
-        s_root->size(s_windowSize);
-        s_root->pack();
-
-        ivec2 minSize(s_root->minSize());
-        ivec2 maxSize(s_root->maxSize());
-        glfwSetWindowSizeLimits(
-            s_window,
-            minSize.x ? minSize.x : GLFW_DONT_CARE,
-            minSize.y ? minSize.y : GLFW_DONT_CARE,
-            maxSize.x ? maxSize.x : GLFW_DONT_CARE,
-            maxSize.y ? maxSize.y : GLFW_DONT_CARE
-        );
-    }
-
-    void setTooltip(shr<Component> tooltip) {
-        s_tooltip = tooltip;
-        s_isTooltipChange = true;
-    }
-
     void poll() {
         glfwPollEvents();
+        //if (glfwWindowShouldClose(s_window)) {
+        //    if (s_exitCallback) s_exitCallback();
+        //}
+    }
+
+    const ivec2 & cursorPosition() {
+        return s_cursorPos;
+    }
+
+    bool isMouseButtonPressed(int button) {
+        return glfwGetMouseButton(s_window, button) == GLFW_PRESS;
+    }
+
+    bool isKeyPressed(int key) {
+        return glfwGetKey(s_window, key) == GLFW_PRESS;
+    }
+
+    bool shouldExit() {
+        return glfwWindowShouldClose(s_window);
     }
 
     void update() {
@@ -481,20 +382,25 @@ namespace UI {
         glfwSwapBuffers(s_window);
     }
 
-    bool shouldClose() {
-        return glfwWindowShouldClose(s_window);
+    void setRootComponent(shr<Component> root) {
+        s_root = root;
+        s_root->size(s_windowSize);
+        s_root->pack();
+
+        ivec2 minSize(s_root->minSize());
+        ivec2 maxSize(s_root->maxSize());
+        glfwSetWindowSizeLimits(
+            s_window,
+            minSize.x ? minSize.x : GLFW_DONT_CARE,
+            minSize.y ? minSize.y : GLFW_DONT_CARE,
+            maxSize.x ? maxSize.x : GLFW_DONT_CARE,
+            maxSize.y ? maxSize.y : GLFW_DONT_CARE
+        );
     }
 
-    const ivec2 & cursorPosition() {
-        return s_cursorPos;
-    }
-
-    bool isMouseButtonPressed(int button) {
-        return glfwGetMouseButton(s_window, button) == GLFW_PRESS;
-    }
-
-    bool isKeyPressed(int key) {
-        return glfwGetKey(s_window, key) == GLFW_PRESS;
+    void setTooltip(shr<Component> tooltip) {
+        s_tooltip = tooltip;
+        s_isTooltipChange = true;
     }
 
     void focus(Component * component) {

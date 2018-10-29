@@ -1,6 +1,6 @@
 #include <map>
 
-#include "Interface/Graph.hpp"
+#include "UI/Graph.hpp"
 
 
 
@@ -8,7 +8,7 @@ struct GLFWwindow;
 
 
 
-namespace Results {
+namespace results {
 
     struct Entry { vec3 lift, drag, torq; };
 
@@ -38,8 +38,8 @@ namespace Results {
 
     const std::map<int, Entry> & sliceRecord();
 
-    shr<UI::Graph> angleGraph();
-    shr<UI::Graph> sliceGraph();
+    shr<ui::Graph> angleGraph();
+    shr<ui::Graph> sliceGraph();
 
     void resetGraphs();
 

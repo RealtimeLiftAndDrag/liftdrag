@@ -9,7 +9,7 @@
 
 
 
-namespace Util {
+namespace util {
 
     inline bool readTextFile(const std::string & file, std::string & r_dst) {
         std::ifstream ifs(file);

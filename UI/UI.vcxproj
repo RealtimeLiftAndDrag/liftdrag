@@ -19,32 +19,41 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Common\Common.vcxproj">
+      <Project>{6885343a-9037-492e-b9bc-c7d8bf9542a9}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\UI\Combo.hpp" />
+    <ClInclude Include="include\UI\Graph.hpp" />
+    <ClInclude Include="include\UI\Group.hpp" />
+    <ClInclude Include="include\UI\Text.hpp" />
+    <ClInclude Include="include\UI\TexViewer.hpp" />
+    <ClInclude Include="include\UI\UI.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\UI\shaders\graph_curve.frag" />
+    <None Include="..\resources\UI\shaders\graph_curve.vert" />
+    <None Include="..\resources\UI\shaders\graph_lines.frag" />
+    <None Include="..\resources\UI\shaders\graph_lines.vert" />
+    <None Include="..\resources\UI\shaders\tex.frag" />
+    <None Include="..\resources\UI\shaders\tex.vert" />
+    <None Include="..\resources\UI\shaders\ui_comp.frag" />
+    <None Include="..\resources\UI\shaders\ui_comp.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Combo.cpp" />
     <ClCompile Include="src\Graph.cpp" />
-    <ClCompile Include="src\Interface.cpp" />
-    <ClCompile Include="src\TexViewer.cpp" />
+    <ClCompile Include="src\Group.cpp" />
     <ClCompile Include="src\Text.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="include\Interface\Graph.hpp" />
-    <ClInclude Include="include\Interface\Interface.hpp" />
-    <ClInclude Include="include\Interface\TexViewer.hpp" />
-    <ClInclude Include="include\Interface\Text.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\resources\Interface\shaders\graph_curve.frag" />
-    <None Include="..\resources\Interface\shaders\graph_curve.vert" />
-    <None Include="..\resources\Interface\shaders\graph_lines.frag" />
-    <None Include="..\resources\Interface\shaders\graph_lines.vert" />
-    <None Include="..\resources\Interface\shaders\tex.frag" />
-    <None Include="..\resources\Interface\shaders\tex.vert" />
-    <None Include="..\resources\Interface\shaders\ui_comp.frag" />
-    <None Include="..\resources\Interface\shaders\ui_comp.vert" />
+    <ClCompile Include="src\TexViewer.cpp" />
+    <ClCompile Include="src\UI.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{C0760AEA-3B68-46A4-A8EC-31052E867619}</ProjectGuid>
+    <ProjectGuid>{BC6A22DD-24EE-445E-A909-5B138D29A2B8}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>Interface</RootNamespace>
+    <RootNamespace>UI</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -112,7 +121,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include/Interface;../Common/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/std:c++latest</AdditionalOptions>
+      <AdditionalIncludeDirectories>../Common/include;include/UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -127,7 +137,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include/Interface;../Common/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/std:c++latest</AdditionalOptions>
+      <AdditionalIncludeDirectories>../Common/include;include/UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -144,7 +155,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include/Interface;../Common/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/std:c++latest</AdditionalOptions>
+      <AdditionalIncludeDirectories>../Common/include;include/UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -163,7 +175,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include/Interface;../Common/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/std:c++latest</AdditionalOptions>
+      <AdditionalIncludeDirectories>../Common/include;include/UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

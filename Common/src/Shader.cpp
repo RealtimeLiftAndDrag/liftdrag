@@ -172,37 +172,37 @@ static u32 loadProgram(
 ) {
     std::string vertSrc, tescSrc, teseSrc, geomSrc, fragSrc, compSrc;
     if (vertFile.size()) {
-        if (!Util::readTextFile(vertFile, vertSrc)) {
+        if (!util::readTextFile(vertFile, vertSrc)) {
             std::cerr << "Failed to read vertex shader file: " << vertFile << std::endl;
             return 0;
         }
     }
     if (tescFile.size()) {
-        if (!Util::readTextFile(tescFile, tescSrc)) {
+        if (!util::readTextFile(tescFile, tescSrc)) {
             std::cerr << "Failed to read tessellation control shader file: " << tescFile << std::endl;
             return 0;
         }
     }
     if (teseFile.size()) {
-        if (!Util::readTextFile(teseFile, teseSrc)) {
+        if (!util::readTextFile(teseFile, teseSrc)) {
             std::cerr << "Failed to read tessellation evaluation shader file: " << teseFile << std::endl;
             return 0;
         }
     }
     if (geomFile.size()) {
-        if (!Util::readTextFile(geomFile, geomSrc)) {
+        if (!util::readTextFile(geomFile, geomSrc)) {
             std::cerr << "Failed to read geometry shader file: " << geomFile << std::endl;
             return 0;
         }
     }
     if (fragFile.size()) {
-        if (!Util::readTextFile(fragFile, fragSrc)) {
+        if (!util::readTextFile(fragFile, fragSrc)) {
             std::cerr << "Failed to read fragment shader file: " << fragFile << std::endl;
             return 0;
         }
     }
     if (compFile.size()) {
-        if (!Util::readTextFile(compFile, compSrc)) {
+        if (!util::readTextFile(compFile, compSrc)) {
             std::cerr << "Failed to read compute shader file: " << compFile << std::endl;
             return 0;
         }

@@ -3,16 +3,14 @@
 
 
 #include <vector>
-#include <memory>
 
-#include "Interface.hpp"
 #include "Text.hpp"
 
 
 
-namespace UI {
+namespace ui {
 
-    class Graph : public UI::VerticalGroup {
+    class Graph : public ui::VerticalGroup {
 
         private:
 
@@ -38,14 +36,14 @@ namespace UI {
 
         };
 
-        class PlotComp : public UI::Single {
+        class PlotComp : public ui::Single {
 
             friend Graph;
 
             private:
 
             Graph & m_graph;
-            shr<UI::Text> m_cursorText;
+            shr<ui::Text> m_cursorText;
             bool m_isFocusUpdateNeeded;
 
             public:
@@ -70,7 +68,7 @@ namespace UI {
 
         };
 
-        class InnerComp : public UI::Group {
+        class InnerComp : public ui::Group {
 
             friend Graph;
 
@@ -78,8 +76,8 @@ namespace UI {
 
             Graph & m_graph;
             shr<PlotComp> m_plotComp;
-            shr<UI::Number> m_domainMinText, m_domainMaxText;
-            shr<UI::Number> m_rangeMinText, m_rangeMaxText;
+            shr<ui::Number> m_domainMinText, m_domainMaxText;
+            shr<ui::Number> m_rangeMinText, m_rangeMaxText;
             ivec2 m_minMargin, m_maxMargin;
             bool m_isGridTextUpdateNeeded;
 
@@ -91,7 +89,7 @@ namespace UI {
 
             virtual void pack() override;
 
-            virtual void detSizeExtrema() const;
+            virtual duo<ivec2> detSizeExtrema() const;
 
             private:
 

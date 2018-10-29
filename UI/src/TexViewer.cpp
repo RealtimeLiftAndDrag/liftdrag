@@ -8,7 +8,7 @@
 
 
 
-namespace UI {
+namespace ui {
 
     static constexpr int k_maxZoom(8);
 
@@ -69,7 +69,7 @@ namespace UI {
     {}
 
     void TexViewer::render() const {
-        glViewport(m_position.x, m_position.y, m_size.x, m_size.y);
+        setViewport();
 
         s_texProg->bind();
 
@@ -87,19 +87,19 @@ namespace UI {
     }
 
     void TexViewer::pack() {
-        m_initViewSize = vec2(m_size) / vec2(m_texSize);
+        m_initViewSize = vec2(size()) / vec2(m_texSize);
         m_viewSize = m_initViewSize;
     }
 
     void TexViewer::cursorPositionEvent(const ivec2 & pos, const ivec2 & delta) {
-        if (UI::isMouseButtonPressed(0)) {
-            vec2 factor(m_viewSize / vec2(m_size));
+        if (ui::isMouseButtonPressed(0)) {
+            vec2 factor(m_viewSize / vec2(size()));
             moveCenter(-factor * vec2(delta));
         }
     }
 
     void TexViewer::scrollEvent(const ivec2 & delta) {
-        vec2 a0(vec2(UI::cursorPosition() - (m_position + m_size / 2)) / vec2(m_size));
+        vec2 a0(vec2(ui::cursorPosition() - (position() + size() / 2)) / vec2(size()));
         vec2 prevViewSize(m_viewSize);
 
         if (delta.y < 0) zoomOut();

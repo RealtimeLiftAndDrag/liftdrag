@@ -9,11 +9,11 @@
 #include "GLFW/glfw3.h"
 #include "Common/GLSL.h"
 #include "Common/Shader.hpp"
-#include "Interface/Graph.hpp"
+#include "UI/Graph.hpp"
 
 
 
-namespace Results {
+namespace results {
 
     static constexpr float k_angleGranularity(1.0f); // results kept in increments of this many degrees
     static constexpr float k_invAngleGranularity(1.0f / k_angleGranularity);
@@ -39,7 +39,7 @@ namespace Results {
     static std::map<int, Entry> s_sliceRecord;
     static bool s_isSliceRecordChange;
 
-    static shr<UI::Graph> s_angleGraph, s_sliceGraph;
+    static shr<ui::Graph> s_angleGraph, s_sliceGraph;
 
 
 
@@ -56,7 +56,7 @@ namespace Results {
         min = center - size * 0.5f;
         max = center + size * 0.5f;
 
-        s_angleGraph.reset(new UI::Graph(
+        s_angleGraph.reset(new ui::Graph(
             k_angleGraphTitleString,
             "Angle",
             min,
@@ -78,7 +78,7 @@ namespace Results {
         min = center - size * 0.5f;
         max = center + size * 0.5f;
 
-        s_sliceGraph.reset(new UI::Graph(
+        s_sliceGraph.reset(new ui::Graph(
             k_sliceGraphTitleString,
             "Slice",
             min,
@@ -180,11 +180,11 @@ namespace Results {
         return s_sliceRecord;
     }
 
-    shr<UI::Graph> angleGraph() {
+    shr<ui::Graph> angleGraph() {
         return s_angleGraph;
     }
 
-    shr<UI::Graph> sliceGraph() {
+    shr<ui::Graph> sliceGraph() {
         return s_sliceGraph;
     }
 

@@ -6,11 +6,11 @@
 
 #include "Common/Text.hpp"
 
-#include "Interface.hpp"
+#include "Group.hpp"
 
 
 
-namespace UI {
+namespace ui {
 
     class Text : public Single {
 

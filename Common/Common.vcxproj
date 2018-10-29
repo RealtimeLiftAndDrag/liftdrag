@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\glad\glad.c" />
+    <ClCompile Include="src\GLInterface.cpp" />
     <ClCompile Include="src\Global.cpp" />
     <ClCompile Include="src\GLSL.cpp" />
     <ClCompile Include="src\GRLLoader.cpp" />
@@ -30,6 +31,7 @@
     <ClCompile Include="src\tinyobjloader\tiny_obj_loader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Common\GLInterface.hpp" />
     <ClInclude Include="include\Common\Global.hpp" />
     <ClInclude Include="include\Common\GLSL.h" />
     <ClInclude Include="include\Common\GRLLoader.hpp" />

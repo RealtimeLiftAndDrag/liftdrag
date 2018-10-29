@@ -6,18 +6,9 @@
 
 #include "Common/Global.hpp"
 
-
-
-namespace UI {
+namespace ui {
 
     class Component {
-
-        protected:
-
-        ivec2 m_position;
-        ivec2 m_size;
-        vec4 m_backColor;
-        vec4 m_borderColor;
 
         public:
 
@@ -68,14 +59,29 @@ namespace UI {
 
         virtual void unfocusEvent() {}
 
+        protected:
+
+        virtual void setViewport() const final;
+
+        private:
+
+        ivec2 m_position;
+        ivec2 m_size;
+        vec4 m_backColor;
+        vec4 m_borderColor;
+
     };
 
     class Single : public Component {
 
-        protected:
+        public:
 
-        ivec2 m_minSize;
-        ivec2 m_maxSize;
+        virtual void pack() override {}
+
+        virtual const ivec2 & minSize() const override final { return m_minSize; }
+        virtual const ivec2 & maxSize() const override final { return m_maxSize; }
+
+        protected:
 
         Single() :
             m_minSize(),
@@ -87,26 +93,14 @@ namespace UI {
             m_maxSize(maxSize)
         {}
 
-        public:
+        private:
 
-        virtual void pack() override {}
-
-        virtual const ivec2 & minSize() const override final { return m_minSize; }
-        virtual const ivec2 & maxSize() const override final { return m_maxSize; }
+        ivec2 m_minSize;
+        ivec2 m_maxSize;
 
     };
 
     class Group : public Component {
-
-        protected:
-
-        std::vector<shr<Component>> m_components;
-
-        mutable Component * m_cursorOverComp;
-
-        mutable ivec2 m_minSize;
-        mutable ivec2 m_maxSize;
-        mutable bool m_areSizeExtremaValid;
 
         public:
 
@@ -114,8 +108,8 @@ namespace UI {
 
         virtual void render() const override;
 
-        virtual const ivec2 & minSize() const override;
-        virtual const ivec2 & maxSize() const override;
+        virtual const ivec2 & minSize() const override final;
+        virtual const ivec2 & maxSize() const override final;
 
         virtual void keyEvent(int key, int action, int mods) override;
 
@@ -133,45 +127,60 @@ namespace UI {
 
         protected:
 
-        virtual void detSizeExtrema() const = 0;
+        virtual duo<ivec2> detSizeExtrema() const = 0;
 
         virtual void packComponents();
 
         virtual void detCursorOverComp(const ivec2 & cursorPos) const;
 
-    };
-
-    class HorizontalGroup : public Group {
-
-        public:
-
-        virtual void pack() override;
+        std::vector<shr<Component>> m_components;
 
         private:
 
-        virtual void detSizeExtrema() const override;
+        mutable Component * m_cursorOverComp;
+        mutable ivec2 m_minSize, m_maxSize;
+        mutable bool m_areSizeExtremaValid;
 
     };
 
-    class VerticalGroup : public Group {
 
-        public:
-
-        virtual void pack() override;
-
-        private:
-
-        virtual void detSizeExtrema() const override;
-
-    };
 
     bool setup(const ivec2 & windowSize, const std::string & windowTitle, int majorGLVersion, int minorGLVersion, bool vSync);
 
-    void setRootComponent(shr<Component> root);
-
-    void setTooltip(shr<Component> tooltip);
-
     void poll();
+
+    const ivec2 & cursorPosition();
+
+    bool isMouseButtonPressed(int button);
+
+    bool isKeyPressed(int key);
+
+    bool shouldExit();
+
+    /*
+    // Called when a key is pressed, held, or released
+    // Args: key code, action, mods
+    void keyCallback(fptr<void(int, int, int)> callback);
+
+    // Called when the mouse is moved in the client area
+    // Args: cursor position relative to client area
+    void cursorPositionCallback(fptr<void(dvec2)> callback);
+
+    // Called when the cursor enters or exits the client area
+    // Args: true if entered, false if exited
+    void cursorEnterCallback(fptr<void(bool)> callback);
+
+    // Called when a mouse button is pressed or released
+    // Args: button, action, mods
+    void mouseButtonCallback(fptr<void(int, int, int)> callback);
+
+    // Called when the scroll wheel is turned
+    // Args: x and y offset
+    void scrollCallback(fptr<void(dvec2)> callback);
+
+    // Called when a request has been made for the program to exit
+    void exitCallback(fptr<void()> callback);
+    */
 
     // Requires OpenGL state:
     // - `GL_DEPTH_TEST` disabled
@@ -180,13 +189,9 @@ namespace UI {
 
     void render();
 
-    bool shouldClose();
+    void setRootComponent(shr<Component> root);
 
-    const ivec2 & cursorPosition();
-
-    bool isMouseButtonPressed(int button);
-
-    bool isKeyPressed(int key);
+    void setTooltip(shr<Component> tooltip);
 
     void focus(Component * component);
 

@@ -32,10 +32,12 @@ extern "C" {
 #include "Common/Util.hpp"
 #include "Common/Model.hpp"
 #include "Common/Shader.hpp"
-#include "Interface/Interface.hpp"
-#include "Interface/Text.hpp"
-#include "Interface/Graph.hpp"
-#include "Interface/TexViewer.hpp"
+#include "Common/GLInterface.hpp"
+#include "UI/UI.hpp"
+#include "UI/Group.hpp"
+#include "UI/Text.hpp"
+#include "UI/Graph.hpp"
+#include "UI/TexViewer.hpp"
 
 #include "RLD/Simulation.hpp"
 
@@ -43,7 +45,7 @@ extern "C" {
 
 
 
-class MainUIC : public UI::VerticalGroup {
+class MainUIC : public ui::VerticalGroup {
 
     public:
 
@@ -104,15 +106,17 @@ static bool s_shouldSweep(true);
 static bool s_shouldAutoProgress(false);
 
 static shr<MainUIC> s_mainUIC;
-static shr<UI::TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
-static shr<UI::String> s_angleLabel, s_angleLiftLabel, s_angleDragLabel, s_angleTorqueLabel;
-static shr<UI::NumberField> s_angleField;
-static shr<UI::Vector> s_angleLiftNum, s_angleDragNum, s_angleTorqueNum;
-static shr<UI::String> s_rudderLabel, s_elevatorLabel, s_aileronLabel;
-static shr<UI::Number> s_rudderNum, s_elevatorNum, s_aileronNum;
+static shr<ui::TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
+static shr<ui::String> s_angleLabel, s_angleLiftLabel, s_angleDragLabel, s_angleTorqueLabel;
+static shr<ui::NumberField> s_angleField;
+static shr<ui::Vector> s_angleLiftNum, s_angleDragNum, s_angleTorqueNum;
+static shr<ui::String> s_rudderLabel, s_elevatorLabel, s_aileronLabel;
+static shr<ui::Number> s_rudderNum, s_elevatorNum, s_aileronNum;
 
 static bool s_isInfoChange(true);
 static bool s_isF18Change(true);
+
+//static bool s_shouldExit(false);
 
 
 
@@ -209,15 +213,15 @@ static void setSimulation(float angleOfAttack, bool debug) {
 }
 
 static void submitResults(float angleOfAttack) {
-    Results::submitAngle(angleOfAttack, { rld::lift(), rld::drag(), rld::torque() });
+    results::submitAngle(angleOfAttack, { rld::lift(), rld::drag(), rld::torque() });
     const vec3 * lifts(rld::lifts());
     const vec3 * drags(rld::drags());
     const vec3 * torqs(rld::torques());
     for (int i(0); i < rld::sliceCount(); ++i) {
-        Results::submitSlice(i, { lifts[i], drags[i], torqs[i] });
+        results::submitSlice(i, { lifts[i], drags[i], torqs[i] });
     }
 
-    Results::update();
+    results::update();
 }
 
 static void doFastSweep(float angleOfAttack) {
@@ -237,7 +241,7 @@ static void doFastSweep(float angleOfAttack) {
 }
 
 static void doAllAngles() {
-    Results::clearSlices();
+    results::clearSlices();
 
     double then(glfwGetTime());
 
@@ -335,9 +339,13 @@ void MainUIC::keyEvent(int key, int action, int mods) {
         s_frontTexViewer->zoomReset();
         s_sideTexViewer->center(vec2(0.5f));
         s_sideTexViewer->zoomReset();
-        Results::resetGraphs();
+        results::resetGraphs();
     }
 }
+
+//static void exitCallback() {
+//    s_shouldExit = true;
+//}
 
 static bool setupModel() {
     std::string modelsPath(g_resourcesDir + "/models/");
@@ -379,13 +387,13 @@ static bool setupModel() {
 
 static bool setup() {
     // Setup UI, which includes GLFW and GLAD
-    if (!UI::setup(k_defWindowSize, "Realtime Lift and Drag Visualizer", 4, 5, false)) {
+    if (!ui::setup(k_defWindowSize, "Realtime Lift and Drag Visualizer", 4, 5, false)) {
         std::cerr << "Failed to setup UI" << std::endl;
         return false;
     }
+    //ui::exitCallback(exitCallback);
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
@@ -402,44 +410,44 @@ static bool setup() {
         return false;
     }
 
-    if (!Results::setup(k_simSliceCount)) {
+    if (!results::setup(k_simSliceCount)) {
         std::cerr << "Failed to setup results" << std::endl;
         return false;
     }
 
-    s_frontTexViewer.reset(new UI::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(128)));
-    s_turbTexViewer.reset(new UI::TexViewer(rld::turbulenceTex(), ivec2(rld::texSize()) / 4, ivec2(128)));
-    s_sideTexViewer.reset(new UI::TexViewer(rld::sideTex(), ivec2(rld::texSize()), ivec2(128)));
+    s_frontTexViewer.reset(new ui::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(128)));
+    s_turbTexViewer.reset(new ui::TexViewer(rld::turbulenceTex(), ivec2(rld::texSize()) / 4, ivec2(128)));
+    s_sideTexViewer.reset(new ui::TexViewer(rld::sideTex(), ivec2(rld::texSize()), ivec2(128)));
 
-    shr<UI::HorizontalGroup> displayGroup(new UI::HorizontalGroup());
+    shr<ui::HorizontalGroup> displayGroup(new ui::HorizontalGroup());
     displayGroup->add(s_frontTexViewer);
     displayGroup->add(s_sideTexViewer);
 
-    shr<UI::Graph> angleGraph(Results::angleGraph());
-    shr<UI::Graph> sliceGraph(Results::sliceGraph());
+    shr<ui::Graph> angleGraph(results::angleGraph());
+    shr<ui::Graph> sliceGraph(results::sliceGraph());
 
-    s_angleLabel      .reset(new UI::String("Angle: ", 1, vec4(1.0f)));
-    s_angleLiftLabel  .reset(new UI::String("Lift: ", 1, vec4(1.0f)));
-    s_angleDragLabel  .reset(new UI::String("Drag: ", 1, vec4(1.0f)));
-    s_angleTorqueLabel.reset(new UI::String("Torq: ", 1, vec4(1.0f)));
-    s_rudderLabel     .reset(new UI::String("Rudder: ", 1, vec4(1.0f)));
-    s_elevatorLabel   .reset(new UI::String("Elevator: ", 1, vec4(1.0f)));
-    s_aileronLabel    .reset(new UI::String("Aileron: ", 1, vec4(1.0f)));
+    s_angleLabel      .reset(new ui::String("Angle: ", 1, vec4(1.0f)));
+    s_angleLiftLabel  .reset(new ui::String("Lift: ", 1, vec4(1.0f)));
+    s_angleDragLabel  .reset(new ui::String("Drag: ", 1, vec4(1.0f)));
+    s_angleTorqueLabel.reset(new ui::String("Torq: ", 1, vec4(1.0f)));
+    s_rudderLabel     .reset(new ui::String("Rudder: ", 1, vec4(1.0f)));
+    s_elevatorLabel   .reset(new ui::String("Elevator: ", 1, vec4(1.0f)));
+    s_aileronLabel    .reset(new ui::String("Aileron: ", 1, vec4(1.0f)));
 
-    s_angleField    .reset(new UI::BoundedNumberField(0.0, 1, vec4(1.0f), 5, 0, true, 1, -90.0f, 90.0f));
+    s_angleField    .reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 5, 0, true, 1, -90.0f, 90.0f));
     s_angleField->actionCallback([&](){
         if (rld::slice() == 0 && !s_shouldAutoProgress) {
             setAngleOfAttack(float(s_angleField->value()));
         }
     });
-    s_angleLiftNum  .reset(new UI::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
-    s_angleDragNum  .reset(new UI::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
-    s_angleTorqueNum.reset(new UI::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
-    s_rudderNum     .reset(new UI::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
-    s_elevatorNum   .reset(new UI::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
-    s_aileronNum    .reset(new UI::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    s_angleLiftNum  .reset(new ui::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
+    s_angleDragNum  .reset(new ui::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
+    s_angleTorqueNum.reset(new ui::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
+    s_rudderNum     .reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    s_elevatorNum   .reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    s_aileronNum    .reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
 
-    shr<UI::HorizontalGroup> f18Info(new UI::HorizontalGroup());
+    shr<ui::HorizontalGroup> f18Info(new ui::HorizontalGroup());
     f18Info->add(s_rudderLabel);
     f18Info->add(s_rudderNum);
     f18Info->add(s_elevatorLabel);
@@ -448,29 +456,29 @@ static bool setup() {
     f18Info->add(s_aileronNum);
 
     ivec2 textSize(Text::detDimensions(k_controlsString));
-    shr<UI::Text> controlsText(new UI::Text(k_controlsString, ivec2(1, 0), vec4(1.0f), textSize, ivec2(textSize.x, 0)));
+    shr<ui::Text> controlsText(new ui::Text(k_controlsString, ivec2(1, 0), vec4(1.0f), textSize, ivec2(textSize.x, 0)));
 
-    shr<UI::VerticalGroup> infoGroup(new UI::VerticalGroup());
+    shr<ui::VerticalGroup> infoGroup(new ui::VerticalGroup());
     infoGroup->add(controlsText);
     infoGroup->add(f18Info);
-    shr<UI::HorizontalGroup> angleTorqueGroup(new UI::HorizontalGroup());
+    shr<ui::HorizontalGroup> angleTorqueGroup(new ui::HorizontalGroup());
     angleTorqueGroup->add(s_angleTorqueLabel);
     angleTorqueGroup->add(s_angleTorqueNum);
     infoGroup->add(angleTorqueGroup);
-    shr<UI::HorizontalGroup> angleDragGroup(new UI::HorizontalGroup());
+    shr<ui::HorizontalGroup> angleDragGroup(new ui::HorizontalGroup());
     angleDragGroup->add(s_angleDragLabel);
     angleDragGroup->add(s_angleDragNum);
     infoGroup->add(angleDragGroup);
-    shr<UI::HorizontalGroup> angleLiftGroup(new UI::HorizontalGroup());
+    shr<ui::HorizontalGroup> angleLiftGroup(new ui::HorizontalGroup());
     angleLiftGroup->add(s_angleLiftLabel);
     angleLiftGroup->add(s_angleLiftNum);
     infoGroup->add(angleLiftGroup);
-    shr<UI::HorizontalGroup> angleGroup(new UI::HorizontalGroup());
+    shr<ui::HorizontalGroup> angleGroup(new ui::HorizontalGroup());
     angleGroup->add(s_angleLabel);
     angleGroup->add(s_angleField);
     infoGroup->add(angleGroup);
 
-    shr<UI::HorizontalGroup> bottomGroup(new UI::HorizontalGroup());
+    shr<ui::HorizontalGroup> bottomGroup(new ui::HorizontalGroup());
     bottomGroup->add(angleGraph);
     bottomGroup->add(sliceGraph);
     bottomGroup->add(infoGroup);
@@ -479,7 +487,7 @@ static bool setup() {
     s_mainUIC->add(bottomGroup);
     s_mainUIC->add(displayGroup);
 
-    UI::setRootComponent(s_mainUIC);
+    ui::setRootComponent(s_mainUIC);
 
     return true;
 }
@@ -507,7 +515,7 @@ static void update() {
 
         if (slice == 0) { // About to do first slice
             setSimulation(s_angleOfAttack, true);
-            Results::clearSlices();
+            results::clearSlices();
         }
 
         glDisable(GL_BLEND); // can't have blending for simulation
@@ -546,14 +554,14 @@ static void update() {
         s_isF18Change = false;
     }
 
-    UI::update();
+    ui::update();
 
     // Make front and side textures line up
-    if (s_frontTexViewer->contains(UI::cursorPosition())) {
+    if (s_frontTexViewer->contains(ui::cursorPosition())) {
         s_sideTexViewer->center(vec2(s_sideTexViewer->center().x, s_frontTexViewer->center().y));
         s_sideTexViewer->zoom(s_frontTexViewer->zoom());
     }
-    else if (s_sideTexViewer->contains(UI::cursorPosition())) {
+    else if (s_sideTexViewer->contains(ui::cursorPosition())) {
         s_frontTexViewer->center(vec2(s_frontTexViewer->center().x, s_sideTexViewer->center().y));
         s_frontTexViewer->zoom(s_sideTexViewer->zoom());
     }
@@ -575,14 +583,14 @@ int main(int argc, char ** argv) {
     double then(glfwGetTime());
 
     // Loop until the user closes the window.
-    while (!UI::shouldClose()) {
+    while (!ui::shouldExit()) {
         // Poll for and process events.
-        UI::poll();
+        ui::poll();
 
         update();
 
         glDisable(GL_DEPTH_TEST); // don't want depth test for UI
-        UI::render();
+        ui::render();
         glEnable(GL_DEPTH_TEST);
 
         ++fps;

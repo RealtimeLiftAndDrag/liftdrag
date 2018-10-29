@@ -11,7 +11,7 @@
 
 
 
-namespace UI {
+namespace ui {
 
     static const std::string & k_curveVertFilename("graph_curve.vert"), k_curveFragFilename("graph_curve.frag");
     static const std::string & k_linesVertFilename("graph_lines.vert"), k_linesFragFilename("graph_lines.frag");
@@ -140,7 +140,7 @@ namespace UI {
     Graph::PlotComp::PlotComp(Graph & graph, const ivec2 & minSize, const ivec2 & maxSize) :
         Single(minSize, maxSize),
         m_graph(graph),
-        m_cursorText(new UI::Text("", ivec2(1, 1), vec4(1.0f), ivec2(), ivec2())),
+        m_cursorText(new ui::Text("", ivec2(1, 1), vec4(1.0f), ivec2(), ivec2())),
         m_isFocusUpdateNeeded(false)
     {
         m_cursorText->size(ivec2(100, 100));
@@ -155,7 +155,7 @@ namespace UI {
     }
 
     void Graph::PlotComp::render() const {
-        glViewport(m_position.x, m_position.y, m_size.x, m_size.y);
+        setViewport();
 
         vec2 viewSize(m_graph.m_viewMax - m_graph.m_viewMin);
         vec2 viewCenter((m_graph.m_viewMin + m_graph.m_viewMax) * 0.5f);
@@ -255,16 +255,16 @@ namespace UI {
     }
 
     void Graph::PlotComp::cursorPositionEvent(const ivec2 & pos, const ivec2 & delta) {
-        if (UI::isMouseButtonPressed(0)) {
-            vec2 factor((m_graph.m_viewMax - m_graph.m_viewMin) / vec2(m_size));
+        if (ui::isMouseButtonPressed(0)) {
+            vec2 factor((m_graph.m_viewMax - m_graph.m_viewMin) / vec2(size()));
             m_graph.moveView(-factor * vec2(
-                UI::isKeyPressed(GLFW_KEY_LEFT_SHIFT) ? 0.0f : delta.x,
-                UI::isKeyPressed(GLFW_KEY_LEFT_CONTROL) ? 0.0f : delta.y
+                ui::isKeyPressed(GLFW_KEY_LEFT_SHIFT) ? 0.0f : delta.x,
+                ui::isKeyPressed(GLFW_KEY_LEFT_CONTROL) ? 0.0f : delta.y
             ));
         }
 
-        float x(float(pos.x - m_position.x));
-        x /= m_size.x;
+        float x(float(pos.x - position().x));
+        x /= size().x;
         x *= m_graph.m_viewMax.x - m_graph.m_viewMin.x;
         x += m_graph.m_viewMin.x;
         m_graph.focusX(x);
@@ -273,21 +273,21 @@ namespace UI {
     }
 
     void Graph::PlotComp::cursorEnterEvent() {
-        UI::setTooltip(m_cursorText);
+        ui::setTooltip(m_cursorText);
     }
 
     void Graph::PlotComp::cursorExitEvent() {
         m_graph.unfocusX();
-        UI::setTooltip(nullptr);
+        ui::setTooltip(nullptr);
     }
 
     void Graph::PlotComp::scrollEvent(const ivec2 & delta) {
-        vec2 a0(vec2(UI::cursorPosition() - (m_position + m_size / 2)) / vec2(m_size));
+        vec2 a0(vec2(ui::cursorPosition() - (position() + size() / 2)) / vec2(size()));
         vec2 prevViewSize(m_graph.m_viewMax - m_graph.m_viewMin);
 
         vec2 factor(delta.y < 0 ? k_zoomFactor : delta.y > 0 ? k_invZoomFactor : 0.0f);
-        if (UI::isKeyPressed(GLFW_KEY_LEFT_SHIFT)) factor.x = 1.0f;
-        if (UI::isKeyPressed(GLFW_KEY_LEFT_CONTROL)) factor.y = 1.0f;
+        if (ui::isKeyPressed(GLFW_KEY_LEFT_SHIFT)) factor.x = 1.0f;
+        if (ui::isKeyPressed(GLFW_KEY_LEFT_CONTROL)) factor.y = 1.0f;
         m_graph.zoomView(factor);
 
         vec2 viewSize(m_graph.m_viewMax - m_graph.m_viewMin);
@@ -300,13 +300,13 @@ namespace UI {
         float x(m_graph.focusX());
 
         std::stringstream ss;
-        ss << m_graph.m_xLabel << ": " << Util::numberString(x, false, k_gridTextPrecision);
+        ss << m_graph.m_xLabel << ": " << util::numberString(x, false, k_gridTextPrecision);
         for (const Curve & curve : m_graph.m_curves) {
             float val(curve.valAt(x));
             if (std::isnan(val)) {
                 continue;
             }
-            ss << '\n' << curve.label << ": " << Util::numberString(val, false, k_gridTextPrecision);
+            ss << '\n' << curve.label << ": " << util::numberString(val, false, k_gridTextPrecision);
         }
 
         m_cursorText->string(ss.str());
@@ -318,10 +318,10 @@ namespace UI {
     Graph::InnerComp::InnerComp(Graph & graph, const ivec2 & minPlotSize, const ivec2 & maxPlotSize) :
         m_graph(graph),
         m_plotComp(new PlotComp(graph, minPlotSize, maxPlotSize)),
-        m_domainMinText(new UI::Number(0.0,  0, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
-        m_domainMaxText(new UI::Number(0.0,  0, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
-        m_rangeMinText (new UI::Number(0.0, -1, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
-        m_rangeMaxText (new UI::Number(0.0, -1, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
+        m_domainMinText(new ui::Number(0.0,  0, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
+        m_domainMaxText(new ui::Number(0.0,  0, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
+        m_rangeMinText (new ui::Number(0.0, -1, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
+        m_rangeMaxText (new ui::Number(0.0, -1, vec4(1.0f), k_gridTextLength, k_gridTextLength, false, k_gridTextPrecision)),
         m_isGridTextUpdateNeeded(true)
     {
         add(m_plotComp);
@@ -351,19 +351,25 @@ namespace UI {
         m_rangeMinText->size(m_rangeMinText->minSize());
         m_rangeMaxText->size(m_rangeMaxText->minSize());
 
-        m_plotComp->position(m_position + m_minMargin);
-        m_plotComp->size(m_size - m_minMargin - m_maxMargin);
+        m_plotComp->position(position() + m_minMargin);
+        m_plotComp->size(size() - m_minMargin - m_maxMargin);
 
         packComponents();
 
         m_isGridTextUpdateNeeded = true;
     }
 
-    void Graph::InnerComp::detSizeExtrema() const {
-        m_minSize.x = m_plotComp->minSize().x + m_rangeMinText->minSize().x + m_domainMaxText->minSize().x / 2;
-        m_minSize.y = m_plotComp->minSize().y + m_domainMinText->minSize().y + m_rangeMaxText->minSize().y / 2;
-        m_maxSize.x = m_plotComp->maxSize().x ? m_plotComp->maxSize().x + m_rangeMinText->maxSize().x + m_domainMaxText->maxSize().x / 2 : 0;
-        m_maxSize.y = m_plotComp->maxSize().y ? m_plotComp->maxSize().y + m_domainMinText->maxSize().y + m_rangeMaxText->maxSize().y / 2 : 0;
+    duo<ivec2> Graph::InnerComp::detSizeExtrema() const {
+        return {
+            ivec2(
+                m_plotComp->minSize().x + m_rangeMinText->minSize().x + m_domainMaxText->minSize().x / 2,
+                m_plotComp->minSize().y + m_domainMinText->minSize().y + m_rangeMaxText->minSize().y / 2
+            ),
+            ivec2(
+                m_plotComp->maxSize().x ? m_plotComp->maxSize().x + m_rangeMinText->maxSize().x + m_domainMaxText->maxSize().x / 2 : 0,
+                m_plotComp->maxSize().y ? m_plotComp->maxSize().y + m_domainMinText->maxSize().y + m_rangeMaxText->maxSize().y / 2 : 0
+            )
+        };
     }
 
     void Graph::InnerComp::updateGridText() {
@@ -376,14 +382,14 @@ namespace UI {
 
         ivec2 offset(m_minMargin / 2);
 
-        m_domainMinText->position(m_position + ivec2(offset.x + gridMinPos.x, 0));
+        m_domainMinText->position(position() + ivec2(offset.x + gridMinPos.x, 0));
         m_domainMinText->value(gridMin.x);
-        m_domainMaxText->position(m_position + ivec2(offset.x + gridMaxPos.x, 0));
+        m_domainMaxText->position(position() + ivec2(offset.x + gridMaxPos.x, 0));
         m_domainMaxText->value(gridMax.x);
 
-        m_rangeMinText->position(m_position + ivec2(0, offset.y + gridMinPos.y));
+        m_rangeMinText->position(position() + ivec2(0, offset.y + gridMinPos.y));
         m_rangeMinText->value(gridMin.y);
-        m_rangeMaxText->position(m_position + ivec2(0, offset.y + gridMaxPos.y));
+        m_rangeMaxText->position(position() + ivec2(0, offset.y + gridMaxPos.y));
         m_rangeMaxText->value(gridMax.y);
     }
 
@@ -401,7 +407,7 @@ namespace UI {
 
         if (!title.empty()) {
             int lineCount(::Text::detDimensions(title).y);
-            shr<UI::Text> titleComp(new UI::Text(title, ivec2(), vec4(1.0f), ivec2(int(title.size()), lineCount), ivec2(0, lineCount)));
+            shr<ui::Text> titleComp(new ui::Text(title, ivec2(), vec4(1.0f), ivec2(int(title.size()), lineCount), ivec2(0, lineCount)));
             add(titleComp);
         }
     }

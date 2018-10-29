@@ -8,7 +8,7 @@
 
 
 
-namespace UI {
+namespace ui {
 
     bool Text::setup() {
         return ::Text::setup();
@@ -28,7 +28,7 @@ namespace UI {
 
     void Text::render() const {
         Component::render();
-        m_text.renderWithin(m_position, m_size);
+        m_text.renderWithin(position(), size());
     }
 
     void Text::string(const std::string & str) {
@@ -49,7 +49,7 @@ namespace UI {
 
     bool Text::verify(std::string & str) {
         for (char c : str) {
-            if (!(Util::isPrintable(c) || c == '\n')) {
+            if (!(util::isPrintable(c) || c == '\n')) {
                 return false;
             }
         }
@@ -72,7 +72,7 @@ namespace UI {
 
     bool String::verify(std::string & str) {
         for (char c : str) {
-            if (!Util::isPrintable(c)) {
+            if (!util::isPrintable(c)) {
                 return false;
             }
         }
@@ -97,7 +97,7 @@ namespace UI {
     }
 
     Number::Number(double initVal, int align, const vec4 & color, int minWidth, int maxWidth, bool fixed, int precision) :
-        String(Util::numberString(initVal, fixed, precision), align, color, minWidth, maxWidth),
+        String(util::numberString(initVal, fixed, precision), align, color, minWidth, maxWidth),
         m_value(initVal),
         m_fixed(fixed),
         m_precision(precision)
@@ -113,7 +113,7 @@ namespace UI {
     }
 
     void Number::value(double val) {
-        string(Util::numberString(val, m_fixed, m_precision));
+        string(util::numberString(val, m_fixed, m_precision));
     }
 
 
@@ -193,7 +193,7 @@ namespace UI {
 
     void TextField::mouseButtonEvent(int button, int action, int mods) {
         if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS && !mods) {
-            UI::focus(this);
+            ui::focus(this);
         }
     }
 
@@ -210,7 +210,7 @@ namespace UI {
     }
 
     bool TextField::valid(char c) const {
-        return Util::isPrintable(c) || c == '\n';
+        return util::isPrintable(c) || c == '\n';
     }
 
     void TextField::startEditing() {
@@ -240,7 +240,7 @@ namespace UI {
 
     bool StringField::verify(std::string & str) {
         for (char c : str) {
-            if (!Util::isPrintable(c)) {
+            if (!util::isPrintable(c)) {
                 return false;
             }
         }
@@ -248,13 +248,13 @@ namespace UI {
     }
 
     bool StringField::valid(char c) const {
-        return Util::isPrintable(c);
+        return util::isPrintable(c);
     }
 
 
 
     NumberField::NumberField(double initVal, int align, const vec4 & color, int minWidth, int maxWidth, bool fixed, int precision) :
-        StringField(Util::numberString(initVal, fixed, precision), align, color, minWidth, maxWidth),
+        StringField(util::numberString(initVal, fixed, precision), align, color, minWidth, maxWidth),
         m_value(initVal),
         m_fixed(fixed),
         m_precision(precision)
@@ -270,7 +270,7 @@ namespace UI {
     }
 
     void NumberField::value(double val) {
-        string(Util::numberString(val, m_fixed, m_precision));
+        string(util::numberString(val, m_fixed, m_precision));
     }
 
     bool NumberField::valid(char c) const {

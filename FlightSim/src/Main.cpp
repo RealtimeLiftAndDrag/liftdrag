@@ -27,7 +27,7 @@ extern "C" {
 #include "RLD/Simulation.hpp"
 #include "Common/Model.hpp"
 #include "Common/Shader.hpp"
-#include "Interface/Interface.hpp"
+#include "UI/Group.hpp"
 
 
 #include "SimObject.hpp"
@@ -41,7 +41,7 @@ extern "C" {
 
 CXBOXController XBOXController(1);
 
-class MainUIC : public UI::VerticalGroup {
+class MainUIC : public ui::VerticalGroup {
 
 public:
 

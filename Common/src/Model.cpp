@@ -186,7 +186,7 @@ static unq<Model> loadGRL(const std::string & filename) {
 }
 
 unq<Model> Model::load(const std::string & filename) {
-    std::string ext(Util::getExtension(filename));
+    std::string ext(util::getExtension(filename));
 
     unq<Model> model;
     if (ext == "obj") {
