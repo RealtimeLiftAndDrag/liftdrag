@@ -100,7 +100,7 @@ namespace ui {
 
 
     bool Graph::setup() {
-        const std::string & shadersPath(g_resourcesDir + "/Interface/shaders/");
+        const std::string & shadersPath(g_resourcesDir + "/UI/shaders/");
 
         // Setup curve shader
         if (!(s_curveProg = Shader::load(shadersPath + k_curveVertFilename, shadersPath + k_curveFragFilename))) {

@@ -288,7 +288,7 @@ namespace ui {
         }
 
         // Setup comp shader
-        std::string shadersPath(g_resourcesDir + "/Interface/shaders/");
+        std::string shadersPath(g_resourcesDir + "/UI/shaders/");
         if (!(s_compProg = Shader::load(shadersPath + k_compVertFilename, shadersPath + k_compFragFilename))) {
             std::cerr << "Failed to load comp program" << std::endl;
             return false;

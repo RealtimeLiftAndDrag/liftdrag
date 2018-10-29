@@ -21,7 +21,7 @@ namespace ui {
 
     bool TexViewer::setup() {
         // Setup tex shader
-        std::string shadersPath(g_resourcesDir + "/Interface/shaders/");
+        std::string shadersPath(g_resourcesDir + "/UI/shaders/");
         if (!(s_texProg = Shader::load(shadersPath + k_texVertFilename, shadersPath + k_texFragFilename))) {
             std::cerr << "Failed to load tex program" << std::endl;
             return false;

@@ -17,8 +17,6 @@ extern "C" {
 // TODO: infinity area thing
 // TODO: velocity updating -> add windspeed to z, normalize, multiply so that z is equal to windspeed
 
-// TODO: three very different airfoils, at some angle, with aoa vs lift and drag along with expected values
-
 
 
 #include <iostream>
@@ -59,7 +57,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::f18);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
@@ -153,10 +151,11 @@ static void changeAngleOfAttack(float deltaAngle) {
 }
 
 static void setRudderAngle(float angle) {
-    if (glm::abs(angle) <= 90.0f) {
+    angle = glm::clamp(angle, -90.0f, 90.0f);
+    if (angle != s_rudderAngle) {
         s_rudderAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), s_rudderAngle, vec3(0.0f, 1.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
         s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
@@ -170,14 +169,15 @@ static void changeRudderAngle(float deltaAngle) {
 }
 
 static void setAileronAngle(float angle) {
-    if (glm::abs(angle) <= 90.0f) {
+    angle = glm::clamp(angle, -90.0f, 90.0f);
+    if (angle != s_aileronAngle) {
         s_aileronAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), s_aileronAngle, vec3(1.0f, 0.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_aileronAngle), vec3(1.0f, 0.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
 
-        modelMat = glm::rotate(mat4(), -s_aileronAngle, vec3(1.0f, 0.0f, 0.0f));
+        modelMat = glm::rotate(mat4(), glm::radians(-s_aileronAngle), vec3(1.0f, 0.0f, 0.0f));
         normalMat = modelMat;
         s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
 
@@ -190,10 +190,11 @@ static void changeAileronAngle(float deltaAngle) {
 }
 
 static void setElevatorAngle(float angle) {
-    if (glm::abs(angle) <= 90.0f) {
+    angle = glm::clamp(angle, -90.0f, 90.0f);
+    if (angle != s_elevatorAngle) {
         s_elevatorAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), s_elevatorAngle, vec3(1.0f, 0.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
         s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);

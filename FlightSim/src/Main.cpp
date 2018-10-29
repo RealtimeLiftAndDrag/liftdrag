@@ -21,7 +21,6 @@ extern "C" {
 #include "glm/gtc/constants.hpp"
 #include "glm/gtx/string_cast.hpp"
 
-
 #include "Common/Global.hpp"
 
 #include "RLD/Simulation.hpp"
@@ -29,15 +28,12 @@ extern "C" {
 #include "Common/Shader.hpp"
 #include "UI/Group.hpp"
 
-
 #include "SimObject.hpp"
 #include "ProgTerrain.hpp"
 
 #include "xboxcontroller.h"
 
-#define PI 3.1415926
-#define PIH 3.1415926f/2.f
-#define PIQ 3.1415926f/4.f
+
 
 CXBOXController XBOXController(1);
 
@@ -51,16 +47,16 @@ public:
 
 static const bool k_windDebug(false);
 static const ivec2 k_windowSize(1280, 1280);
-static const std::string & k_windowTitle("RLD Flight Simulator");
+static const std::string k_windowTitle("RLD Flight Simulator");
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
 static constexpr float k_simLiftC = 0.2f;
 static constexpr float k_simDragC = 0.1f;
 
-static const float k_timeScale(1.f);
-static const float k_thrust(.5f);
-static const float k_thrustIncrease(.1f);
+static const float k_timeScale(1.0f);
+static const float k_thrust(0.5f);
+static const float k_thrustIncrease(0.1f);
 
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
@@ -72,15 +68,15 @@ static float s_momentOfInertia;
 static float s_windframeWidth, s_windframeDepth;
 static float s_windSpeed;
 
-//all in degrees
+// all in degrees
 static float s_aileronAngle(0.0f);
 static float s_rudderAngle(0.0f);
 static float s_elevatorAngle(0.0f);
 static bool s_increaseThrust(false);
 
-static constexpr float k_minRudderAngle(-90.0f), k_maxRudderAngle(90.0f);
-static constexpr float k_minAileronAngle(-90.0f), k_maxAileronAngle(90.0f);
-static constexpr float k_minElevatorAngle(-90.0f), k_maxElevatorAngle(90.0f);
+static constexpr float k_maxRudderAngle(30.0f);
+static constexpr float k_maxAileronAngle(30.0f);
+static constexpr float k_maxElevatorAngle(30.0f);
 
 static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
 
@@ -93,37 +89,55 @@ static void errorCallback(int error, const char * description) {
     std::cerr << "GLFW error " << error << ": " << description << std::endl;
 }
 
-static void changeRudderAngle(float deltaAngle) {
-    s_rudderAngle = glm::clamp(s_rudderAngle + deltaAngle, -k_maxRudderAngle, k_maxRudderAngle);
-    std::cout << "rudder angle: " << s_rudderAngle << std::endl;
-    mat4 modelMat(glm::rotate(mat4(), glm::radians(s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
-    mat3 normalMat(modelMat);
-    s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
-    s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
+static void setRudderAngle(float angle) {
+    angle = glm::clamp(angle, -k_maxRudderAngle, k_maxRudderAngle);
+    if (angle != s_rudderAngle) {
+        s_rudderAngle = angle;
 
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
+        mat3 normalMat(modelMat);
+        s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
+        s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
+    }
+}
+
+static void changeRudderAngle(float deltaAngle) {
+    setRudderAngle(s_rudderAngle + deltaAngle);
+}
+
+static void setAileronAngle(float angle) {
+    angle = glm::clamp(angle, -k_maxAileronAngle, k_maxAileronAngle);
+    if (angle != s_aileronAngle) {
+        s_aileronAngle = angle;
+
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_aileronAngle), vec3(1.0f, 0.0f, 0.0f)));
+        mat3 normalMat(modelMat);
+        s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
+
+        modelMat = glm::rotate(mat4(), glm::radians(-s_aileronAngle), vec3(1.0f, 0.0f, 0.0f));
+        normalMat = modelMat;
+        s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
+    }
 }
 
 static void changeAileronAngle(float deltaAngle) {
-    s_aileronAngle = glm::clamp(s_aileronAngle + deltaAngle, -k_maxAileronAngle, k_maxAileronAngle);
+    setAileronAngle(s_aileronAngle + deltaAngle);
+}
 
-    mat4 modelMat(glm::rotate(mat4(), glm::radians(s_aileronAngle), vec3(1.0f, 0.0f, 0.0f)));
-    mat3 normalMat(modelMat);
-    s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
+static void setElevatorAngle(float angle) {
+    angle = glm::clamp(angle, -k_maxElevatorAngle, k_maxElevatorAngle);
+    if (angle != s_elevatorAngle) {
+        s_elevatorAngle = angle;
 
-    modelMat = glm::rotate(mat4(), glm::radians(-s_aileronAngle), vec3(1.0f, 0.0f, 0.0f));
-    normalMat = modelMat;
-    s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
-
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
+        mat3 normalMat(modelMat);
+        s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
+        s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
+    }
 }
 
 static void changeElevatorAngle(float deltaAngle) {
-    s_elevatorAngle = glm::clamp(s_elevatorAngle + deltaAngle, -k_maxElevatorAngle, k_maxElevatorAngle);
-
-    mat4 modelMat(glm::rotate(mat4(), glm::radians(s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
-    mat3 normalMat(modelMat);
-    s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
-    s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
-
+    setElevatorAngle(s_elevatorAngle + deltaAngle);
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -430,74 +444,42 @@ static void render(float frametime) {
 
 }
 
-void process_stick(double frametime)
-{
+static float stickVal(s16 v) {
+    constexpr float k_posNormFactor(1.0f / 32767.0f), k_negNormFactor(1.0f / 32768.0f);
+    float fv(v >= 0 ? v * k_posNormFactor : v * k_negNormFactor);
 
-    float maxrudderspeed = 2.0f * float(frametime);
+    constexpr float k_threshold(0.25f);
+    constexpr float k_invFactor(1.0f / (1.0f - k_threshold));
+    if (fv >= +k_threshold) return (fv - k_threshold) * k_invFactor;
+    if (fv <= -k_threshold) return (fv + k_threshold) * k_invFactor;
+    return 0.0f;
+}
 
-    /*   s_aileronAngle(0.0f);
-    static float s_rudderAngle(0.0f);
-    static float s_elevatorAngle(0.0f);*/
-    SHORT lx = XBOXController.GetState().Gamepad.sThumbLX;
-    SHORT ly = XBOXController.GetState().Gamepad.sThumbLY;
+static float triggerVal(u08 v) {
+    constexpr float k_normFactor(1.0f / 255.0f);
+    float fv(v * k_normFactor);
 
-    SHORT rx = XBOXController.GetState().Gamepad.sThumbRX;
-    SHORT rsh = XBOXController.GetState().Gamepad.bRightTrigger;
+    constexpr float k_threshold(0.25f);
+    constexpr float k_invFactor(1.0f / (1.0f - k_threshold));
+    return fv >= k_threshold ? (fv - k_threshold) * k_invFactor : 0.0f;
+}
 
-    float angle_r = 0.0, angle_x = 0.0, angle_y = 0.0;
-    if (abs(ly) > 3000)
-    {
-        angle_x = ((float)ly / 32768.0f) * PIQ;
+static void processStick(float dt) {
+    XINPUT_STATE state(XBOXController.GetState());
+    float lx(stickVal(state.Gamepad.sThumbLX));
+    float ly(stickVal(state.Gamepad.sThumbLY));
+    float rx(stickVal(state.Gamepad.sThumbRX));
+    float rsh(triggerVal(state.Gamepad.bRightTrigger));
 
+    setRudderAngle(rx * k_maxRudderAngle);
+    setAileronAngle(lx * k_maxAileronAngle);
+    setElevatorAngle(ly * k_maxElevatorAngle);
+
+    if (rsh > 0.0f) {
+        int x = 9;
     }
-    if (abs(lx) > 3000)
-    {
-        angle_y = ((float)lx / 32768.0f) * PIQ;
-    }
-    if (abs(rx) > 3000)
-    {
-        angle_r = ((float)rx / 32768.0f) * PIQ;
-    }
 
-    s_simObject->thrust = rsh / 255.0f;
-
-
-
-
-    float delta_r = angle_r - s_rudderAngle;
-    if (delta_r > maxrudderspeed)   delta_r = maxrudderspeed;
-    if (delta_r < (-maxrudderspeed)) delta_r = -maxrudderspeed;
-    float delta_x = angle_x - s_elevatorAngle;
-    if (delta_x > maxrudderspeed)   delta_x = maxrudderspeed;
-    if (delta_x < (-maxrudderspeed)) delta_x = -maxrudderspeed;
-    float delta_y = angle_y - s_aileronAngle;
-    if (delta_y > maxrudderspeed)   delta_y = maxrudderspeed;
-    if (delta_y < (-maxrudderspeed)) delta_y = -maxrudderspeed;
-
-
-
-    s_rudderAngle += delta_r;
-    mat4 modelMat(glm::rotate(mat4(), s_rudderAngle, vec3(0.0f, 1.0f, 0.0f)));
-    mat3 normalMat(modelMat);
-    s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
-    s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
-
-
-    s_elevatorAngle += delta_x;
-
-    modelMat = (glm::rotate(mat4(), s_elevatorAngle, vec3(1.0f, 0.0f, 0.0f)));
-    normalMat = (modelMat);
-    s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
-    s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
-
-    s_aileronAngle += delta_y;
-    modelMat = glm::rotate(mat4(), s_aileronAngle, vec3(1.0f, 0.0f, 0.0f));
-    normalMat = modelMat;
-    s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
-    modelMat = glm::rotate(mat4(), -s_aileronAngle, vec3(1.0f, 0.0f, 0.0f));
-    normalMat = modelMat;
-    s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
-
+    s_simObject->thrust = rsh;
 }
 
 double get_last_elapsed_time()
@@ -520,11 +502,10 @@ int main(int argc, char ** argv) {
     while (!glfwWindowShouldClose(s_window)) {
         float frametime{float(get_last_elapsed_time())};
         glfwPollEvents();
+        processStick(frametime);
 
-        // TODO
         render(frametime);
         glfwSwapBuffers(s_window);
-        process_stick(frametime);
     }
 
     cleanup();
