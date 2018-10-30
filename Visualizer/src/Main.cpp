@@ -62,7 +62,7 @@ static constexpr SimModel k_simModel(SimModel::f18);
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
 static constexpr float k_simLiftC = 1.0f;
-static constexpr float k_simDragC = 0.8f;
+static constexpr float k_simDragC = 1.0f;
 static constexpr float k_defWindSpeed = 100.0f;
 
 static const ivec2 k_defWindowSize(1280, 720);

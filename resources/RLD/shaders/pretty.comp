@@ -8,7 +8,7 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
 
-const float k_shadDist = 0.1f; // Must also change in move shader
+const float k_shadDist = 1.5f;//0.1f; // Must also change in move shader
 
 // Uniforms --------------------------------------------------------------------
 
@@ -60,7 +60,7 @@ void main() {
     for (texCoord.y = workI; texCoord.y < u_screenSize; texCoord.y += int(k_workGroupSize)) {
         s_sideVals[workI] = vec4(0.0f);
 
-        for (texCoord.x = 0; texCoord.x < u_screenSize; ++texCoord.x) {
+        for (texCoord.x = 0/*u_screenSize * 2 / 3*/; texCoord.x < u_screenSize; ++texCoord.x) {
             vec4 color = imageLoad(u_fboImg, texCoord);
             float geo = color.r;
             float air = color.g;

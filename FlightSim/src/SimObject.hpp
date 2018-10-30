@@ -8,7 +8,6 @@ class SimObject {
     vec3 a_acc;
     float mass;
     bool gravityOn;
-    float timeScale;
     float maxThrust;
     float thrustVal;
 public:
@@ -26,7 +25,6 @@ public:
     void setGravityOn(bool _gravityOn);
     void setMass(float _mass);
     void setMaxThrust(float _maxThrust);
-    void setTimeScale(float _timeScale);
     mat4 getTranslate();
     mat4 getRotate();
     float getThrustVal();

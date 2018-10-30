@@ -36,15 +36,15 @@ const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGr
 
 float k_airDensity = 1.0f;
 
-const float k_shadDist = 0.1f; // Must also change in pretty shader
-const float k_backforceC = 1000000.0f;//64000000.0f;
-const float k_flowbackFactor = 0.01f; // Fraction of lateral velocity to remain after 1 unit of distance
+const float k_shadDist = 1.5f;//0.1f; // Must also change in pretty shader
+const float k_backforceC = 50000.0f;//1000000.0f;
+const float k_flowbackFactor = 0.15f;//0.01f; // Fraction of lateral velocity to remain after 1 unit of distance
 
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
-const float k_turbulenceDist = 0.045f; // Must also change in outline shader
+const bool k_doTurbulence = false; // Must also change in outline shader
+const float k_turbulenceDist = 0.225f;//0.045f; // Must also change in outline shader
 const float k_maxSearchDist = 2.0f * k_turbulenceDist; // In wind space
-const bool k_doTurbulence = true;
 
 const bool k_doWindShadow = true;
 

@@ -47,17 +47,14 @@ static const std::string k_windowTitle("RLD Flight Simulator");
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
-static constexpr float k_simLiftC = 0.2f;
-static constexpr float k_simDragC = 0.1f;
-
-static const float k_timeScale(1.0f);
-static const float k_thrust(0.5f);
+static constexpr float k_simLiftC = 1.0f;
+static constexpr float k_simDragC = 1.0f;
 
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
 static unq<Shader> s_planeShader;
 
-static mat4 s_modelMat;
+static mat4 s_modelMat; 
 static mat3 s_normalMat;
 static float s_momentOfInertia;
 static float s_windframeWidth, s_windframeDepth;
@@ -204,7 +201,7 @@ static bool setupModel() {
     s_modelMat = s_modelMat * glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)); //upside down at first
     //s_modelMat = glm::translate(mat4(), vec3(0, 0, 1)) * s_modelMat;
     s_momentOfInertia = 1.0f;
-    s_windframeWidth = 20.5f;
+    s_windframeWidth = 14.5f;
     s_windframeDepth = 22.0f;
 
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
@@ -221,9 +218,8 @@ static bool setupModel() {
     s_simObject->setMass(16769); //gross weight in kg pulled from wiki
     s_simObject->setMaxThrust(62.3 * 1000.f * 2.f); //dry thrust from wiki without afterburner (62.3kN per enginer)
     s_simObject->setGravityOn(false);
-    s_simObject->setTimeScale(k_timeScale);
     s_simObject->pos.y = 30.f; //in meters
-    s_simObject->vel.z = -120.f; //in m/s
+    s_simObject->vel.z = -100.f; //in m/s
     //s_simObject->a_pos.y = 0.001; //in m/s
 
     return true;

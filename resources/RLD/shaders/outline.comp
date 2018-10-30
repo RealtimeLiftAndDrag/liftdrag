@@ -34,9 +34,9 @@ struct AirGeoMapElement {
 
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
 
-const float k_turbulenceDist = 0.045f; // Must also change in move shader
+const bool k_doTurbulence = false; // Must also change in move shader
+const float k_turbulenceDist = 0.225f;//0.045f; // Must also change in move shader
 const float k_maxSearchDist = 2.0f * k_turbulenceDist; // In wind space
-const bool k_doTurbulence = true;
 
 const float k_minNormalZ = 1.0f / 1000000.0f;
 const float k_maxNormalZ = 1.0f - k_minNormalZ;
@@ -49,7 +49,7 @@ const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 const bool k_ignoreEdges = false;
 
 const float k_airDensity = 1.0f;
-const float k_initVelC = 0.5f;
+const float k_initVelC = 1.0f;//0.5f;
 
 // Uniforms --------------------------------------------------------------------
 

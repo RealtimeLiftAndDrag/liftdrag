@@ -3,7 +3,6 @@
 
 SimObject::SimObject() {
     gravityOn = true;
-    timeScale = 1.f;
     mass = 1.f;
 
     pos = vec3(0);
@@ -66,11 +65,6 @@ void SimObject::setMass(float _mass) {
 void SimObject::setMaxThrust(float _maxThrust)
 {
     maxThrust = _maxThrust;
-}
-
-void SimObject::setTimeScale(float _timeScale)
-{
-    timeScale = _timeScale;
 }
 
 mat4 SimObject::getTranslate()

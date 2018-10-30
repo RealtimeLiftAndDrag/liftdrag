@@ -50,12 +50,13 @@ void main() {
     vec2 subPixelPos = windToScreen(in_pos.xy);
     subPixelPos -= gl_FragCoord.xy - 0.5f;
     out_color = vec4(k_inactiveVal, subPixelPos, 0.0f);
-
     out_norm = vec4(normalize(in_norm), 0.0f);
 
     // Side View
     if (bool(u_debug)) {
+        //if (windToScreen(vec2(in_pos.x, 0.0f)).x > u_screenSize * 2 / 3) {
         vec2 sideTexPos = windToScreen(vec2(-in_pos.z, in_pos.y));
         imageStore(u_sideImg, ivec2(sideTexPos), vec4(vec3(k_inactiveVal * 0.5f), 0.0f));
+        //}
     }
 }
