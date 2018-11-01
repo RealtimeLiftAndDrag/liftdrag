@@ -62,9 +62,9 @@ namespace rld {
     const vec3 * drags();
 
     // Returns the torque of the sweep
-    const vec3 & torque();
+    const vec3 & torq();
     // Returns the torques for each slice
-    const vec3 * torques();
+    const vec3 * torqs();
 
     uint frontTex();
     uint sideTex();

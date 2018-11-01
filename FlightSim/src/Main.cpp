@@ -1,8 +1,6 @@
 ﻿// Realtime Lift and Drag SURP 2018
 // Christian Eckhart, William Newey, Austin Quick, Sebastian Seibert
 
-
-
 // Allows program to be run on dedicated graphics processor for laptops with
 // both integrated and dedicated graphics using Nvidia Optimus
 #ifdef _WIN32
@@ -41,14 +39,19 @@ public:
 
 };
 
-static const bool k_windDebug(false);
 static const ivec2 k_windowSize(1280, 1280);
 static const std::string k_windowTitle("RLD Flight Simulator");
 
-static constexpr int k_simTexSize = 1024;
-static constexpr int k_simSliceCount = 100;
-static constexpr float k_simLiftC = 1.0f;
-static constexpr float k_simDragC = 1.0f;
+static constexpr int k_simTexSize(1024);
+static constexpr int k_simSliceCount(100);
+static constexpr float k_simLiftC(1.0f);
+static constexpr float k_simDragC(1.0f);
+static constexpr float k_windframeWidth(14.5f);
+static constexpr float k_windframeDepth(22.0f);
+
+static constexpr float k_fov(glm::radians(75.0f));
+static constexpr float k_near(0.01f), k_far(250.0f);
+static constexpr float k_gravity(0.0f);//9.8f);
 
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
@@ -56,8 +59,6 @@ static unq<Shader> s_planeShader;
 
 static mat4 s_modelMat; 
 static mat3 s_normalMat;
-static float s_momentOfInertia;
-static float s_windframeWidth, s_windframeDepth;
 static float s_windSpeed;
 
 // all in degrees
@@ -74,6 +75,7 @@ static constexpr float k_keyAngleSpeed(90.0f); // how quickly the rudders/ailero
 static constexpr float k_returnAngleSpeed(90.0f); // how quickly the rudders/ailerons/elevators will return to their default position in degrees per second
 
 static GLFWwindow * s_window;
+static CXBOXController s_xboxController(1);
 
 // These apply when using the keyboard to control the plane
 static bool s_keyboardYawCCW, s_keyboardYawCW;
@@ -87,7 +89,11 @@ static float s_controllerPitch;
 static float s_controllerRoll;
 static float s_controllerThrust;
 
-static CXBOXController s_xboxController(1);
+static bool s_windView;
+
+static mat4 s_perspectiveMat;
+static mat4 s_windViewViewMat;
+static mat4 s_windViewOrthoMat;
 
 
 
@@ -95,12 +101,13 @@ static void errorCallback(int error, const char * description) {
     std::cerr << "GLFW error " << error << ": " << description << std::endl;
 }
 
+// Positive angle means positive yaw and vice versa
 static void setRudderAngle(float angle) {
     angle = glm::clamp(angle, -k_maxRudderAngle, k_maxRudderAngle);
     if (angle != s_rudderAngle) {
         s_rudderAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
         s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
@@ -111,6 +118,7 @@ static void changeRudderAngle(float deltaAngle) {
     setRudderAngle(s_rudderAngle + deltaAngle);
 }
 
+// Positive angle means positive roll and vice versa
 static void setAileronAngle(float angle) {
     angle = glm::clamp(angle, -k_maxAileronAngle, k_maxAileronAngle);
     if (angle != s_aileronAngle) {
@@ -130,12 +138,13 @@ static void changeAileronAngle(float deltaAngle) {
     setAileronAngle(s_aileronAngle + deltaAngle);
 }
 
+// Positive angle means positive pitch and vice versa
 static void setElevatorAngle(float angle) {
     angle = glm::clamp(angle, -k_maxElevatorAngle, k_maxElevatorAngle);
     if (angle != s_elevatorAngle) {
         s_elevatorAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
         s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
@@ -147,18 +156,19 @@ static void changeElevatorAngle(float deltaAngle) {
 }
 
 static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    // A and D control yaw
-    if (key == GLFW_KEY_A) {
-        if (action == GLFW_PRESS && !mods) s_keyboardYawCCW = true;
+    // TODO: verify these axes
+    // D and A control yaw
+    if (key == GLFW_KEY_D) {
+        if (action == GLFW_PRESS) s_keyboardYawCCW = true;
         else if (action == GLFW_RELEASE) s_keyboardYawCCW = false;
     }
-    else if (key == GLFW_KEY_D) {
-        if (action == GLFW_PRESS && !mods) s_keyboardYawCW = true;
+    else if (key == GLFW_KEY_A) {
+        if (action == GLFW_PRESS) s_keyboardYawCW = true;
         else if (action == GLFW_RELEASE) s_keyboardYawCW = false;
     }
     // W and S control pitch
-    if (key == GLFW_KEY_W) {
-        if (action == GLFW_PRESS && !mods) s_keyboardPitchCCW = true;
+    else if (key == GLFW_KEY_W) {
+        if (action == GLFW_PRESS) s_keyboardPitchCCW = true;
         else if (action == GLFW_RELEASE) s_keyboardPitchCCW = false;
     }
     else if (key == GLFW_KEY_S) {
@@ -166,77 +176,72 @@ static void keyCallback(GLFWwindow *window, int key, int scancode, int action, i
         else if (action == GLFW_RELEASE) s_keyboardPitchCW = false;
     }
     // E and Q control roll
-    if (key == GLFW_KEY_E) {
-        if (action == GLFW_PRESS && !mods) s_keyboardRollCCW = true;
+    else if (key == GLFW_KEY_E) {
+        if (action == GLFW_PRESS) s_keyboardRollCCW = true;
         else if (action == GLFW_RELEASE) s_keyboardRollCCW = false;
     }
     else if (key == GLFW_KEY_Q) {
-        if (action == GLFW_PRESS && !mods) s_keyboardRollCW = true;
+        if (action == GLFW_PRESS) s_keyboardRollCW = true;
         else if (action == GLFW_RELEASE) s_keyboardRollCW = false;
     }
     // Space controls thrust
     else if (key == GLFW_KEY_SPACE) {
-        if (action == GLFW_PRESS && !mods) s_keyboardThrust = true;
+        if (action == GLFW_PRESS) s_keyboardThrust = true;
         else if (action == GLFW_RELEASE) s_keyboardThrust = false;
     }
-
-    else if (key == GLFW_KEY_L && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        s_simObject->a_pos.y += 0.03125;
-    }
-
-    else if (key == GLFW_KEY_K && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        s_simObject->a_pos.y -= 0.03125;
+    // K enables wind view
+    else if (key == GLFW_KEY_K) {
+        if (action == GLFW_PRESS) s_windView = true;
+        else if (action == GLFW_RELEASE) s_windView = false;
     }
 }
 
 
-static bool setupModel() {
+static bool setupObject() {
+    // The plane model is upside-down, pointed toward +z
     s_model = Model::load(g_resourcesDir + "/models/f18.grl");
     if (!s_model) {
         std::cerr << "Failed to load model" << std::endl;
         return false;
     }
 
-    s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)); //upside down at first
-    s_modelMat = s_modelMat * glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)); //upside down at first
-    //s_modelMat = glm::translate(mat4(), vec3(0, 0, 1)) * s_modelMat;
-    s_momentOfInertia = 1.0f;
-    s_windframeWidth = 14.5f;
-    s_windframeDepth = 22.0f;
-
+    s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)); // flip right-side up
+    s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)) * s_modelMat; // turn to face -z
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
 
-    //send first rotation matrix and model to the rld
-    rld::set(*s_model, s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
+    // Numbers taken from "Susceptibility of F/A-18 Flight Controllers to the Falling-Leaf Mode: Linear Analysis" - Chakraborty, Seiler, Balas
+    // http://www.aem.umn.edu/~AerospaceControl/V&VWebpage/Papers/AIAALin.pdf
+    float mass(15097.393f); // gross weight in kg pulled from wiki
+    vec3 inertiaTensor(205125.765f, 230414.482f, 31183.813f); // pitch, yaw, roll
+    float dryThrust(71616.368f * 2.0f); // thrust in N without afterburners pulled from wiki (62.3kN per enginer)
+    vec3 initPos(0.0f, 30.0f, 0.0f);
+    vec3 initDir(0.0f, 0.0f, -1.0f);
+    float initSpeed(100.0f);
 
-    //setup simObject
-    s_simObject = std::make_unique<SimObject>();
-    if (!s_simObject) {
-        std::cerr << "Failed to create sim object" << std::endl;
-        return false;
-    }
-    s_simObject->setMass(16769); //gross weight in kg pulled from wiki
-    s_simObject->setMaxThrust(62.3 * 1000.f * 2.f); //dry thrust from wiki without afterburner (62.3kN per enginer)
-    s_simObject->setGravityOn(false);
-    s_simObject->pos.y = 30.f; //in meters
-    s_simObject->vel.z = -100.f; //in m/s
-    //s_simObject->a_pos.y = 0.001; //in m/s
+    s_simObject.reset(new SimObject(mass, inertiaTensor, dryThrust, initPos, initDir, initSpeed));
 
     return true;
 }
 
-static bool setupShader() {
-    std::string shadersPath(g_resourcesDir + "/FlightSim/shaders/");
+static void detMatrices() {
+    // Perspective matrix
+    float aspect(float(k_windowSize.x) / float(k_windowSize.y));
+    float fov(k_windowSize.x >= k_windowSize.y ? k_fov : k_fov / aspect); // fov is always for smaller dimension
+    s_perspectiveMat = glm::perspective(fov, aspect, k_near, k_far);
 
-    // Foil Shader
-    if (!(s_planeShader = Shader::load(shadersPath + "plane.vert", shadersPath + "plane.frag"))) {
-        std::cerr << "Failed to load foil shader" << std::endl;
-        return false;
-    }
+    // Wind view view matrix
+    s_windViewViewMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -k_windframeDepth * 0.5f));
 
-    return true;
+    // Wind view orthographic matrix
+    s_windViewOrthoMat = glm::ortho(
+        -k_windframeWidth * 0.5f, // left
+         k_windframeWidth * 0.5f, // right
+        -k_windframeWidth * 0.5f, // bottom
+         k_windframeWidth * 0.5f, // top
+        -k_windframeDepth * 0.5f, // near
+         k_windframeDepth * 0.5f  // far
+    );
 }
-
 
 static bool setup() {
     // Setup window
@@ -254,7 +259,7 @@ static bool setup() {
         return false;
     }
     glfwMakeContextCurrent(s_window);
-    glfwSwapInterval(1); // VSync on or off
+    glfwSwapInterval(0); // VSync on or off
     glfwSetKeyCallback(s_window, keyCallback);
 
     // Setup GLAD
@@ -266,21 +271,22 @@ static bool setup() {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 
-    // Setup simulation
+    // Setup RLD
     if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
 
-    //setup model for sim
-    if (!setupModel()) {
-        std::cerr << "Failed to load model for Sim" << std::endl;
+    // Setup object
+    if (!setupObject()) {
+        std::cerr << "Failed to setup model" << std::endl;
         return false;
     }
 
-    //load shader for sim
-    if (!setupShader()) {
-        std::cerr << "Failed to load shader for Sim" << std::endl;
+    // Setup plane shader
+    std::string shadersPath(g_resourcesDir + "/FlightSim/shaders/");
+    if (!(s_planeShader = Shader::load(shadersPath + "plane.vert", shadersPath + "plane.frag"))) {
+        std::cerr << "Failed to load plane shader" << std::endl;
         return false;
     }
 
@@ -293,6 +299,8 @@ static bool setup() {
         std::cout << "Xbox controller connected" << std::endl;
     }
 
+    detMatrices();
+
     return true;
 }
 
@@ -301,50 +309,8 @@ static void cleanup() {
     glfwTerminate();
 }
 
-static mat4 getPerspectiveMatrix() {
-    float fov(3.14159f / 4.0f);
-    float aspect;
-    if (k_windowSize.x < k_windowSize.y) {
-        aspect = float(k_windowSize.y) / float(k_windowSize.x);
-    }
-    else {
-        aspect = float(k_windowSize.x) / float(k_windowSize.y);
-    }
-
-    return glm::perspective(fov, aspect, 0.01f, 1000.f);
-}
-
-static mat4 getOrthographicMatrix() {
-    float windframeRadius(s_windframeWidth * 0.5f);
-
-    return glm::ortho(
-        -windframeRadius, // left
-        windframeRadius,  // right
-        -windframeRadius, // bottom
-        windframeRadius,  // top
-        0.01f, // near
-        100.f // far
-    );
-}
-
-static mat4 getViewMatrix(vec3 camPos) {
-    vec3 lookPos = s_simObject->pos;
-    vec3 viewVec = lookPos - camPos;
-    vec3 right = glm::cross(viewVec, vec3(0, 1, 0));
-    vec3 up = glm::cross(right, viewVec);
-    return glm::lookAt(
-        camPos,
-        lookPos,
-        up
-    );
-}
-
-static mat4 getWindViewMatrix(vec3 wind) {
-    return glm::lookAt(
-        vec3(0, 0, 0), //camPos
-        wind, //looking in the direction of the wind
-        vec3(0, 1, 0) //don't care about roll so just always global up
-    );
+static mat4 getWindViewMatrix(const vec3 & wind) {
+    return glm::lookAt(vec3(), wind, vec3(0.0f, 1.0f, 0.0f));
 }
 
 static std::string matrixToString(mat4 m) {
@@ -436,96 +402,79 @@ static void update(float dt) {
 
     // Update thrust
     if (s_controllerThrust) { // Controller takes priority
-        s_simObject->thrust = s_controllerThrust;
+        s_simObject->thrust(s_controllerThrust);
     }
     else { // Otherwise keyboard
-        s_simObject->thrust = float(s_keyboardThrust);
+        s_simObject->thrust(float(s_keyboardThrust));
     }
 }
 
 static void render(float dt) {
-    //glClearColor(0.1f, 0.1f, 0.1f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    vec3 wind = -(s_simObject->vel); //wind is equivalent to opposite direction/speed of velocity
-    s_windSpeed = length(s_simObject->vel);
-    mat4 windViewMatrix = getWindViewMatrix(wind);
-    mat4 simRotateMat = s_simObject->getRotate();
-    mat4 simTranslateMat = s_simObject->getTranslate();
+    vec3 wind(-s_simObject->velocity()); //wind is equivalent to opposite direction/speed of velocity
+    float windSpeed(glm::length(wind));
+    vec3 windW(wind / -windSpeed); // Normalize. Negative because the W vector is opposite the direction "looked in"
+    vec3 windU(glm::normalize(glm::cross(s_simObject->v(), windW))); // TODO: will break if wind direction is parallel to object's v
+    vec3 windV(glm::cross(windW, windU));
+    mat3 windBasis(windU, windV, windW);
 
-    vec3 camOffset = vec3(simRotateMat * vec4(0, 0, 25.0, 1));
-    vec3 camPos = s_simObject->pos + camOffset;
-    mat4 viewMat = getViewMatrix(camPos);
+    //mat3 turnAroundMat(-1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f); // manual because I don't want the imprecision from the trig functions
+    mat3 rldOrientMat(glm::transpose(windBasis) * s_simObject->orientMatrix());// * turnAroundMat);
+    mat4 rldModelMat(mat4(rldOrientMat) * s_modelMat);
+    mat3 rldNormalMat(rldOrientMat * s_normalMat);
 
-    //std::cout << "combined force: " << glm::to_string(combinedForce) << std::endl;
-    //std::cout << "torque: " << glm::to_string(torque) << std::endl;
-    //std::cout << "time scale: " << k_timeScale << std::endl;
-    //std::cout << "curPos: " << glm::to_string(s_simObject->pos) << std::endl;
-    //std::cout << "curAngle: " << glm::to_string(s_simObject->a_pos) << std::endl;
-    //std::cout << "Wind vector: " << glm::to_string(wind) << std::endl;
-    //std::cout << "sim rotate mat\n" << matrixToString(simRotateMat) << std::endl << std::endl;
-    //std::cout << "wind view matrix\n" << matrixToString(windViewMatrix) << std::endl << std::endl;
-    //std::cout << "s_model matrix\n" << matrixToString(s_modelMat) << std::endl << std::endl;
-    //std::cout << "Final rld modelMat\n" << matrixToString(windViewMatrix * simRotateMat * s_modelMat) << std::endl << std::endl;
-    //std::cout << "Rotate mat of what it should be:\n" << matrixToString(glm::rotate(mat4(), -3.14159f / 2.f, vec3(0, 0, 1))) << std::endl << std::endl;
-    //
-    s_normalMat = glm::transpose(glm::inverse(s_modelMat));
-    rld::set(*s_model, windViewMatrix * simRotateMat * s_modelMat, s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, false);
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
+
+    rld::set(*s_model, rldModelMat, rldNormalMat, k_windframeWidth, k_windframeDepth, glm::length(wind), false);
     rld::sweep();
-    vec3 lift = rld::lift();
-    vec3 drag = rld::drag();
-    vec3 combinedForce = lift + drag;
-    vec3 torque = rld::torque();
 
-    //std::cout << "thrustVal (in Newtons): " << s_simObject->getThrustVal() << std::endl;
-    //std::cout << "vel: " << glm::to_string(s_simObject->vel) << std::endl << std::endl;
-    s_simObject->addTranslationalForce(combinedForce * 10.f);
-    float mEV = 100000.f;
-    /*if (length(torque) > mEV || length(lift) > mEV || length(drag) > mEV) {
-        torque = vec3(0);
-        lift = vec3(0);
-        drag = vec3(0);
-    }*/
-    torque *= 10.f;
-    s_simObject->addAngularForce(torque);
+    vec3 lift = windBasis * vec3(rld::lift().x, rld::lift().y, 0.0f); // TODO: figure out what is up with lift along z axis
+    vec3 drag = windBasis * rld::drag();
+    vec3 torq = windBasis * rld::torq();
+    //lift.x = lift.y = 0.0f;
+    //drag.x = drag.y = 0.0f;
+    torq.x = torq.y = 0.0f;
+
+    //s_simObject->addTranslationalForce(lift + drag);
+    s_simObject->addAngularForce(torq);
     s_simObject->update(dt);
-    std::cout << "lift: " << glm::to_string(lift) << std::endl;
-    //std::cout << "drag: " << glm::to_string(drag) << std::endl;
-    std::cout << "torque: " << torque.y /1000.f << std::endl;
-    //std::cout << "y angle (in degrees) " << glm::degrees(s_simObject->a_pos.y) << std::endl;
-    //std::cout << "y angle (in radians) " << s_simObject->a_pos.y << std::endl;
-    std::cout << "angle: " << s_simObject->a_pos.y << std::endl;
 
-    //std::cout << "pos " << glm::to_string(s_simObject->pos) << std::endl;
+    std::cout << torq.z << std::endl;
+
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
-    std::cout << std::endl;
 
-
-    mat4 modelMat, normalMat;
+    mat4 modelMat;
+    mat3 normalMat;
+    mat4 viewMat;
     mat4 projMat;
 
-    modelMat = s_modelMat;
-    normalMat = s_normalMat;
-
-
-    //modelMat = mat4();
-
-    if (k_windDebug) {
-        projMat = getOrthographicMatrix();
-        modelMat = windViewMatrix * simRotateMat * s_modelMat; //what the wind sees (use for debugging)
-        viewMat = glm::translate(mat4(), vec3(0, 0, -17.5)); //just move model away so we can see it on screen. Just for debugging not used anywhere for sim
+    if (s_windView) { // What the wind sees (use for debugging)
+        modelMat = rldModelMat;
+        normalMat = rldNormalMat;
+        if (glfwGetKey(s_window, GLFW_KEY_LEFT_SHIFT)) { // Orthographic if shift is pressed
+            projMat = s_windViewOrthoMat;
+        }
+        else { // Perspective otherwise
+            viewMat = s_windViewViewMat;
+            projMat = s_perspectiveMat;
+        }
     }
-    else {
-        projMat = getPerspectiveMatrix();
-        modelMat = simTranslateMat * simRotateMat * modelMat; //what should be rendered
-        normalMat = glm::transpose(glm::inverse(modelMat));
+    else {        
+        modelMat = s_simObject->orientMatrix();
+        modelMat = modelMat * s_modelMat;
+        modelMat[3] = vec4(s_simObject->position(), 1.0f);
+        normalMat = s_simObject->orientMatrix() * s_normalMat;
+        vec3 camPos(s_simObject->position() + s_simObject->orientMatrix() * vec3(0.0f, 0.0f, 20.0f));
+        viewMat = glm::lookAt(camPos, s_simObject->position(), vec3(0.0f, 1.0f, 0.0f));
+        projMat = s_perspectiveMat;
         ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
     }
 
-
     glEnable(GL_DEPTH_TEST);
+
+    // TODO: disable backface culling
 
     s_planeShader->bind();
     s_planeShader->uniform("u_projMat", projMat);
@@ -538,15 +487,6 @@ static void render(float dt) {
     //reset gl variables set to not mess up rld sim
     glDisable(GL_DEPTH_TEST);
 
-}
-
-double get_last_elapsed_time()
-{
-    static double lasttime = glfwGetTime();
-    double actualtime = glfwGetTime();
-    double difference = actualtime - lasttime;
-    lasttime = actualtime;
-    return difference;
 }
 
 

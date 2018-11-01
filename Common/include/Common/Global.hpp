@@ -15,6 +15,8 @@ using glm::dvec2, glm::dvec3, glm::dvec4;
 
 using glm::mat2, glm::mat3, glm::mat4;
 
+using glm::quat;
+
 using uchar = unsigned char;
 using ushort = unsigned short;
 using uint = unsigned int;

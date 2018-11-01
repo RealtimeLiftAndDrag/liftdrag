@@ -328,15 +328,15 @@ namespace rld {
 
         s_foilProg->bind();
 
-        float zNear(s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize);
+        float nearDist(s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize);
         float windframeRadius(s_windframeWidth * 0.5f);
         mat4 projMat(glm::ortho(
             -windframeRadius, // left
             windframeRadius,  // right
             -windframeRadius, // bottom
             windframeRadius,  // top
-            zNear, // near
-            zNear + s_sliceSize // far
+            nearDist, // near
+            nearDist + s_sliceSize // far
         ));
         s_foilProg->uniform("u_projMat", projMat);
 
@@ -590,7 +590,7 @@ namespace rld {
         s_swap = 1 - s_swap;
 
         s_constants.slice = s_currentSlice;
-        s_constants.sliceZ = s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize;
+        s_constants.sliceZ = s_windframeDepth * 0.5f - s_currentSlice * s_sliceSize;
         uploadConstants();
         resetCounters(false);
 
@@ -649,11 +649,11 @@ namespace rld {
         return s_drags.data();
     }
 
-    const vec3 & torque() {
+    const vec3 & torq() {
         return s_torq;
     }
 
-    const vec3 * torques() {
+    const vec3 * torqs() {
         return s_torqs.data();
     }
 

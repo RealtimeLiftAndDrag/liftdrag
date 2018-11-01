@@ -109,7 +109,7 @@ void main() {
         ivec2 texCoord = ivec2(windToScreen(windPos.xy));
         ivec2 sideTexCoord;
         if (bool(u_debug)) {
-            sideTexCoord = ivec2(windToScreen(vec2(u_sliceZ, windPos.y)));
+            sideTexCoord = ivec2(windToScreen(vec2(-u_sliceZ, windPos.y)));
         }
 
         // Check if in texture

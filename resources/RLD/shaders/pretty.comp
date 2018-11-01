@@ -53,7 +53,7 @@ float getShadFactor(float shad) {
 
 void main() {
     int workI = int(gl_LocalInvocationIndex);
-    int sideX = int(windToScreen(u_sliceZ));
+    int sideX = int(windToScreen(-u_sliceZ));
     float depth = u_slice * u_sliceSize;
 
     ivec2 texCoord;

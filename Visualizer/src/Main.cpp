@@ -150,12 +150,13 @@ static void changeAngleOfAttack(float deltaAngle) {
     setAngleOfAttack(s_angleOfAttack + deltaAngle);
 }
 
+// Positive angle means positive yaw and vice versa
 static void setRudderAngle(float angle) {
     angle = glm::clamp(angle, -90.0f, 90.0f);
     if (angle != s_rudderAngle) {
         s_rudderAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
         s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
@@ -168,6 +169,7 @@ static void changeRudderAngle(float deltaAngle) {
     setRudderAngle(s_rudderAngle + deltaAngle);
 }
 
+// Positive angle means positive roll and vice versa
 static void setAileronAngle(float angle) {
     angle = glm::clamp(angle, -90.0f, 90.0f);
     if (angle != s_aileronAngle) {
@@ -189,12 +191,13 @@ static void changeAileronAngle(float deltaAngle) {
     setAileronAngle(s_aileronAngle + deltaAngle);
 }
 
+// Positive angle means positive pitch and vice versa
 static void setElevatorAngle(float angle) {
     angle = glm::clamp(angle, -90.0f, 90.0f);
     if (angle != s_elevatorAngle) {
         s_elevatorAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
         s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
@@ -214,10 +217,10 @@ static void setSimulation(float angleOfAttack, bool debug) {
 }
 
 static void submitResults(float angleOfAttack) {
-    results::submitAngle(angleOfAttack, { rld::lift(), rld::drag(), rld::torque() });
+    results::submitAngle(angleOfAttack, { rld::lift(), rld::drag(), rld::torq() });
     const vec3 * lifts(rld::lifts());
     const vec3 * drags(rld::drags());
-    const vec3 * torqs(rld::torques());
+    const vec3 * torqs(rld::torqs());
     for (int i(0); i < rld::sliceCount(); ++i) {
         results::submitSlice(i, { lifts[i], drags[i], torqs[i] });
     }
@@ -238,7 +241,7 @@ static void doFastSweep(float angleOfAttack) {
 
     submitResults(angleOfAttack);
 
-    std::cout << "Angle: " << angleOfAttack << ", Lift: " << rld::lift().y << ", Drag: " << glm::length(rld::drag()) << ", Torque: " << rld::torque().x << ", SPS: " << (1.0 / dt) << std::endl;
+    std::cout << "Angle: " << angleOfAttack << ", Lift: " << rld::lift().y << ", Drag: " << glm::length(rld::drag()) << ", Torque: " << rld::torq().x << ", SPS: " << (1.0 / dt) << std::endl;
 }
 
 static void doAllAngles() {
@@ -502,7 +505,7 @@ static void updateInfoText() {
     s_angleField->value(s_angleOfAttack);
     s_angleLiftNum->value(rld::lift());
     s_angleDragNum->value(rld::drag());
-    s_angleTorqueNum->value(rld::torque());}
+    s_angleTorqueNum->value(rld::torq());}
 
 static void updateF18InfoText() {
     s_rudderNum->value(s_rudderAngle);
@@ -525,7 +528,7 @@ static void update() {
             s_shouldSweep = false;
             vec3 lift(rld::lift());
             vec3 drag(rld::drag());
-            vec3 torq(rld::torque());
+            vec3 torq(rld::torq());
 
             submitResults(s_angleOfAttack);
 
