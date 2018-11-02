@@ -202,9 +202,8 @@ static void keyCallback(GLFWwindow *window, int key, int scancode, int action, i
         else if (action == GLFW_RELEASE) s_keyboardThrust = false;
     }
     // K enables wind view
-    else if (key == GLFW_KEY_K) {
-        if (action == GLFW_PRESS) s_windView = true;
-        else if (action == GLFW_RELEASE) s_windView = false;
+    else if (key == GLFW_KEY_K && action == GLFW_RELEASE) {
+		s_windView = !s_windView;
     }
 	// R resets the object
 	else if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
@@ -261,8 +260,8 @@ static void detMatrices() {
 
     // Wind view orthographic matrix
     s_windViewOrthoMat = glm::ortho(
-        -k_windframeWidth * 0.5f, // left
-         k_windframeWidth * 0.5f, // right
+        -k_windframeWidth * 0.5f * aspect, // left
+         k_windframeWidth * 0.5f * aspect, // right
         -k_windframeWidth * 0.5f, // bottom
          k_windframeWidth * 0.5f, // top
         -k_windframeDepth * 0.5f, // near
