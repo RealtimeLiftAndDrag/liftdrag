@@ -39,7 +39,7 @@ public:
 
 };
 
-static const ivec2 k_windowSize(1280, 1280);
+static const ivec2 k_defWindowSize(1280, 1280);
 static const std::string k_windowTitle("RLD Flight Simulator");
 
 static constexpr int k_simTexSize(1024);
@@ -52,6 +52,12 @@ static constexpr float k_windframeDepth(22.0f);
 static constexpr float k_fov(glm::radians(75.0f));
 static constexpr float k_near(0.01f), k_far(1000.0f);
 static constexpr float k_gravity(0.0f);//9.8f);
+
+static vec3 k_initPos(0.0f, 80.0f, 0.0f);
+static vec3 k_initDir(0.0f, 0.0f, -1.0f);
+static float k_initSpeed(60.0f);
+
+static ivec2 s_windowSize(k_defWindowSize);
 
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
@@ -200,11 +206,23 @@ static void keyCallback(GLFWwindow *window, int key, int scancode, int action, i
         if (action == GLFW_PRESS) s_windView = true;
         else if (action == GLFW_RELEASE) s_windView = false;
     }
+	// R resets the object
+	else if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
+		s_simObject->reset(k_initPos, k_initDir, k_initSpeed);
+	}
+}
+
+void detMatrices();
+
+static void framebufferSizeCallback(GLFWwindow * window, int width, int height) {
+	s_windowSize.x = width;
+	s_windowSize.y = height;
+	detMatrices();
 }
 
 static bool setupObject() {
     // The plane model is upside-down, pointed toward +z
-    s_model = Model::load(g_resourcesDir + "/models/f18.grl");
+    s_model = Model::load(g_resourcesDir + "/models/f18_zero_normals.grl");
     if (!s_model) {
         std::cerr << "Failed to load model" << std::endl;
         return false;
@@ -226,19 +244,16 @@ static bool setupObject() {
     float mass(15097.393f); // gross weight in kg pulled from wiki
     vec3 inertiaTensor(205125.765f, 230414.482f, 31183.813f); // pitch, yaw, roll
     float dryThrust(71616.368f * 2.0f); // thrust in N without afterburners pulled from wiki (62.3kN per enginer)
-    vec3 initPos(0.0f, 80.0f, 0.0f);
-    vec3 initDir(0.0f, 0.0f, -1.0f);
-    float initSpeed(60.0f);
 
-    s_simObject.reset(new SimObject(mass, inertiaTensor, dryThrust, initPos, initDir, initSpeed));
+    s_simObject.reset(new SimObject(mass, inertiaTensor, dryThrust, k_initPos, k_initDir, k_initSpeed));
 
     return true;
 }
 
 static void detMatrices() {
     // Perspective matrix
-    float aspect(float(k_windowSize.x) / float(k_windowSize.y));
-    float fov(k_windowSize.x >= k_windowSize.y ? k_fov : k_fov / aspect); // fov is always for smaller dimension
+    float aspect(float(s_windowSize.x) / float(s_windowSize.y));
+    float fov(s_windowSize.x >= s_windowSize.y ? k_fov : k_fov / aspect); // fov is always for smaller dimension
     s_perspectiveMat = glm::perspective(fov, aspect, k_near, k_far);
 
     // Wind view view matrix
@@ -266,13 +281,14 @@ static bool setup() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    if (!(s_window = glfwCreateWindow(k_windowSize.x, k_windowSize.y, k_windowTitle.c_str(), nullptr, nullptr))) {
+    if (!(s_window = glfwCreateWindow(s_windowSize.x, s_windowSize.y, k_windowTitle.c_str(), nullptr, nullptr))) {
         std::cerr << "Failed to create window" << std::endl;
         return false;
     }
     glfwMakeContextCurrent(s_window);
     glfwSwapInterval(0); // VSync on or off
     glfwSetKeyCallback(s_window, keyCallback);
+	glfwSetFramebufferSizeCallback(s_window, framebufferSizeCallback);
 
     // Setup GLAD
     if (!gladLoadGL()) {
@@ -281,7 +297,7 @@ static bool setup() {
     }
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glViewport(0, 0, k_windowSize.x, k_windowSize.y);
+    glViewport(0, 0, s_windowSize.x, s_windowSize.y);
 
     // Setup object
     if (!setupObject()) {
@@ -458,7 +474,7 @@ static void render(float dt) {
 
     std::cout << glm::to_string(s_simObject->velocity()) << std::endl;
 
-    glViewport(0, 0, k_windowSize.x, k_windowSize.y);
+    glViewport(0, 0, s_windowSize.x, s_windowSize.y);
 
     mat4 modelMat;
     mat3 normalMat;
