@@ -29,7 +29,7 @@ namespace ProgTerrain {
     float time = 1.0;
     namespace {
 
-        static const int k_meshSize(300);
+        static const int k_meshSize(600);
         static const float k_meshRes(2.f); // Higher value = less verticies per unit of measurement
         void init_mesh() {
             //generate the VAO

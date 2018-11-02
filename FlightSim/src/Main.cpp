@@ -44,13 +44,13 @@ static const std::string k_windowTitle("RLD Flight Simulator");
 
 static constexpr int k_simTexSize(1024);
 static constexpr int k_simSliceCount(100);
-static constexpr float k_simLiftC(1.0f);
+static constexpr float k_simLiftC(0.3f);
 static constexpr float k_simDragC(1.0f);
 static constexpr float k_windframeWidth(14.5f);
 static constexpr float k_windframeDepth(22.0f);
 
 static constexpr float k_fov(glm::radians(75.0f));
-static constexpr float k_near(0.01f), k_far(250.0f);
+static constexpr float k_near(0.01f), k_far(1000.0f);
 static constexpr float k_gravity(0.0f);//9.8f);
 
 static unq<Model> s_model;
@@ -212,7 +212,7 @@ static bool setupObject() {
 
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)); // flip right-side up
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)) * s_modelMat; // turn to face -z
-    //s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
+    s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 2.0f)) * s_modelMat;
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
 
     s_turbulenceDist = 0.225f;
@@ -226,9 +226,9 @@ static bool setupObject() {
     float mass(15097.393f); // gross weight in kg pulled from wiki
     vec3 inertiaTensor(205125.765f, 230414.482f, 31183.813f); // pitch, yaw, roll
     float dryThrust(71616.368f * 2.0f); // thrust in N without afterburners pulled from wiki (62.3kN per enginer)
-    vec3 initPos(0.0f, 30.0f, 0.0f);
+    vec3 initPos(0.0f, 80.0f, 0.0f);
     vec3 initDir(0.0f, 0.0f, -1.0f);
-    float initSpeed(100.0f);
+    float initSpeed(60.0f);
 
     s_simObject.reset(new SimObject(mass, inertiaTensor, dryThrust, initPos, initDir, initSpeed));
 
@@ -358,7 +358,7 @@ static void processController() {
     if (s_controller.connected()) {
         s_controller.poll();
         s_controllerYaw = s_controller.rStick().x;
-        s_controllerPitch = s_controller.lStick().y;
+        s_controllerPitch = -s_controller.lStick().y;
         s_controllerRoll = s_controller.lStick().x;
         s_controllerThrust = s_controller.rTrigger();
     }
@@ -456,7 +456,7 @@ static void render(float dt) {
     s_simObject->addAngularForce(torq);
     s_simObject->update(dt);
 
-    //std::cout << torq.z << std::endl;
+    std::cout << glm::to_string(s_simObject->velocity()) << std::endl;
 
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 

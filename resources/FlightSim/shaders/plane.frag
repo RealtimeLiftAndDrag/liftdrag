@@ -35,7 +35,7 @@ void main() {
     vec3 specularColor = vec3(1) * specularFactor * specularStrength;
 
     //output color
-    //out_color.rgb = ambientColor + diffuseColor + specularColor;
-    out_color.rgb = (normal + 1.0f) * 0.5f;
+    out_color.rgb = ambientColor + diffuseColor + specularColor;
+    //out_color.rgb = (normal + 1.0f) * 0.5f;
     out_color.a = 1.0f;
 }
