@@ -60,6 +60,12 @@ static unq<Shader> s_planeShader;
 static mat4 s_modelMat; 
 static mat3 s_normalMat;
 static float s_windSpeed;
+static float s_turbulenceDist;
+static float s_maxSearchDist;
+static float s_windShadDist;
+static float s_backforceC;
+static float s_flowback;
+static float s_initVelC;
 
 // all in degrees
 static float s_rudderAngle(0.0f);
@@ -196,7 +202,6 @@ static void keyCallback(GLFWwindow *window, int key, int scancode, int action, i
     }
 }
 
-
 static bool setupObject() {
     // The plane model is upside-down, pointed toward +z
     s_model = Model::load(g_resourcesDir + "/models/f18.grl");
@@ -207,7 +212,14 @@ static bool setupObject() {
 
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)); // flip right-side up
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)) * s_modelMat; // turn to face -z
+    //s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
+
+    s_turbulenceDist = 0.225f;
+    s_windShadDist = 1.5f;
+    s_backforceC = 50000.0f;
+    s_flowback = 0.15f;
+    s_initVelC = 1.0f;
 
     // Numbers taken from "Susceptibility of F/A-18 Flight Controllers to the Falling-Leaf Mode: Linear Analysis" - Chakraborty, Seiler, Balas
     // http://www.aem.umn.edu/~AerospaceControl/V&VWebpage/Papers/AIAALin.pdf
@@ -271,15 +283,15 @@ static bool setup() {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 
-    // Setup RLD
-    if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
-        std::cerr << "Failed to setup RLD" << std::endl;
-        return false;
-    }
-
     // Setup object
     if (!setupObject()) {
         std::cerr << "Failed to setup model" << std::endl;
+        return false;
+    }
+
+    // Setup RLD
+    if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC, s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC)) {
+        std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
 
@@ -435,13 +447,13 @@ static void render(float dt) {
     vec3 torq = windBasis * rld::torq();
     //lift.x = lift.y = 0.0f;
     //drag.x = drag.y = 0.0f;
-    torq.x = torq.y = 0.0f;
+    //torq.x = torq.z = 0.0f;
 
-    //s_simObject->addTranslationalForce(lift + drag);
+    s_simObject->addTranslationalForce(lift + drag);
     s_simObject->addAngularForce(torq);
     s_simObject->update(dt);
 
-    std::cout << torq.z << std::endl;
+    //std::cout << torq.z << std::endl;
 
     glViewport(0, 0, k_windowSize.x, k_windowSize.y);
 

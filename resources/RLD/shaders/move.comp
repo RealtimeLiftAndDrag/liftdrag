@@ -36,15 +36,9 @@ const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGr
 
 float k_airDensity = 1.0f;
 
-const float k_shadDist = 1.5f;//0.1f; // Must also change in pretty shader
-const float k_backforceC = 50000.0f;//1000000.0f;
-const float k_flowbackFactor = 0.15f;//0.01f; // Fraction of lateral velocity to remain after 1 unit of distance
-
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 
 const bool k_doTurbulence = false; // Must also change in outline shader
-const float k_turbulenceDist = 0.225f;//0.045f; // Must also change in outline shader
-const float k_maxSearchDist = 2.0f * k_turbulenceDist; // In wind space
 
 const bool k_doWindShadow = true;
 
@@ -71,6 +65,12 @@ layout (binding = 0, std140) uniform Constants {
     float u_windframeSize;
     float u_windframeDepth;
     float u_sliceSize;
+    float u_turbulenceDist;
+    float u_maxSearchDist;
+    float u_windShadDist;
+    float u_backforceC;
+    float u_flowback;
+    float u_initVelC;
     float u_windSpeed;
     float u_dt;
     int u_slice;
@@ -135,7 +135,7 @@ bool isWindTurbulent(vec2 windPos) {
 float getShadFactor(float shad) {
     float shadDepth = shad * u_windframeDepth;
     float currDepth = u_slice * u_sliceSize;
-    return float(shad != 0.0f) * max((1.0f - (currDepth - shadDepth) / k_shadDist), 0.0f);
+    return float(shad != 0.0f) * max((1.0f - (currDepth - shadDepth) / u_windShadDist), 0.0f);
 }
 
 float getScreenShadFactor(vec2 screenPos) {
@@ -229,7 +229,7 @@ void main() {
                         totalDist += screenToWindDist(1.0f);
                     }
 
-                    if (totalDist > k_maxSearchDist) {
+                    if (totalDist > u_maxSearchDist) {
                         break;
                     }
 
@@ -261,7 +261,7 @@ void main() {
                             ++u_airGeoMap[airI].geoCount;
                             u_airGeoMap[airI].geoIndices[0] = geoI;
 
-                            if (k_doTurbulence && totalDist > k_turbulenceDist) {
+                            if (k_doTurbulence && totalDist > u_turbulenceDist) {
                                 // Set air pixel to be turbulent
                                 airTurbulence = 1.0f;
                                 u_airPixels[airI].turbulence.x = 1.0f;
@@ -297,12 +297,12 @@ void main() {
 
             // Calculate backforce
             vec2 thisBackforce = normalize(-geoNormal.xy) * dist;// * dist;// = dist*dist*a + dist*b + c;
-            thisBackforce *= k_backforceC;
+            thisBackforce *= u_backforceC;
             backforce += thisBackforce;
 
             // Calculate lift
             float liftFactor = 0.5f * k_airDensity * windSpeed2 * area;
-            liftFactor *= dist / k_turbulenceDist;
+            liftFactor *= dist / u_turbulenceDist;
             liftFactor *= u_liftC;
             if (airTurbulence > 0.0f) liftFactor = 0.0f;
             vec3 thisLift = geoNormal * liftFactor;
@@ -347,10 +347,10 @@ void main() {
         // Sweep back by diminishing xy components
         float factor;
         if (false && k_doWindShadow) {
-            factor = mix(k_flowbackFactor, 1.0f, getScreenShadFactor(airScreenPos));
+            factor = mix(u_flowback, 1.0f, getScreenShadFactor(airScreenPos));
         }
         else {
-            factor = k_flowbackFactor;
+            factor = u_flowback;
         }
         factor = pow(factor, u_sliceSize);
         airVelocity *= factor;

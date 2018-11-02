@@ -57,7 +57,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::f18);
+static constexpr SimModel k_simModel(SimModel::sphere);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
@@ -92,6 +92,13 @@ static mat4 s_modelMat;
 static mat3 s_normalMat;
 static float s_windframeWidth, s_windframeDepth;
 static float s_windSpeed = k_defWindSpeed;
+static float s_turbulenceDist;
+static float s_maxSearchDist;
+static float s_windShadDist;
+static float s_backforceC;
+static float s_flowback;
+static float s_initVelC;
+static vec2 s_angleGraphRange, s_sliceGraphRange;
 
 //all in degrees
 static float s_angleOfAttack(0.0f);
@@ -370,21 +377,43 @@ static bool setupModel() {
             s_modelMat = glm::scale(mat4(), vec3(0.5f, 1.0f, 1.0f)) * s_modelMat;
             s_windframeWidth = 1.25f;
             s_windframeDepth = 1.5f;
+            s_turbulenceDist = 0.045f;
+            s_windShadDist = 0.1f;
+            s_backforceC = 1000000.0f;
+            s_flowback = 0.01f;
+            s_initVelC = 0.5f;
+            s_angleGraphRange = vec2(-3000.0f, 3000.0f);
+            s_sliceGraphRange = vec2(-200.0f, 200.0f);
             break;
 
         case SimModel::f18:
             s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
             s_windframeWidth = 14.5f;
             s_windframeDepth = 22.0f;
+            s_turbulenceDist = 0.225f;
+            s_windShadDist = 1.5f;
+            s_backforceC = 50000.0f;
+            s_flowback = 0.15f;
+            s_initVelC = 1.0f;
+            s_angleGraphRange = vec2(-500000, 500000.0f);
+            s_sliceGraphRange = vec2(-50000.0f, 50000.0f);
             break;
 
         case SimModel::sphere:
             s_windframeWidth = 2.5f;
             s_windframeDepth = 2.5f;
+            s_turbulenceDist = 0.045f;
+            s_windShadDist = 0.1f;
+            s_backforceC = 1000000.0f;
+            s_flowback = 0.01f;
+            s_initVelC = 0.5f;
+            s_angleGraphRange = vec2(-10000.0f, 10000.0f);
+            s_sliceGraphRange = vec2(-1000.0f, 1000.0f);
             break;
     }
 
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
+    s_maxSearchDist = 2.0f * s_turbulenceDist;
 
     return true;
 }
@@ -409,12 +438,12 @@ static bool setup() {
     }
 
     // Setup simulation
-    if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC)) {
+    if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC, s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC)) {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
 
-    if (!results::setup(k_simSliceCount)) {
+    if (!results::setup(k_simSliceCount, s_angleGraphRange, s_sliceGraphRange)) {
         std::cerr << "Failed to setup results" << std::endl;
         return false;
     }

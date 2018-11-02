@@ -8,8 +8,6 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
 
-const float k_shadDist = 1.5f;//0.1f; // Must also change in move shader
-
 // Uniforms --------------------------------------------------------------------
 
 layout (binding = 0, rgba8) uniform image2D u_fboImg;
@@ -28,6 +26,12 @@ layout (binding = 0, std140) uniform Constants {
     float u_windframeSize;
     float u_windframeDepth;
     float u_sliceSize;
+    float u_turbulenceDist;
+    float u_maxSearchDist;
+    float u_windShadDist;
+    float u_backforceC;
+    float u_flowback;
+    float u_initVelC;
     float u_windSpeed;
     float u_dt;
     int u_slice;
@@ -48,7 +52,7 @@ float windToScreen(float wind) {
 float getShadFactor(float shad) {
     float shadDepth = shad * u_windframeDepth;
     float currDepth = u_slice * u_sliceSize;
-    return float(shad != 0.0f) * max((1.0f - (currDepth - shadDepth) / k_shadDist), 0.0f);
+    return float(shad != 0.0f) * max((1.0f - (currDepth - shadDepth) / u_windShadDist), 0.0f);
 }
 
 void main() {

@@ -12,7 +12,7 @@ namespace results {
 
     struct Entry { vec3 lift, drag, torq; };
 
-    bool setup(int sliceCount);
+    bool setup(int sliceCount, const vec2 & s_angleGraphRange, const vec2 & s_sliceGraphRange);
 
     void update();
 

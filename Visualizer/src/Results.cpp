@@ -18,13 +18,11 @@ namespace results {
     static constexpr float k_angleGranularity(1.0f); // results kept in increments of this many degrees
     static constexpr float k_invAngleGranularity(1.0f / k_angleGranularity);
     static constexpr float k_initAngleGraphDomainMin(-90.0f), k_initAngleGraphDomainMax(90.0f);
-    static constexpr float k_initAngleGraphRangeMin(-50.0f), k_initAngleGraphRangeMax(50.0f);
     static constexpr float k_angleGraphExcessFactor(1.025f);
     static const ivec2 k_minAngleGraphSize(300, 100);
     static const ivec2 k_maxAngleGraphSize(0, 300);
     static const std::string & k_angleGraphTitleString("Lift and Drag Force (N) by Angle of Attack (\u00B0)");
 
-    static constexpr float k_initSliceGraphRangeMin(-1.5f), k_initSliceGraphRangeMax(1.5f);
     static constexpr float k_sliceGraphExcessFactor(k_angleGraphExcessFactor);
     static const ivec2 k_minSliceGraphSize(k_minAngleGraphSize);
     static const ivec2 k_maxSliceGraphSize(k_maxAngleGraphSize);
@@ -32,6 +30,7 @@ namespace results {
 
 
     static int s_sliceCount;
+    static vec2 s_angleGraphRange, s_sliceGraphRange;
 
     static std::map<float, Entry> s_angleRecord; // map of results where key is angle and value is lift/drag pair
     static bool s_isAngleRecordChange;
@@ -43,13 +42,15 @@ namespace results {
 
 
 
-    bool setup(int sliceCount) {
+    bool setup(int sliceCount, const vec2 & angleGraphRange, const vec2 & sliceGraphRange) {
         s_sliceCount = sliceCount;
+        s_angleGraphRange = angleGraphRange;
+        s_sliceGraphRange = sliceGraphRange;
 
         // Angle graph
 
-        vec2 min(k_initAngleGraphDomainMin, k_initAngleGraphRangeMin);
-        vec2 max(k_initAngleGraphDomainMax, k_initAngleGraphRangeMax);
+        vec2 min(k_initAngleGraphDomainMin, s_angleGraphRange.x);
+        vec2 max(k_initAngleGraphDomainMax, s_angleGraphRange.y);
         vec2 size(max - min);
         vec2 center((min + max) * 0.5f);
         size *= k_angleGraphExcessFactor;
@@ -70,8 +71,8 @@ namespace results {
 
         // Slice graph
 
-        min = vec2(0.0f, k_initSliceGraphRangeMin);
-        max = vec2(s_sliceCount, k_initSliceGraphRangeMax);
+        min = vec2(0.0f, s_sliceGraphRange.x);
+        max = vec2(s_sliceCount, s_sliceGraphRange.y);
         size = vec2(max - min);
         center = vec2((min + max) * 0.5f);
         size *= k_sliceGraphExcessFactor;
@@ -190,12 +191,12 @@ namespace results {
 
     void resetGraphs() {
         s_angleGraph->setView(
-            vec2(k_initAngleGraphDomainMin, k_initAngleGraphRangeMin),
-            vec2(k_initAngleGraphDomainMax, k_initAngleGraphRangeMax)
+            vec2(k_initAngleGraphDomainMin, s_angleGraphRange.x),
+            vec2(k_initAngleGraphDomainMax, s_angleGraphRange.y)
         );
         s_sliceGraph->setView(
-            vec2(0, k_initSliceGraphRangeMin),
-            vec2(s_sliceCount, k_initSliceGraphRangeMax)
+            vec2(0, s_sliceGraphRange.x),
+            vec2(s_sliceCount, s_sliceGraphRange.y)
         );
     }
 

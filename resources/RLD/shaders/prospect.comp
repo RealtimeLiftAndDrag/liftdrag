@@ -56,6 +56,12 @@ layout (binding = 0, std140) uniform Constants {
     float u_windframeSize;
     float u_windframeDepth;
     float u_sliceSize;
+    float u_turbulenceDist;
+    float u_maxSearchDist;
+    float u_windShadDist;
+    float u_backforceC;
+    float u_flowback;
+    float u_initVelC;
     float u_windSpeed;
     float u_dt;
     int u_slice;

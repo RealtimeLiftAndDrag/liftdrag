@@ -50,14 +50,20 @@ namespace rld {
         s32 screenSize;
         float liftC;
         float dragC;
-        float windframeSize;
-        float windframeDepth;
-        float sliceSize;
+        float windframeSize; // width and height of the windframe
+        float windframeDepth; // depth of the windframe
+        float sliceSize; // Distance between slices in wind space
+        float turbulenceDist; // Distance at which turbulence will start (in wind space)
+        float maxSearchDist; // Max distance for the shader searches (in wind space)
+        float windShadDist; // How far back the wind shadow will stretch (in wind space)
+        float backforceC;
+        float flowback; // Fraction of lateral velocity to remain after 1 unit of distance
+        float initVelC;
         float windSpeed;
         float dt;
         s32 slice;
         float sliceZ;
-        u32 debug;
+        u32 debug; // Enables non-essential features (e.g. sideview texture)
     };
 
     // Mirrors GPU struct
@@ -95,9 +101,15 @@ namespace rld {
     static const Model * s_model;
     static mat4 s_modelMat;
     static mat3 s_normalMat;
-    static float s_windframeWidth; // width and height of the windframe
-    static float s_windframeDepth; // depth of the windframe
-    static float s_sliceSize; // Distance between slices in wind space
+    static float s_windframeWidth;
+    static float s_windframeDepth;
+    static float s_sliceSize;
+    static float s_turbulenceDist;
+    static float s_maxSearchDist;
+    static float s_windShadDist;
+    static float s_backforceC;
+    static float s_flowback;
+    static float s_initVelC;
     static float s_windSpeed;
     static float s_dt; // The time it would take to travel `s_sliceSize` at `s_windSpeed`
     static bool s_debug; // Whether to enable non essentials like side view or active pixel highlighting
@@ -414,6 +426,12 @@ namespace rld {
         s_constants.windframeSize = s_windframeWidth;
         s_constants.windframeDepth = s_windframeDepth;
         s_constants.sliceSize = s_sliceSize;
+        s_constants.turbulenceDist = s_turbulenceDist;
+        s_constants.maxSearchDist = s_maxSearchDist;
+        s_constants.windShadDist = s_windShadDist;
+        s_constants.backforceC = s_backforceC;
+        s_constants.flowback = s_flowback;
+        s_constants.initVelC = s_initVelC;
         s_constants.windSpeed = s_windSpeed;
         s_constants.dt = s_dt;
         s_constants.slice = 0;
@@ -467,14 +485,19 @@ namespace rld {
 
 
 
-    bool setup(const int texSize, int sliceCount, float liftC, float dragC) {
+    bool setup(const int texSize, int sliceCount, float liftC, float dragC, float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC) {
         s_texSize = texSize;
         s_maxGeoPixels = s_texSize * s_texSize / k_maxPixelsDivisor;
         s_maxAirPixels = s_maxGeoPixels;
         s_sliceCount = sliceCount;
         s_liftC = liftC;
         s_dragC = dragC;
-
+        s_turbulenceDist = turbulenceDist;
+        s_maxSearchDist = maxSearchDist;
+        s_windShadDist = windShadDist;
+        s_backforceC = backforceC;
+        s_flowback = flowback;
+        s_initVelC = initVelC;
 
         // Setup shaders
         if (!setupShaders()) {

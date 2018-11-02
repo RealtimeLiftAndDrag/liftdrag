@@ -35,8 +35,6 @@ struct AirGeoMapElement {
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
 
 const bool k_doTurbulence = false; // Must also change in move shader
-const float k_turbulenceDist = 0.225f;//0.045f; // Must also change in move shader
-const float k_maxSearchDist = 2.0f * k_turbulenceDist; // In wind space
 
 const float k_minNormalZ = 1.0f / 1000000.0f;
 const float k_maxNormalZ = 1.0f - k_minNormalZ;
@@ -49,7 +47,6 @@ const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 const bool k_ignoreEdges = false;
 
 const float k_airDensity = 1.0f;
-const float k_initVelC = 1.0f;//0.5f;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -69,6 +66,12 @@ layout (binding = 0, std140) uniform Constants {
     float u_windframeSize;
     float u_windframeDepth;
     float u_sliceSize;
+    float u_turbulenceDist;
+    float u_maxSearchDist;
+    float u_windShadDist;
+    float u_backforceC;
+    float u_flowback;
+    float u_initVelC;
     float u_windSpeed;
     float u_dt;
     int u_slice;
@@ -203,7 +206,7 @@ void main() {
                     totalDist += screenToWindDist(1.0f);
                 }
 
-                if (totalDist > k_maxSearchDist) {
+                if (totalDist > u_maxSearchDist) {
                     break;
                 }
 
@@ -232,7 +235,7 @@ void main() {
                         --airI;
 
                         // If past turbulence distance, set air as turbulent and mark turbulance
-                        if (k_doTurbulence && totalDist > k_turbulenceDist) {
+                        if (k_doTurbulence && totalDist > u_turbulenceDist) {
                             // Set air pixel to be turbulent
                             u_airPixels[airI].turbulence.x = 1.0f;
                             // Don't need to write turbulence at air because it happens in move shader
@@ -283,7 +286,7 @@ void main() {
             //vec2 airVelocity = (tangent * u_windSpeed).xy;
             //vec3 atrocity = normalize(refl + tangent);
             //vec2 airVelocity = (atrocity * u_windSpeed).xy;
-            airVelocity *= k_initVelC;
+            airVelocity *= u_initVelC;
 
             u_airPixels[airI].windPos = airWindPos;
             u_airPixels[airI].velocity = airVelocity;
