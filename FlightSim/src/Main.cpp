@@ -72,6 +72,7 @@ static float s_windShadDist;
 static float s_backforceC;
 static float s_flowback;
 static float s_initVelC;
+static bool s_unpaused;
 
 // all in degrees
 static float s_rudderAngle(0.0f);
@@ -209,6 +210,10 @@ static void keyCallback(GLFWwindow *window, int key, int scancode, int action, i
 	else if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
 		s_simObject->reset(k_initPos, k_initDir, k_initSpeed);
 	}
+	// R resets the object
+	else if (key == GLFW_KEY_P && action == GLFW_RELEASE) {
+		s_unpaused = !s_unpaused;
+	}
 }
 
 void detMatrices();
@@ -328,7 +333,7 @@ static bool setup() {
     }
 
     detMatrices();
-
+	s_unpaused = true;
     return true;
 }
 
@@ -458,8 +463,10 @@ static void render(float dt) {
     glDisable(GL_BLEND);
 
     rld::set(*s_model, rldModelMat, rldNormalMat, k_windframeWidth, k_windframeDepth, glm::length(wind), false);
-    rld::sweep();
-
+	if (s_unpaused) {
+		rld::sweep();
+	}
+	
     vec3 lift = windBasis * vec3(rld::lift().x, rld::lift().y, 0.0f); // TODO: figure out what is up with lift along z axis
     vec3 drag = windBasis * rld::drag();
     vec3 torq = windBasis * rld::torq();
@@ -467,10 +474,12 @@ static void render(float dt) {
     //drag.x = drag.y = 0.0f;
     //torq.x = torq.z = 0.0f;
 
-    s_simObject->addTranslationalForce(lift + drag);
-    s_simObject->addAngularForce(torq);
-    s_simObject->update(dt);
-
+	if (s_unpaused) {
+		s_simObject->addTranslationalForce(lift + drag);
+		s_simObject->addAngularForce(torq);
+		s_simObject->update(dt);
+	}
+    
     std::cout << glm::to_string(s_simObject->velocity()) << std::endl;
 
     glViewport(0, 0, s_windowSize.x, s_windowSize.y);
