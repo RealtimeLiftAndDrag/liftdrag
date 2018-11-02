@@ -18,11 +18,11 @@ extern "C" {
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/constants.hpp"
 #include "glm/gtx/string_cast.hpp"
-#include "xboxcontroller.h"
 
 #include "Common/Global.hpp"
 #include "Common/Model.hpp"
 #include "Common/Shader.hpp"
+#include "Common/Controller.hpp"
 #include "UI/Group.hpp"
 #include "RLD/Simulation.hpp"
 
@@ -81,7 +81,7 @@ static constexpr float k_keyAngleSpeed(90.0f); // how quickly the rudders/ailero
 static constexpr float k_returnAngleSpeed(90.0f); // how quickly the rudders/ailerons/elevators will return to their default position in degrees per second
 
 static GLFWwindow * s_window;
-static CXBOXController s_xboxController(1);
+static Controller s_controller(0);
 
 // These apply when using the keyboard to control the plane
 static bool s_keyboardYawCCW, s_keyboardYawCW;
@@ -307,8 +307,9 @@ static bool setup() {
     ProgTerrain::init_geom();
 
     // Setup xbox controller
-    if (s_xboxController.IsConnected()) {
-        std::cout << "Xbox controller connected" << std::endl;
+    s_controller.poll();
+    if (s_controller.connected()) {
+        std::cout << "Controller connected" << std::endl;
     }
 
     detMatrices();
@@ -354,11 +355,13 @@ static float triggerVal(u08 v) {
 }
 
 static void processController() {
-    XINPUT_STATE state(s_xboxController.GetState());
-    s_controllerYaw = stickVal(state.Gamepad.sThumbRX);
-    s_controllerPitch = stickVal(state.Gamepad.sThumbLY);
-    s_controllerRoll = stickVal(state.Gamepad.sThumbLX);
-    s_controllerThrust = triggerVal(state.Gamepad.bRightTrigger);
+    if (s_controller.connected()) {
+        s_controller.poll();
+        s_controllerYaw = s_controller.rStick().x;
+        s_controllerPitch = s_controller.lStick().y;
+        s_controllerRoll = s_controller.lStick().x;
+        s_controllerThrust = s_controller.rTrigger();
+    }
 }
 
 static void update(float dt) {

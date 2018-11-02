@@ -17,9 +17,9 @@ class Mesh {
     std::vector<vec3> m_locations;
     std::vector<vec3> m_normals;
     std::vector<u32> m_indices;
-    uint m_vbo;
-    uint m_ibo;
-    uint m_vao;
+    u32 m_vbo;
+    u32 m_ibo;
+    u32 m_vao;
     vec3 m_spanMin, m_spanMax;
 
     public:
@@ -101,7 +101,7 @@ class Model {
     Model(std::vector<SubModel> && subModels);
     Model(Model && other);
 
-    void draw(const mat4 & modelMat, const mat3 & normalMat, uint modelMatUniformBinding, uint normalMatUniformBinding) const;
+    void draw(const mat4 & modelMat, const mat3 & normalMat, u32 modelMatUniformBinding, u32 normalMatUniformBinding) const;
     void draw() const;
 
     size_t subModelCount() const { return m_subModels.size(); }

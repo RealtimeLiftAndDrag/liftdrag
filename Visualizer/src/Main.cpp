@@ -31,6 +31,7 @@ extern "C" {
 #include "Common/Model.hpp"
 #include "Common/Shader.hpp"
 #include "Common/GLInterface.hpp"
+#include "Common/Controller.hpp"
 #include "UI/UI.hpp"
 #include "UI/Group.hpp"
 #include "UI/Text.hpp"
@@ -57,7 +58,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::sphere);
+static constexpr SimModel k_simModel(SimModel::f18);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
@@ -68,9 +69,9 @@ static constexpr float k_defWindSpeed = 100.0f;
 static const ivec2 k_defWindowSize(1280, 720);
 
 static constexpr float k_maxAutoAoA(45.0f);
-
 static constexpr float k_autoAngleIncrement(1.0f); // how many degrees to change the angle of attack by when auto progressing
 static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
+static constexpr float k_seekSpeed(15.0f); // how many degrees to seek per second
 
 static const std::string & k_controlsString(
     "Controls"                                      "\n"
@@ -100,6 +101,8 @@ static float s_flowback;
 static float s_initVelC;
 static vec2 s_angleGraphRange, s_sliceGraphRange;
 
+static Controller s_controller(0);
+
 //all in degrees
 static float s_angleOfAttack(0.0f);
 static float s_aileronAngle(0.0f);
@@ -109,6 +112,8 @@ static float s_elevatorAngle(0.0f);
 static bool s_shouldStep(false);
 static bool s_shouldSweep(true);
 static bool s_shouldAutoProgress(false);
+static int s_seekDir(0);
+static float s_seekAngle(0.0f);
 
 static shr<MainUIC> s_mainUIC;
 static shr<ui::TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
@@ -120,8 +125,6 @@ static shr<ui::Number> s_rudderNum, s_elevatorNum, s_aileronNum;
 
 static bool s_isInfoChange(true);
 static bool s_isF18Change(true);
-
-//static bool s_shouldExit(false);
 
 
 
@@ -267,6 +270,41 @@ static void doAllAngles() {
     std::cout << "Average SPS: " << (double(count) / dt) << std::endl;
 }
 
+void doAngle(float angle) {
+    if (glm::abs(angle) > 90.0f) {
+        return;
+    }
+
+    s_shouldStep = false;
+    s_shouldAutoProgress = false;
+    
+    if (angle == s_angleOfAttack && s_shouldSweep) {
+        return;
+    }
+    
+    rld::reset();
+    setAngleOfAttack(angle);
+    s_shouldSweep = true;
+}
+
+void startSeeking(int dir) {
+    if (s_seekDir == dir) {
+        return;
+    }
+
+    s_seekDir = dir;
+    s_seekAngle = nearestVal(s_angleOfAttack, k_manualAngleIncrement);
+    s_shouldStep = false;
+    s_shouldSweep = false;
+    s_shouldAutoProgress = false;
+    rld::reset();
+}
+
+void stopSeeking() {
+    s_seekDir = 0;
+    s_shouldSweep = true;
+}
+
 void MainUIC::keyEvent(int key, int action, int mods) {
     Group::keyEvent(key, action, mods);
 
@@ -286,27 +324,39 @@ void MainUIC::keyEvent(int key, int action, int mods) {
     }
     // If F is pressed, do fast sweep
     else if (key == GLFW_KEY_F && (action == GLFW_PRESS) && !mods) {
-        if (rld::slice() == 0 && !s_shouldAutoProgress) {
+        if (rld::slice() == 0 && !s_shouldAutoProgress && !s_seekDir) {
             doFastSweep(s_angleOfAttack);
         }
     }
     // If Shift-F is pressed, do fast sweep of all angles
     else if (key == GLFW_KEY_F && action == GLFW_PRESS && mods == GLFW_MOD_SHIFT) {
-        if (rld::slice() == 0 && !s_shouldAutoProgress) {
+        if (rld::slice() == 0 && !s_shouldAutoProgress && !s_seekDir) {
             doAllAngles();
         }
     }
     // If up arrow is pressed, increase angle of attack
     else if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (rld::slice() == 0 && !s_shouldAutoProgress) {
-            changeAngleOfAttack(k_manualAngleIncrement);
+        if (rld::slice() == 0) {
+            doAngle(nearestVal(s_angleOfAttack, k_manualAngleIncrement) + k_manualAngleIncrement);
         }
     }
     // If down arrow is pressed, decrease angle of attack
     else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
-        if (rld::slice() == 0 && !s_shouldAutoProgress) {
-            changeAngleOfAttack(-k_manualAngleIncrement);
+        if (rld::slice() == 0) {
+            doAngle(nearestVal(s_angleOfAttack, k_manualAngleIncrement) - k_manualAngleIncrement);
         }
+    }
+    // If left arrow is pressed, seek toward negative angles of attack
+    else if (key == GLFW_KEY_LEFT && action == GLFW_PRESS && !mods) {
+        startSeeking(-1);
+    }
+    // If right arrow is pressed, seek toward positive angles of attack
+    else if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS && !mods) {
+        startSeeking(1);
+    }
+    // If left or right arrows are released stop seeking
+    else if ((key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT) && action == GLFW_RELEASE) {
+        stopSeeking();
     }
     // If O key is pressed, increase rudder angle
     else if (key == GLFW_KEY_O && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mods) {
@@ -353,10 +403,6 @@ void MainUIC::keyEvent(int key, int action, int mods) {
         results::resetGraphs();
     }
 }
-
-//static void exitCallback() {
-//    s_shouldExit = true;
-//}
 
 static bool setupModel() {
     std::string modelsPath(g_resourcesDir + "/models/");
@@ -447,6 +493,9 @@ static bool setup() {
         std::cerr << "Failed to setup results" << std::endl;
         return false;
     }
+
+    // Set connected state
+    s_controller.poll();
 
     s_frontTexViewer.reset(new ui::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(128)));
     s_turbTexViewer.reset(new ui::TexViewer(rld::turbulenceTex(), ivec2(rld::texSize()) / 4, ivec2(128)));
@@ -542,7 +591,36 @@ static void updateF18InfoText() {
     s_aileronNum->value(s_aileronAngle);
 }
 
-static void update() {
+void processController() {
+    if (!s_controller.connected()) {
+        return;
+    }
+    s_controller.poll();
+
+    // Use stick to seek to an angle, release to sweep
+    static int s_prevLStickXDir(0);
+    int lStickXDir(glm::sign(s_controller.lStick().x));
+    if (lStickXDir != s_prevLStickXDir) {
+        s_prevLStickXDir = lStickXDir;
+        if (lStickXDir) startSeeking(lStickXDir);
+        else stopSeeking();
+    }
+
+    // Triggers increment or decrement angle of attack
+    if (!rld::slice()) {
+        float dir(glm::ceil(s_controller.rTrigger()) - glm::ceil(s_controller.lTrigger()));
+        if (dir) {
+            doAngle(nearestVal(s_angleOfAttack, k_manualAngleIncrement) + dir * k_manualAngleIncrement);
+        }
+    }
+}
+
+static void update(float dt) {
+    if (s_seekDir) {
+        s_seekAngle += float(s_seekDir) * k_seekSpeed * dt;
+        setAngleOfAttack(nearestVal(s_seekAngle, k_manualAngleIncrement));
+    }
+
     if (s_shouldStep || s_shouldSweep) {
         int slice(rld::slice());
 
@@ -569,6 +647,7 @@ static void update() {
                     if (s_angleOfAttack < -k_maxAutoAoA) s_angleOfAttack += k_autoAngleIncrement;
                 }
                 s_shouldSweep = true;
+                s_isInfoChange = true;
             }
         }
 
@@ -580,6 +659,7 @@ static void update() {
 
     if (s_isInfoChange) {
         updateInfoText();
+        results::angleGraph()->markX(s_angleOfAttack);
         s_isInfoChange = false;
     }
     if (s_isF18Change) {
@@ -613,27 +693,22 @@ int main(int argc, char ** argv) {
         return EXIT_FAILURE;
     }
 
-    int fps(0);
-    double then(glfwGetTime());
-
     // Loop until the user closes the window.
+    double then(glfwGetTime());
     while (!ui::shouldExit()) {
+        double now(glfwGetTime());
+        float dt(float(now - then));
+        then = now;
+
         // Poll for and process events.
         ui::poll();
+        processController();
 
-        update();
+        update(dt);
 
         glDisable(GL_DEPTH_TEST); // don't want depth test for UI
         ui::render();
         glEnable(GL_DEPTH_TEST);
-
-        ++fps;
-        double now(glfwGetTime());
-        if (now - then >= 1.0) {
-            //std::cout << "fps: " << fps << std::endl;
-            fps = 0;
-            then = now;
-        }
     }
 
     cleanup();

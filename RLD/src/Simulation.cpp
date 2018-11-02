@@ -136,20 +136,20 @@ namespace rld {
 
     static Constants s_constants;
 
-    static uint s_constantsUBO;
-    static uint s_resultsSSBO;
-    static uint s_geoPixelsSSBO;
-    static uint s_airPixelsSSBO[2];
-    static uint s_airGeoMapSSBO;
+    static u32 s_constantsUBO;
+    static u32 s_resultsSSBO;
+    static u32 s_geoPixelsSSBO;
+    static u32 s_airPixelsSSBO[2];
+    static u32 s_airGeoMapSSBO;
 
-    static uint s_fbo;
-    static uint s_fboTex;
-    static uint s_turbTex;
-    static uint s_prevTurbTex;
-    static uint s_shadTex;
-    static uint s_fboNormTex;
-    static uint s_flagTex;
-    static uint s_sideTex;
+    static u32 s_fbo;
+    static u32 s_fboTex;
+    static u32 s_turbTex;
+    static u32 s_prevTurbTex;
+    static u32 s_shadTex;
+    static u32 s_fboNormTex;
+    static u32 s_flagTex;
+    static u32 s_sideTex;
 
     static Result * s_resultsMappedPtr; // used for persistent mapping
 
@@ -265,7 +265,7 @@ namespace rld {
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16_SNORM, s_texSize, s_texSize);
 
         // Depth render buffer
-        uint fboDepthRB(0);
+        u32 fboDepthRB(0);
         glGenRenderbuffers(1, &fboDepthRB);
         glBindRenderbuffer(GL_RENDERBUFFER, fboDepthRB);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, s_texSize, s_texSize);
@@ -277,7 +277,7 @@ namespace rld {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_fboTex, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, s_fboNormTex, 0);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fboDepthRB);
-        uint drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+        u32 drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
         glDrawBuffers(2, drawBuffers);
 
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -551,7 +551,7 @@ namespace rld {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, s_texSize, s_texSize);
-        uint clearcolor = 0;
+        u32 clearcolor = 0;
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearcolor);
 
         if (glGetError() != GL_NO_ERROR) {
@@ -648,6 +648,10 @@ namespace rld {
         while (!step(false));
     }
 
+    void reset() {
+        s_currentSlice = 0;
+    }
+
     int slice() {
         return s_currentSlice;
     }
@@ -680,15 +684,15 @@ namespace rld {
         return s_torqs.data();
     }
 
-    uint frontTex() {
+    u32 frontTex() {
         return s_fboTex;
     }
 
-    uint sideTex() {
+    u32 sideTex() {
         return s_sideTex;
     }
 
-    uint turbulenceTex() {
+    u32 turbulenceTex() {
         return s_turbTex;
     }
 

@@ -238,7 +238,7 @@ void Model::draw() const {
     }
 }
 
-void Model::draw(const mat4 & modelMat, const mat3 & normalMat, uint modelMatUniformBinding, uint normalMatUniformBinding) const {
+void Model::draw(const mat4 & modelMat, const mat3 & normalMat, u32 modelMatUniformBinding, u32 normalMatUniformBinding) const {
     for (const SubModel & subModel : m_subModels) {
         glm::mat4 combModelMat(modelMat * subModel.m_modelMat);
         glm::mat3 combNormalMat(normalMat * subModel.m_normalMat);

@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Controller.cpp" />
     <ClCompile Include="src\glad\glad.c" />
     <ClCompile Include="src\GLInterface.cpp" />
     <ClCompile Include="src\Global.cpp" />
@@ -31,6 +32,7 @@
     <ClCompile Include="src\tinyobjloader\tiny_obj_loader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Common\Controller.hpp" />
     <ClInclude Include="include\Common\GLInterface.hpp" />
     <ClInclude Include="include\Common\Global.hpp" />
     <ClInclude Include="include\Common\GLSL.h" />
@@ -39,6 +41,7 @@
     <ClInclude Include="include\Common\Shader.hpp" />
     <ClInclude Include="include\Common\Text.hpp" />
     <ClInclude Include="include\Common\Util.hpp" />
+    <ClInclude Include="src\xboxcontroller.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\resources\Common\shaders\text.frag" />

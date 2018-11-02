@@ -157,7 +157,6 @@
     <ClInclude Include="src\ProgTerrain.hpp" />
     <ClInclude Include="src\SimObject.hpp" />
     <ClInclude Include="src\stb_image.h" />
-    <ClInclude Include="src\xboxcontroller.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\resources\FlightSim\shaders\height_frag.glsl" />

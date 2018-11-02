@@ -59,6 +59,12 @@
     <None Include="..\resources\UI\shaders\ui_comp.vert">
       <Filter>resources\shaders</Filter>
     </None>
+    <None Include="..\resources\UI\shaders\graph_point.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\UI\shaders\graph_point.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Combo.cpp">

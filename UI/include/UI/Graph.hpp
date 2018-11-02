@@ -109,6 +109,8 @@ namespace ui {
         vec2 m_gridSize;
         bool m_isFocusX;
         float m_focusX;
+        bool m_isMarkX;
+        float m_markX;
         shr<InnerComp> m_innerComp;
 
         public:
@@ -134,6 +136,11 @@ namespace ui {
         float focusX() const { return m_focusX; }
 
         void unfocusX();
+
+        void markX(float x);
+        float markX() const { return m_markX; }
+
+        void unmarkX();
 
         const vec2 & gridSize() const { return m_gridSize; }
 

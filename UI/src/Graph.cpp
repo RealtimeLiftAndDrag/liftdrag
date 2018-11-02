@@ -13,8 +13,9 @@
 
 namespace ui {
 
-    static const std::string & k_curveVertFilename("graph_curve.vert"), k_curveFragFilename("graph_curve.frag");
-    static const std::string & k_linesVertFilename("graph_lines.vert"), k_linesFragFilename("graph_lines.frag");
+    static const std::string k_curveVertFilename("graph_curve.vert"), k_curveFragFilename("graph_curve.frag");
+    static const std::string k_linesVertFilename("graph_lines.vert"), k_linesFragFilename("graph_lines.frag");
+    static const std::string k_pointVertFilename("graph_point.vert"), k_pointFragFilename("graph_point.frag");
 
     static constexpr float k_zoomFactor(1.1f);
     static constexpr float k_invZoomFactor(1.0f / k_zoomFactor);
@@ -22,12 +23,15 @@ namespace ui {
     static constexpr int k_gridTextPrecision(3);
     static constexpr int k_gridTextLength(10);
 
+    static constexpr float k_markRadius(5.0f);
+
     static const vec3 k_gridColor(0.15f);
     static const vec3 k_originColor(0.3f);
     static const vec3 k_focusColor(0.5f);
 
-    static unq<Shader> s_curveProg, s_linesProg;
-    static uint s_lineVAO, s_lineVBO;
+    static unq<Shader> s_curveProg, s_linesProg, s_pointProg;
+    static u32 s_lineVAO, s_lineVBO;
+    static u32 s_pointVAO, s_pointVBO;
 
 
 
@@ -87,11 +91,18 @@ namespace ui {
     }
 
     float Graph::Curve::valAt(float x) const {
+        if (points.empty() || x < points[0].x) {
+            return std::numeric_limits<float>::quiet_NaN();
+        }
+
         int i(0);
         while (i < points.size() && points[i].x < x) ++i;
-
-        if (i == 0 || i == points.size()) {
+        if (i == points.size()) {
             return std::numeric_limits<float>::quiet_NaN();
+        }
+
+        if (x == points[i].x) {
+            return points[i].y;
         }
 
         return glm::mix(points[i - 1].y, points[i].y, (x - points[i - 1].x) / (points[i].x - points[i - 1].x));
@@ -114,17 +125,37 @@ namespace ui {
             return false;
         }
 
+        // Setup point shader
+        if (!(s_pointProg = Shader::load(shadersPath + k_pointVertFilename, shadersPath + k_pointFragFilename))) {
+            std::cerr << "Failed to load point program" << std::endl;
+            return false;
+        }
+
         // Setup line vao
-        float points[2]{ -1.0f, 1.0f };
+        float data[2]{ -1.0f, 1.0f };
         glGenVertexArrays(1, &s_lineVAO);
         glBindVertexArray(s_lineVAO);
         glGenBuffers(1, &s_lineVBO);
         glBindBuffer(GL_ARRAY_BUFFER, s_lineVBO);
-        glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(float), points, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_STATIC_DRAW);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 0, nullptr);
         glBindVertexArray(0);
-        glDisableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        
+        // Setup point vao
+        vec2 points[6]{
+            { -1.0f, -1.0f }, {  1.0f, -1.0f }, {  1.0f,  1.0f },
+            {  1.0f,  1.0f }, { -1.0f,  1.0f }, { -1.0f, -1.0f }
+        };
+        glGenVertexArrays(1, &s_pointVAO);
+        glBindVertexArray(s_pointVAO);
+        glGenBuffers(1, &s_pointVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, s_pointVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+        glBindVertexArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         if (glGetError() != GL_NO_ERROR) {
@@ -203,8 +234,8 @@ namespace ui {
 
         // Focus
 
-        if (m_graph.m_isFocusX) {
-            float focusOrigin((m_graph.m_focusX - viewCenter.x) * viewToScreen.x);
+        if (true) {//m_graph.m_isFocusX) {
+            float focusOrigin((m_graph.m_isFocusX ? m_graph.m_focusX : m_graph.m_markX - viewCenter.x) * viewToScreen.x);
 
             s_linesProg->uniform("u_color", k_focusColor);
             // Vertical
@@ -221,7 +252,7 @@ namespace ui {
         s_curveProg->uniform("u_viewMax", m_graph.m_viewMax);
 
         // Draw in reverse order
-        for (auto rit (m_graph.m_curves.crbegin()); rit != m_graph.m_curves.crend(); ++rit) {
+        for (auto rit(m_graph.m_curves.crbegin()); rit != m_graph.m_curves.crend(); ++rit) {
             const Curve & curve(*rit);
 
             if (!curve.isSetup) {
@@ -249,6 +280,22 @@ namespace ui {
                 glDrawArrays(GL_LINE_STRIP, 0, glm::min(int(curve.points.size()), curve.maxNPoints));
             }
         }
+
+        // Render marks
+
+        /*if (m_graph.m_isMarkX) {
+            s_pointProg->bind();
+            glBindVertexArray(s_pointVAO);
+            for (auto rit(m_graph.m_curves.crbegin()); rit != m_graph.m_curves.crend(); ++rit) {
+                const Curve & curve(*rit);
+                vec2 screenOrigin((vec2(m_graph.m_markX, curve.valAt(m_graph.m_markX)) - viewCenter) * viewToScreen);
+                vec2 screenRadius(k_markRadius / vec2(size()));
+                s_pointProg->uniform("u_origin", screenOrigin);
+                s_pointProg->uniform("u_radius", screenRadius);
+                s_pointProg->uniform("u_color", vec3(1.0f));
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+            }
+        }*/
 
         glUseProgram(0);
         glBindVertexArray(0);
@@ -401,6 +448,8 @@ namespace ui {
         m_gridSize(detGridSize(m_viewMax.x - m_viewMin.x), detGridSize(m_viewMax.y - m_viewMin.y)),
         m_isFocusX(false),
         m_focusX(),
+        m_isMarkX(false),
+        m_markX(0.0f),
         m_innerComp(new InnerComp(*this, minPlotSize, maxPlotSize))
     {
         add(m_innerComp);
@@ -457,6 +506,15 @@ namespace ui {
     void Graph::unfocusX() {
         m_isFocusX = false;
         m_innerComp->m_plotComp->m_isFocusUpdateNeeded = true;
+    }
+
+    void Graph::markX(float x) {
+        m_markX = x;
+        m_isMarkX = true;
+    }
+
+    void Graph::unmarkX() {
+        m_isMarkX = false;
     }
 
     void Graph::cleanup() {

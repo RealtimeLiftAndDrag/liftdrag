@@ -55,6 +55,9 @@
     <ClCompile Include="src\GLInterface.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\Controller.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Common\Global.hpp">
@@ -80,6 +83,12 @@
     </ClInclude>
     <ClInclude Include="include\Common\GLInterface.hpp">
       <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Common\Controller.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="src\xboxcontroller.h">
+      <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

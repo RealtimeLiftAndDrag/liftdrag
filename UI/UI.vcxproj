@@ -36,6 +36,8 @@
     <None Include="..\resources\UI\shaders\graph_curve.vert" />
     <None Include="..\resources\UI\shaders\graph_lines.frag" />
     <None Include="..\resources\UI\shaders\graph_lines.vert" />
+    <None Include="..\resources\UI\shaders\graph_point.frag" />
+    <None Include="..\resources\UI\shaders\graph_point.vert" />
     <None Include="..\resources\UI\shaders\tex.frag" />
     <None Include="..\resources\UI\shaders\tex.vert" />
     <None Include="..\resources\UI\shaders\ui_comp.frag" />

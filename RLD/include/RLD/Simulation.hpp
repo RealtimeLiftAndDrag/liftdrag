@@ -45,6 +45,9 @@ namespace rld {
     // - `GL_BLEND` enabled
     void sweep();
 
+    // Resets the sweep to the first slice
+    void reset();
+
     // Returns the index of the slice that would be NEXT
     int slice();
 
@@ -66,9 +69,9 @@ namespace rld {
     // Returns the torques for each slice
     const vec3 * torqs();
 
-    uint frontTex();
-    uint sideTex();
-    uint turbulenceTex();
+    u32 frontTex();
+    u32 sideTex();
+    u32 turbulenceTex();
 
     int texSize();
 

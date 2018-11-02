@@ -9,7 +9,7 @@
 
 
 
-static bool compile(uint id, const std::string & src) {
+static bool compile(u32 id, const std::string & src) {
     const char * csrc(src.c_str());
     glShaderSource(id, 1, &csrc, nullptr);
     glCompileShader(id);
@@ -33,7 +33,7 @@ static bool compile(uint id, const std::string & src) {
     return !glGetError();
 }
 
-static bool link(uint progId, uint vertId, uint tescId, uint teseId, uint geomId, uint fragId, uint compId) {
+static bool link(u32 progId, u32 vertId, u32 tescId, u32 teseId, u32 geomId, u32 fragId, u32 compId) {
     if (vertId) glAttachShader(progId, vertId);
     if (tescId) glAttachShader(progId, tescId);
     if (teseId) glAttachShader(progId, teseId);

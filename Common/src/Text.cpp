@@ -12,8 +12,8 @@
 static const std::string & k_fontTextureFilename("ubuntu_mono.png");
 static const std::string & k_vertFilename("text.vert"), k_fragFilename("text.frag");
 
-static uint s_squareVBO;
-static uint s_fontTex;
+static u32 s_squareVBO;
+static u32 s_fontTex;
 static ivec2 s_fontSize;
 static unq<Shader> s_prog;
 static vec2 s_charTexCoords[256];
