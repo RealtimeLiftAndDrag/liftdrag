@@ -24,6 +24,8 @@ class Controller {
     float lTrigger() const { return m_lTrigger; }
     float rTrigger() const { return m_rTrigger; }
 
+    bool aButton() const { return m_aButton; }
+
     private:
 
     int m_player;
@@ -32,5 +34,6 @@ class Controller {
     vec2 m_rStick;
     float m_lTrigger;
     float m_rTrigger;
+    bool m_aButton;
 
 };

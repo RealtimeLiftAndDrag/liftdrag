@@ -408,7 +408,7 @@ static bool setupModel() {
     std::string modelsPath(g_resourcesDir + "/models/");
     switch (k_simModel) {
         case SimModel::airfoil: s_model = Model::load(modelsPath + "0012.obj"  ); break;
-        case SimModel::    f18: s_model = Model::load(modelsPath + "f18.grl"   ); break;
+        case SimModel::    f18: s_model = Model::load(modelsPath + "f18_zero_normals.grl"   ); break;
         case SimModel:: sphere: s_model = Model::load(modelsPath + "sphere.obj"); break;
     }
     if (!s_model) {
@@ -434,7 +434,7 @@ static bool setupModel() {
 
         case SimModel::f18:
             s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
-            s_windframeWidth = 14.5f;
+            s_windframeWidth = 22.0f;//14.5f;
             s_windframeDepth = 22.0f;
             s_turbulenceDist = 0.225f;
             s_windShadDist = 1.5f;
@@ -591,7 +591,7 @@ static void updateF18InfoText() {
     s_aileronNum->value(s_aileronAngle);
 }
 
-void processController() {
+void processController(float dt) {
     if (!s_controller.connected()) {
         return;
     }
@@ -612,6 +612,22 @@ void processController() {
         if (dir) {
             doAngle(nearestVal(s_angleOfAttack, k_manualAngleIncrement) + dir * k_manualAngleIncrement);
         }
+    }
+
+    static constexpr float s_interval(0.05f);
+    static float s_time(s_interval);
+    bool state(s_controller.aButton());
+    if (state) {
+        s_time += dt;
+        if (s_time >= s_interval) {
+            s_shouldStep = true;
+            s_shouldSweep = false;
+            s_shouldAutoProgress = false;
+            s_time -= s_interval;
+        }
+    }
+    else {
+        s_time = s_interval;
     }
 }
 
@@ -702,7 +718,7 @@ int main(int argc, char ** argv) {
 
         // Poll for and process events.
         ui::poll();
-        processController();
+        processController(dt);
 
         update(dt);
 

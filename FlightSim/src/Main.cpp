@@ -204,7 +204,7 @@ static void keyCallback(GLFWwindow *window, int key, int scancode, int action, i
 
 static bool setupObject() {
     // The plane model is upside-down, pointed toward +z
-    s_model = Model::load(g_resourcesDir + "/models/f18.grl");
+    s_model = Model::load(g_resourcesDir + "/models/f18_zero_normals.grl");
     if (!s_model) {
         std::cerr << "Failed to load model" << std::endl;
         return false;

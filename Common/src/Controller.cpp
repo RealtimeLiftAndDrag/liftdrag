@@ -43,7 +43,8 @@ Controller::Controller(int player) :
     m_lStick(),
     m_rStick(),
     m_lTrigger(),
-    m_rTrigger()
+    m_rTrigger(),
+    m_aButton(false)
 {}
 
 void Controller::poll() {
@@ -60,4 +61,5 @@ void Controller::poll() {
     m_rStick.y = stickVal(state.Gamepad.sThumbRY);
     m_lTrigger = triggerVal(state.Gamepad.bLeftTrigger);
     m_rTrigger = triggerVal(state.Gamepad.bRightTrigger);
+    m_aButton = state.Gamepad.wButtons & XINPUT_GAMEPAD_A;
 }
