@@ -75,7 +75,7 @@ namespace grl {
             }
 
             std::stringstream ss(line);
-            
+
             ss >> word;
 
             // Skip comment
@@ -135,7 +135,7 @@ namespace grl {
             }
         }
 
-        return std::move(objects);
+        return move(objects);
     }
 
 }

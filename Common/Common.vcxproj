@@ -19,43 +19,33 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\resources\shaders\graph_curve.frag" />
-    <None Include="..\resources\shaders\graph_curve.vert" />
-    <None Include="..\resources\shaders\graph_lines.frag" />
-    <None Include="..\resources\shaders\graph_lines.vert" />
-    <None Include="..\resources\shaders\graph_lines_old.frag" />
-    <None Include="..\resources\shaders\graph_lines_old.vert" />
-    <None Include="..\resources\shaders\phong.frag" />
-    <None Include="..\resources\shaders\phong.vert" />
-    <None Include="..\resources\shaders\tex.frag" />
-    <None Include="..\resources\shaders\tex.vert" />
-    <None Include="..\resources\shaders\text.frag" />
-    <None Include="..\resources\shaders\text.vert" />
-  </ItemGroup>
-  <ItemGroup>
+    <ClCompile Include="src\Controller.cpp" />
     <ClCompile Include="src\glad\glad.c" />
+    <ClCompile Include="src\GLInterface.cpp" />
+    <ClCompile Include="src\Global.cpp" />
     <ClCompile Include="src\GLSL.cpp" />
-    <ClCompile Include="src\Graph.cpp" />
     <ClCompile Include="src\GRLLoader.cpp" />
     <ClCompile Include="src\Model.cpp" />
-    <ClCompile Include="src\Program.cpp" />
+    <ClCompile Include="src\Shader.cpp" />
     <ClCompile Include="src\stb\stb_image.c" />
     <ClCompile Include="src\Text.cpp" />
-    <ClCompile Include="src\TexViewer.cpp" />
     <ClCompile Include="src\tinyobjloader\tiny_obj_loader.cpp" />
-    <ClCompile Include="src\UI.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Common\Controller.hpp" />
+    <ClInclude Include="include\Common\GLInterface.hpp" />
     <ClInclude Include="include\Common\Global.hpp" />
     <ClInclude Include="include\Common\GLSL.h" />
-    <ClInclude Include="include\Common\Graph.hpp" />
     <ClInclude Include="include\Common\GRLLoader.hpp" />
     <ClInclude Include="include\Common\Model.hpp" />
-    <ClInclude Include="include\Common\Program.h" />
+    <ClInclude Include="include\Common\Shader.hpp" />
     <ClInclude Include="include\Common\Text.hpp" />
-    <ClInclude Include="include\Common\TexViewer.hpp" />
-    <ClInclude Include="include\Common\UI.hpp" />
     <ClInclude Include="include\Common\Util.hpp" />
+    <ClInclude Include="src\xboxcontroller.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\Common\shaders\text.frag" />
+    <None Include="..\resources\Common\shaders\text.vert" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

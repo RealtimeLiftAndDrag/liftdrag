@@ -5,35 +5,15 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="shaders">
-      <UniqueIdentifier>{a62f12b5-0367-4d65-b564-9b6cc0b27ff7}</UniqueIdentifier>
-    </Filter>
     <Filter Include="include">
       <UniqueIdentifier>{28ff2f09-a4c2-4283-8de1-c07cb8e571a2}</UniqueIdentifier>
     </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\resources\shaders\foil.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\resources\shaders\foil.vert">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\resources\shaders\sim_draw.comp">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\resources\shaders\sim_move.comp">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\resources\shaders\sim_outline.comp">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\resources\shaders\sim_prospect.comp">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\resources\shaders\sim_pretty.comp">
-      <Filter>shaders</Filter>
-    </None>
+    <Filter Include="resources">
+      <UniqueIdentifier>{6241ef77-54b9-45c6-9d16-fbacff65486a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\shaders">
+      <UniqueIdentifier>{a62f12b5-0367-4d65-b564-9b6cc0b27ff7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Simulation.cpp">
@@ -44,5 +24,28 @@
     <ClInclude Include="include\RLD\Simulation.hpp">
       <Filter>include</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\RLD\shaders\draw.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\RLD\shaders\foil.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\RLD\shaders\foil.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\RLD\shaders\move.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\RLD\shaders\outline.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\RLD\shaders\pretty.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\RLD\shaders\prospect.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

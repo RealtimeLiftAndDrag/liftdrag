@@ -1,6 +1,6 @@
-#include <string>
+#include <map>
 
-#include "Common/Graph.hpp"
+#include "UI/Graph.hpp"
 
 
 
@@ -8,11 +8,11 @@ struct GLFWwindow;
 
 
 
-namespace Results {
+namespace results {
 
     struct Entry { vec3 lift, drag, torq; };
 
-    bool setup(const std::string & resourcesDir, int sliceCount);
+    bool setup(int sliceCount, const vec2 & s_angleGraphRange, const vec2 & s_sliceGraphRange);
 
     void update();
 
@@ -34,8 +34,12 @@ namespace Results {
     // degrees) and true, or false if the angle is out of interpolation range
     bool valAt(float angle, Entry & r_entry);
 
-    shr<Graph> angleGraph();
-    shr<Graph> sliceGraph();
+    const std::map<float, Entry> & angleRecord();
+
+    const std::map<int, Entry> & sliceRecord();
+
+    shr<ui::Graph> angleGraph();
+    shr<ui::Graph> sliceGraph();
 
     void resetGraphs();
 

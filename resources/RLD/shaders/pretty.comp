@@ -1,0 +1,103 @@
+#version 450 core
+
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+// Types -----------------------------------------------------------------------
+
+// Constants -------------------------------------------------------------------
+
+const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
+
+// Uniforms --------------------------------------------------------------------
+
+layout (binding = 0, rgba8) uniform image2D u_fboImg;
+layout (binding = 6, rgba8) uniform coherent image2D u_sideImg;
+
+layout (binding = 0) uniform sampler2D u_turbTex;
+layout (binding = 2) uniform sampler2D u_shadTex;
+
+// Uniform buffer for better read-only performance
+layout (binding = 0, std140) uniform Constants {
+    int u_maxGeoPixels;
+    int u_maxAirPixels;
+    int u_screenSize;
+    float u_liftC;
+    float u_dragC;
+    float u_windframeSize;
+    float u_windframeDepth;
+    float u_sliceSize;
+    float u_turbulenceDist;
+    float u_maxSearchDist;
+    float u_windShadDist;
+    float u_backforceC;
+    float u_flowback;
+    float u_initVelC;
+    float u_windSpeed;
+    float u_dt;
+    int u_slice;
+    float u_sliceZ;
+    uint u_debug;
+};
+
+// Shared ----------------------------------------------------------------------
+
+shared vec4 s_sideVals[k_workGroupSize];
+
+// Functions -------------------------------------------------------------------
+
+float windToScreen(float wind) {
+    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
+}
+
+float getShadFactor(float shad) {
+    float shadDepth = shad * u_windframeDepth;
+    float currDepth = u_slice * u_sliceSize;
+    return float(shad != 0.0f) * max((1.0f - (currDepth - shadDepth) / u_windShadDist), 0.0f);
+}
+
+void main() {
+    int workI = int(gl_LocalInvocationIndex);
+    int sideX = int(windToScreen(-u_sliceZ));
+    float depth = u_slice * u_sliceSize;
+
+    ivec2 texCoord;
+    for (texCoord.y = workI; texCoord.y < u_screenSize; texCoord.y += int(k_workGroupSize)) {
+        s_sideVals[workI] = vec4(0.0f);
+
+        for (texCoord.x = 0/*u_screenSize * 2 / 3*/; texCoord.x < u_screenSize; ++texCoord.x) {
+            vec4 color = imageLoad(u_fboImg, texCoord);
+            float geo = color.r;
+            float air = color.g;
+            float turb = texture(u_turbTex, (vec2(texCoord) + 0.5f) / float(u_screenSize)).r;
+            float shad = texture(u_shadTex, (vec2(texCoord) + 0.5f) / float(u_screenSize)).r;
+
+            color.rgb = vec3(geo * 0.5f);
+            color.r += getShadFactor(shad) * 0.5f;
+            color.g += air;
+            color.b += turb * 0.5f;
+            color.a = 1.0f;
+            imageStore(u_fboImg, texCoord, color);
+
+            vec4 val = vec4(geo, air, turb, shad);
+            s_sideVals[workI] = max(s_sideVals[workI], val);
+        }
+
+        barrier();
+
+        ivec2 sideTexCoord = ivec2(sideX, texCoord.y);
+        vec4 color = imageLoad(u_sideImg, sideTexCoord);
+        vec4 val = s_sideVals[workI];
+
+        float geo = val.x;
+        float air = val.y;
+        float turb = val.z;
+        float shad = val.w;
+
+        //color.rgb = max(color.rgb, vec3(geo * 0.5f));
+        color.r += getShadFactor(shad) * 0.5f;
+        color.g += air;
+        color.b += turb * 0.5f;
+        color.a = 1.0f;
+        imageStore(u_sideImg, sideTexCoord, color);
+    }
+}

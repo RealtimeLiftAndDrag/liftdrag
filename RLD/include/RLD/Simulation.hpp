@@ -1,9 +1,5 @@
 #pragma once
 
-
-
-#include <string>
-
 #include "Common/Global.hpp"
 #include "Common/Model.hpp"
 
@@ -15,7 +11,7 @@ struct GLFWwindow;
 
 namespace rld {
 
-    bool setup(const std::string & resourceDir, int texSize, int sliceCount, float liftC, float dragC);
+    bool setup(int texSize, int sliceCount, float liftC, float dragC, float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC);
 
     void cleanup();
 
@@ -38,13 +34,22 @@ namespace rld {
     );
 
     // Does one slice and returns if it was the last one
+    // Requires OpenGL state:
+    // - `GL_DEPTH_TEST` disabled
+    // - `GL_BLEND` enabled
     bool step(bool isExternalCall = true);
 
     // Does a full sweep
+    // Requires OpenGL state:
+    // - `GL_DEPTH_TEST` disabled
+    // - `GL_BLEND` enabled
     void sweep();
 
+    // Resets the sweep to the first slice
+    void reset();
+
     // Returns the index of the slice that would be NEXT
-    int slice();    
+    int slice();
 
     // Returns the total number of slices
     int sliceCount();
@@ -53,20 +58,20 @@ namespace rld {
     const vec3 & lift();
     // Returns the lifts for each slice
     const vec3 * lifts();
-    
+
     // Returns the drag of the sweep
     const vec3 & drag();
     // Returns the drags for each slice
     const vec3 * drags();
 
     // Returns the torque of the sweep
-    const vec3 & torque();
+    const vec3 & torq();
     // Returns the torques for each slice
-    const vec3 * torques();
+    const vec3 * torqs();
 
-    uint frontTex();
-    uint sideTex();
-    uint turbulenceTex();
+    u32 frontTex();
+    u32 sideTex();
+    u32 turbulenceTex();
 
     int texSize();
 

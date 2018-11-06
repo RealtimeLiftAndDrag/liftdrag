@@ -77,7 +77,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/Visualizer;../RLD/include;../UI/include;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -91,7 +91,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/Visualizer;../RLD/include;../UI/include;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -107,7 +107,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/Visualizer;../RLD/include;../UI/include;../Common/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_OPENGL_ERROR_CHECKS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
@@ -126,7 +126,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;../RLD/include;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/Visualizer;../RLD/include;../UI/include;../Common/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_OPENGL_ERROR_CHECKS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
@@ -143,6 +143,9 @@
     </ProjectReference>
     <ProjectReference Include="..\RLD\RLD.vcxproj">
       <Project>{7189f2a1-f8ef-4599-be9f-73d44e329e09}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\UI\UI.vcxproj">
+      <Project>{bc6a22dd-24ee-445e-a909-5b138d29a2b8}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

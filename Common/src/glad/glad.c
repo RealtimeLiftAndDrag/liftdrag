@@ -7,7 +7,7 @@
     APIs: gl=4.5
     Profile: compatibility
     Extensions:
-        
+
     Loader: True
     Local files: True
     Omit khrplatform: True

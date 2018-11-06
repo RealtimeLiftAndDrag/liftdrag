@@ -2,7 +2,6 @@
 
 
 
-#include <string>
 #include <fstream>
 #include <sstream>
 
@@ -10,23 +9,22 @@
 
 
 
-namespace Util {
+namespace util {
 
-
-
-    inline std::pair<bool, std::string> readTextFile(const std::string & filepath) {
-        std::ifstream ifs(filepath);
+    inline bool readTextFile(const std::string & file, std::string & r_dst) {
+        std::ifstream ifs(file);
         if (!ifs.good()) {
-            return {};
+            return false;
         }
         std::string str(
             std::istreambuf_iterator<char>(ifs),
             std::istreambuf_iterator<char>{}
         );
         if (!ifs.good()) {
-            return {};
+            return false;
         }
-        return { true, std::move(str) };
+        r_dst = move(str);
+        return true;
     }
 
     inline bool writeTextFile(const std::string & filepath, const std::string & str) {
@@ -61,21 +59,26 @@ namespace Util {
     }
 
     // Formats the given number into a string
-    static std::string numberString(float num, int precision) {
+    inline std::string numberString(double num, bool fixed, int precision) {
         std::stringstream ss;
         ss.precision(precision);
+        if (fixed) ss << std::fixed;
         ss << num;
         return ss.str();
     }
 
     // Formats the given vector into a string
-    static std::string vectorString(const vec3 & v, int precision) {
+    inline std::string vectorString(const vec3 & v, bool fixed, int precision) {
         std::stringstream ss;
         ss.precision(precision);
+        if (fixed) ss << std::fixed;
         ss << "<" << v.x << " " << v.y << " " << v.z << ">";
         return ss.str();
     }
 
-
+    // Returns if the character is alphanumeric, a symbol, or a space
+    inline bool isPrintable(char c) {
+        return uchar(c) >= 32 && uchar(c) != 127 && uchar(c) != 255;
+    }
 
 }

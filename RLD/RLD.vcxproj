@@ -24,19 +24,19 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\resources\shaders\foil.frag" />
-    <None Include="..\resources\shaders\foil.vert" />
-    <None Include="..\resources\shaders\sim_draw.comp" />
-    <None Include="..\resources\shaders\sim_move.comp" />
-    <None Include="..\resources\shaders\sim_outline.comp" />
-    <None Include="..\resources\shaders\sim_prospect.comp" />
-    <None Include="..\resources\shaders\sim_pretty.comp" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="src\Simulation.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\RLD\Simulation.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\RLD\shaders\draw.comp" />
+    <None Include="..\resources\RLD\shaders\foil.frag" />
+    <None Include="..\resources\RLD\shaders\foil.vert" />
+    <None Include="..\resources\RLD\shaders\move.comp" />
+    <None Include="..\resources\RLD\shaders\outline.comp" />
+    <None Include="..\resources\RLD\shaders\pretty.comp" />
+    <None Include="..\resources\RLD\shaders\prospect.comp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -111,7 +111,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;include/RLD;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/RLD;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -127,7 +127,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;include/RLD;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/RLD;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -145,7 +145,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;include/RLD;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/RLD;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -165,7 +165,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include;include/RLD;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/RLD;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>

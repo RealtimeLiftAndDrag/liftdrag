@@ -8,31 +8,29 @@
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 #include "Common/GLSL.h"
-#include "Common/Program.h"
-#include "Common/Graph.hpp"
-#include "Common/Text.hpp"
+#include "Common/Shader.hpp"
+#include "UI/Graph.hpp"
 
 
 
-namespace Results {
+namespace results {
 
     static constexpr float k_angleGranularity(1.0f); // results kept in increments of this many degrees
     static constexpr float k_invAngleGranularity(1.0f / k_angleGranularity);
     static constexpr float k_initAngleGraphDomainMin(-90.0f), k_initAngleGraphDomainMax(90.0f);
-    static constexpr float k_initAngleGraphRangeMin(-50.0f), k_initAngleGraphRangeMax(50.0f);
     static constexpr float k_angleGraphExcessFactor(1.025f);
     static const ivec2 k_minAngleGraphSize(300, 100);
     static const ivec2 k_maxAngleGraphSize(0, 300);
-    static const std::string k_angleGraphTitleString("Lift and Drag Force (N) by Angle of Attack (\u00B0)");
-    
-    static constexpr float k_initSliceGraphRangeMin(-1.5f), k_initSliceGraphRangeMax(1.5f);
+    static const std::string & k_angleGraphTitleString("Lift and Drag Force (N) by Angle of Attack (\u00B0)");
+
     static constexpr float k_sliceGraphExcessFactor(k_angleGraphExcessFactor);
     static const ivec2 k_minSliceGraphSize(k_minAngleGraphSize);
     static const ivec2 k_maxSliceGraphSize(k_maxAngleGraphSize);
-    static const std::string k_sliceGraphTitleString("Lift and Drag Force (N) by Slice");
+    static const std::string & k_sliceGraphTitleString("Lift and Drag Force (N) by Slice");
 
 
     static int s_sliceCount;
+    static vec2 s_angleGraphRange, s_sliceGraphRange;
 
     static std::map<float, Entry> s_angleRecord; // map of results where key is angle and value is lift/drag pair
     static bool s_isAngleRecordChange;
@@ -40,24 +38,26 @@ namespace Results {
     static std::map<int, Entry> s_sliceRecord;
     static bool s_isSliceRecordChange;
 
-    static shr<Graph> s_angleGraph, s_sliceGraph;
+    static shr<ui::Graph> s_angleGraph, s_sliceGraph;
 
 
 
-    bool setup(const std::string & resourcesDir, int sliceCount) {
+    bool setup(int sliceCount, const vec2 & angleGraphRange, const vec2 & sliceGraphRange) {
         s_sliceCount = sliceCount;
+        s_angleGraphRange = angleGraphRange;
+        s_sliceGraphRange = sliceGraphRange;
 
         // Angle graph
 
-        vec2 min(k_initAngleGraphDomainMin, k_initAngleGraphRangeMin);
-        vec2 max(k_initAngleGraphDomainMax, k_initAngleGraphRangeMax);
+        vec2 min(k_initAngleGraphDomainMin, s_angleGraphRange.x);
+        vec2 max(k_initAngleGraphDomainMax, s_angleGraphRange.y);
         vec2 size(max - min);
         vec2 center((min + max) * 0.5f);
         size *= k_angleGraphExcessFactor;
         min = center - size * 0.5f;
         max = center + size * 0.5f;
 
-        s_angleGraph.reset(new Graph(
+        s_angleGraph.reset(new ui::Graph(
             k_angleGraphTitleString,
             "Angle",
             min,
@@ -71,15 +71,15 @@ namespace Results {
 
         // Slice graph
 
-        min = vec2(0.0f, k_initSliceGraphRangeMin);
-        max = vec2(s_sliceCount, k_initSliceGraphRangeMax);
+        min = vec2(0.0f, s_sliceGraphRange.x);
+        max = vec2(s_sliceCount, s_sliceGraphRange.y);
         size = vec2(max - min);
         center = vec2((min + max) * 0.5f);
         size *= k_sliceGraphExcessFactor;
         min = center - size * 0.5f;
         max = center + size * 0.5f;
 
-        s_sliceGraph.reset(new Graph(
+        s_sliceGraph.reset(new ui::Graph(
             k_sliceGraphTitleString,
             "Slice",
             min,
@@ -173,22 +173,30 @@ namespace Results {
         return true;
     }
 
-    shr<Graph> angleGraph() {
+    const std::map<float, Entry> & angleRecord() {
+        return s_angleRecord;
+    }
+
+    const std::map<int, Entry> & sliceRecord() {
+        return s_sliceRecord;
+    }
+
+    shr<ui::Graph> angleGraph() {
         return s_angleGraph;
     }
 
-    shr<Graph> sliceGraph() {
+    shr<ui::Graph> sliceGraph() {
         return s_sliceGraph;
     }
 
     void resetGraphs() {
         s_angleGraph->setView(
-            vec2(k_initAngleGraphDomainMin, k_initAngleGraphRangeMin),
-            vec2(k_initAngleGraphDomainMax, k_initAngleGraphRangeMax)
+            vec2(k_initAngleGraphDomainMin, s_angleGraphRange.x),
+            vec2(k_initAngleGraphDomainMax, s_angleGraphRange.y)
         );
         s_sliceGraph->setView(
-            vec2(0, k_initSliceGraphRangeMin),
-            vec2(s_sliceCount, k_initSliceGraphRangeMax)
+            vec2(0, s_sliceGraphRange.x),
+            vec2(s_sliceCount, s_sliceGraphRange.y)
         );
     }
 

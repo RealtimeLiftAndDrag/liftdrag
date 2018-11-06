@@ -13,9 +13,9 @@
 
 
 Mesh::Mesh(std::vector<vec3> && locations, std::vector<vec3> && normals, std::vector<u32> && indices) :
-    m_locations(std::move(locations)),
-    m_normals(std::move(normals)),
-    m_indices(std::move(indices)),
+    m_locations(move(locations)),
+    m_normals(move(normals)),
+    m_indices(move(indices)),
     m_vbo(0),
     m_ibo(0),
     m_vao(0),
@@ -26,13 +26,13 @@ Mesh::Mesh(std::vector<vec3> && locations, std::vector<vec3> && normals, std::ve
 }
 
 Mesh::Mesh(std::vector<vec3> && locations, std::vector<vec3> && normals) :
-    Mesh(std::move(locations), std::move(normals), std::vector<u32>())
+    Mesh(move(locations), move(normals), std::vector<u32>())
 {}
 
 Mesh::Mesh(Mesh && other) :
-    m_locations(std::move(other.m_locations)),
-    m_normals(std::move(other.m_normals)),
-    m_indices(std::move(other.m_indices)),
+    m_locations(move(other.m_locations)),
+    m_normals(move(other.m_normals)),
+    m_indices(move(other.m_indices)),
     m_vbo(other.m_vbo),
     m_ibo(other.m_ibo),
     m_vao(other.m_vao),
@@ -114,12 +114,12 @@ void Mesh::detSpan() {
 
 
 SubModel::SubModel(std::string && name, Mesh && mesh) :
-    SubModel(std::move(name), std::move(mesh), mat4())
+    SubModel(move(name), move(mesh), mat4())
 {}
 
 SubModel::SubModel(std::string && name, Mesh && mesh, const mat4 & originMat) :
-    m_name(std::move(name)),
-    m_mesh(std::move(mesh)),
+    m_name(move(name)),
+    m_mesh(move(mesh)),
     m_modelMat(),
     m_normalMat(),
     m_isOrigin(originMat != mat4()),
@@ -162,11 +162,11 @@ static unq<Model> loadOBJ(const std::string & filename) {
         start = reinterpret_cast<vec3 *>(shape.mesh.normals.data());
         std::vector<vec3> normals(start, start + vertexCount);
 
-        Mesh mesh(std::move(locations), std::move(normals), std::move(shape.mesh.indices));
-        subModels.emplace_back(std::move(shape.name), std::move(mesh));
+        Mesh mesh(move(locations), move(normals), move(shape.mesh.indices));
+        subModels.emplace_back(move(shape.name), move(mesh));
     }
 
-    return unq<Model>(new Model(std::move(subModels)));
+    return unq<Model>(new Model(move(subModels)));
 }
 
 static unq<Model> loadGRL(const std::string & filename) {
@@ -174,19 +174,19 @@ static unq<Model> loadGRL(const std::string & filename) {
     if (objects.empty()) {
         std::cerr << "Failed to load GRL" << std::endl;
         return nullptr;
-    }    
+    }
 
     std::vector<SubModel> subModels;
     for (grl::Object & object : objects) {
-        Mesh mesh(std::move(object.posData), std::move(object.norData));
-        subModels.emplace_back(std::move(object.name), std::move(mesh), object.originMat);
+        Mesh mesh(move(object.posData), move(object.norData));
+        subModels.emplace_back(move(object.name), move(mesh), object.originMat);
     }
 
-    return unq<Model>(new Model(std::move(subModels)));
+    return unq<Model>(new Model(move(subModels)));
 }
 
 unq<Model> Model::load(const std::string & filename) {
-    std::string ext(Util::getExtension(filename));
+    std::string ext(util::getExtension(filename));
 
     unq<Model> model;
     if (ext == "obj") {
@@ -211,11 +211,11 @@ unq<Model> Model::load(const std::string & filename) {
         }
     }
 
-    return std::move(model);
+    return move(model);
 }
 
 Model::Model(std::vector<SubModel> && subModels) :
-    m_subModels(std::move(subModels)),
+    m_subModels(move(subModels)),
     m_nameMap(),
     m_spanMin(),
     m_spanMax()
@@ -225,8 +225,8 @@ Model::Model(std::vector<SubModel> && subModels) :
 }
 
 Model::Model(Model && other) :
-    m_subModels(std::move(other.m_subModels)),
-    m_nameMap(std::move(other.m_nameMap))
+    m_subModels(move(other.m_subModels)),
+    m_nameMap(move(other.m_nameMap))
 {
     m_spanMin = other.m_spanMin;
     m_spanMax = other.m_spanMax;
@@ -238,7 +238,7 @@ void Model::draw() const {
     }
 }
 
-void Model::draw(const mat4 & modelMat, const mat3 & normalMat, uint modelMatUniformBinding, uint normalMatUniformBinding) const {
+void Model::draw(const mat4 & modelMat, const mat3 & normalMat, u32 modelMatUniformBinding, u32 normalMatUniformBinding) const {
     for (const SubModel & subModel : m_subModels) {
         glm::mat4 combModelMat(modelMat * subModel.m_modelMat);
         glm::mat3 combNormalMat(normalMat * subModel.m_normalMat);
@@ -271,5 +271,5 @@ void Model::detSpan() {
     for (const SubModel & subModel : m_subModels) {
         m_spanMin = glm::min(m_spanMin, subModel.m_mesh.spanMin());
         m_spanMax = glm::max(m_spanMax, subModel.m_mesh.spanMax());
-    }    
+    }
 }

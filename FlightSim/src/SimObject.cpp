@@ -1,94 +1,62 @@
 #include "SimObject.hpp"
+
 #include "glm/gtc/matrix_transform.hpp"
 
-SimObject::SimObject() {
-    gravityOn = true;
-    timeScale = 1.f;
-    mass = 1.f;
-
-    pos = vec3(0);
-    vel = vec3(0);
-    acc = vec3(0);
-
-    a_pos = vec3(0);
-    a_vel = vec3(0);
-    a_acc = vec3(0);
-}
-
-mat4 SimObject::getTransform() {
-    return getTranslate() * getRotate();
-}
-
-void SimObject::addTranslationalForce(vec3 force) {
-    acc += (force / mass);
-}
-
-void SimObject::addAngularForce(vec3 force) {
-    a_acc.x += force.x / 3613011.7;
-    a_acc.y += force.y / 23766233.8;
-    a_acc.z += force.z / 26696229.2;
-}
-
-void SimObject::applyThrust() {
-	if (thrust < 0.01) {
-		thrustVal = 0;
-		return;
-	}
-	thrustVal = thrust * maxThrust; //maxThrust is in Newtons
-	vec3 thrustForce = vec3(getRotate() * vec4(0, 0, -thrustVal, 1));
-	addTranslationalForce(thrustForce);
-}
-
-void SimObject::update(float frametime) {
-	applyThrust();
-
-	vel += acc * frametime;
-    pos += vel * frametime;
-
-    a_vel += a_acc * frametime;
-    a_pos += a_vel * frametime;
-
-    acc = vec3(0);
-    a_acc = vec3(0);
-
-    if (gravityOn)
-        acc += vec3(0, -9.8, 0);
-}
-
-void SimObject::setGravityOn(bool _gravityOn) {
-    gravityOn = _gravityOn;
-}
-
-void SimObject::setMass(float _mass) {
-    mass = _mass;
-}
-
-void SimObject::setMaxThrust(float _maxThrust)
+SimObject::SimObject(float mass, const vec3 & momentsOfInertia, float dryThrust, const vec3 & position, const vec3 & direction, float speed) :
+    k_mass(mass),
+    k_invMass(1.0f / k_mass),
+    k_momentsOfInertia(momentsOfInertia),
+    k_dryThrust(dryThrust),
+    m_position(),
+    m_velocity(),
+    m_acceleration(),
+    m_orientation(),
+    m_orientMatrix(),
+    m_angularVel(),
+    m_angularAcc(),
+    m_thrust(0.0f)
 {
-	maxThrust = _maxThrust;
+	reset(position, direction, speed);
 }
 
-void SimObject::setTimeScale(float _timeScale)
-{
-    timeScale = _timeScale;
+void SimObject::reset(const vec3 & position, const vec3 & direction, float speed) {
+	m_position = position;
+	m_velocity = direction * speed;
+	m_acceleration = vec3();
+	m_w = -direction;
+	m_u = glm::normalize(glm::cross(vec3(0.0f, 1.0f, 0.0f), m_w)); // TODO: this will break if `direction` is parallel to y axis
+	m_v = glm::cross(m_w, m_u);
+	m_orientation = glm::toQuat(m_orientMatrix);
+	m_angularVel = vec3();
+	m_angularAcc = vec3();
+	m_thrust = 0.0f;
 }
 
-mat4 SimObject::getTranslate()
-{
-    return glm::translate(mat4(1), pos);
+void SimObject::addTranslationalForce(const vec3 & force) {
+    m_acceleration += (force * k_invMass);
 }
 
-mat4 SimObject::getRotate()
-{
-    mat4 R = mat4(1);
-    R = glm::rotate(R, a_pos.x, vec3(1, 0, 0));
-    R = glm::rotate(R, a_pos.y, vec3(0, 1, 0));
-    R = glm::rotate(R, a_pos.z, vec3(0, 0, 1));
-    return R;
+void SimObject::addAngularForce(const vec3 & force) {
+    m_angularAcc += m_orientMatrix * ((glm::transpose(m_orientMatrix) * force) / k_momentsOfInertia); // TODO: transposeMult function
 }
 
-float SimObject::getThrustVal()
-{
-	return thrustVal;
+void SimObject::update(float dt) {
+    vec3 thrustForce = m_w * -(m_thrust * k_dryThrust);
+    addTranslationalForce(thrustForce);
+
+    m_velocity += m_acceleration * dt;
+    m_position += m_velocity * dt;
+    m_angularVel += m_angularAcc * dt;
+    float angularSpeed(glm::length(m_angularVel));
+    if (angularSpeed > 0.0f) {
+        m_orientation = glm::angleAxis(angularSpeed * dt, m_angularVel / angularSpeed) * m_orientation;
+        m_orientMatrix = glm::toMat3(m_orientation);
+    }
+
+    m_acceleration = vec3();
+    m_angularAcc = vec3();
 }
 
+void SimObject::thrust(float thrust) {
+    m_thrust = thrust;
+}

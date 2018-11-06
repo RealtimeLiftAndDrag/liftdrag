@@ -9,7 +9,6 @@
 #define LAB471_GLSL_H_INCLUDED
 
 #include "glad/glad.h"
-#include <string>
 
 
 namespace GLSL

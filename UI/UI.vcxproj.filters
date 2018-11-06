@@ -1,0 +1,89 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{8f4153e1-1b23-4b76-9cba-9ddbed271479}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{79be68ca-1e45-4ba7-86ba-46fa768089c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources">
+      <UniqueIdentifier>{8d582c1e-a994-4859-b4a8-8e7cbafc6f89}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\shaders">
+      <UniqueIdentifier>{782acb5c-baef-4040-a807-580c03e1828b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\UI\Combo.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\Graph.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\Group.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\Text.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\TexViewer.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\UI.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\UI\shaders\graph_curve.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\UI\shaders\graph_curve.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\UI\shaders\graph_lines.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\UI\shaders\graph_lines.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\UI\shaders\tex.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\UI\shaders\tex.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\UI\shaders\ui_comp.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\UI\shaders\ui_comp.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\UI\shaders\graph_point.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\UI\shaders\graph_point.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Combo.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graph.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Group.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Text.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TexViewer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

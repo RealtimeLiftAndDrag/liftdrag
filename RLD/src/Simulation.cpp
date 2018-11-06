@@ -4,43 +4,45 @@
 #include <iostream>
 
 #include "glad/glad.h"
-#include "Common/Program.h"
-#include "Common/GLSL.h"
 #include "glm/gtc/matrix_transform.hpp"
 
+#include "Common/Shader.hpp"
+#include "Common/GLSL.h"
 #include "Common/Util.hpp"
 
 
 
+
 namespace rld {
-    
+
     static constexpr int k_maxPixelsDivisor(16); // max dense pixels is the total pixels divided by this
     static constexpr int k_maxGeoPerAir(3); // Maximum number of different geo pixels that an air pixel can be associated with
 
     static constexpr bool k_persistentMapping(false); // Should use persistent mapping for mutables ssbo // TODO: test performance
 
 
-    
+
     // Mirrors GPU struct
     struct GeoPixel {
         vec2 windPos;
         ivec2 texCoord;
         vec4 normal;
     };
-    
+
     // Mirrors GPU struct
     struct AirPixel {
         vec2 windPos;
+        vec2 velocity;
         vec2 backforce;
-        vec4 velocity;
+        vec2 turbulence;
     };
-    
+
     // Mirrors GPU struct
     struct AirGeoMapElement {
         s32 geoCount;
         s32 geoIndices[k_maxGeoPerAir];
     };
-    
+
     // Mirrors GPU struct
     struct Constants {
         s32 maxGeoPixels;
@@ -48,13 +50,20 @@ namespace rld {
         s32 screenSize;
         float liftC;
         float dragC;
-        float windframeSize;
-        float sliceSize;
+        float windframeSize; // width and height of the windframe
+        float windframeDepth; // depth of the windframe
+        float sliceSize; // Distance between slices in wind space
+        float turbulenceDist; // Distance at which turbulence will start (in wind space)
+        float maxSearchDist; // Max distance for the shader searches (in wind space)
+        float windShadDist; // How far back the wind shadow will stretch (in wind space)
+        float backforceC;
+        float flowback; // Fraction of lateral velocity to remain after 1 unit of distance
+        float initVelC;
         float windSpeed;
         float dt;
         s32 slice;
         float sliceZ;
-        u32 debug;
+        u32 debug; // Enables non-essential features (e.g. sideview texture)
     };
 
     // Mirrors GPU struct
@@ -92,9 +101,15 @@ namespace rld {
     static const Model * s_model;
     static mat4 s_modelMat;
     static mat3 s_normalMat;
-    static float s_windframeWidth; // width and height of the windframe
-    static float s_windframeDepth; // depth of the windframe
-    static float s_sliceSize; // Distance between slices in wind space
+    static float s_windframeWidth;
+    static float s_windframeDepth;
+    static float s_sliceSize;
+    static float s_turbulenceDist;
+    static float s_maxSearchDist;
+    static float s_windShadDist;
+    static float s_backforceC;
+    static float s_flowback;
+    static float s_initVelC;
     static float s_windSpeed;
     static float s_dt; // The time it would take to travel `s_sliceSize` at `s_windSpeed`
     static bool s_debug; // Whether to enable non essentials like side view or active pixel highlighting
@@ -112,118 +127,68 @@ namespace rld {
     static std::vector<vec3> s_torqs; // Torqs for each slice
     static int s_swap;
 
-    static shr<Program> s_foilProg;
+    static unq<Shader> s_foilProg;
+    static unq<Shader> s_prospectProg;
+    static unq<Shader> s_outlineProg;
+    static unq<Shader> s_moveProg;
+    static unq<Shader> s_drawProg;
+    static unq<Shader> s_prettyProg;
 
     static Constants s_constants;
 
-    static uint s_constantsUBO;
-    static uint s_resultsSSBO;
-    static uint s_geoPixelsSSBO;
-    static uint s_airPixelsSSBO[2];
-    static uint s_airGeoMapSSBO;
+    static u32 s_constantsUBO;
+    static u32 s_resultsSSBO;
+    static u32 s_geoPixelsSSBO;
+    static u32 s_airPixelsSSBO[2];
+    static u32 s_airGeoMapSSBO;
 
-    static uint s_fbo;
-    static uint s_fboTex;
-    static uint s_turbTex;
-    static uint s_prevTurbTex;
-    static uint s_shadTex;
-    static uint s_fboNormTex;
-    static uint s_flagTex;
-    static uint s_sideTex;
-
-    static uint s_prospectProg;
-    static uint s_outlineProg;
-    static uint s_moveProg;
-    static uint s_drawProg;
-    static uint s_prettyProg;
+    static u32 s_fbo;
+    static u32 s_fboTex;
+    static u32 s_turbTex;
+    static u32 s_prevTurbTex;
+    static u32 s_shadTex;
+    static u32 s_fboNormTex;
+    static u32 s_flagTex;
+    static u32 s_sideTex;
 
     static Result * s_resultsMappedPtr; // used for persistent mapping
 
 
 
-    static uint loadShader(const std::string & vertPath, const std::string & fragPath) {
-        // TODO
-    }
-
-    static uint loadShader(const std::string & compPath) {
-        auto [res, str](Util::readTextFile(compPath));
-        if (!res) {
-            std::cerr << "Failed to read file: " << compPath << std::endl;
-            return 0;
-        }
-
-        const char * cStr(str.c_str());
-        uint shaderId(glCreateShader(GL_COMPUTE_SHADER));
-        glShaderSource(shaderId, 1, &cStr, nullptr);
-        CHECKED_GL_CALL(glCompileShader(shaderId));
-        int rc; 
-        CHECKED_GL_CALL(glGetShaderiv(shaderId, GL_COMPILE_STATUS, &rc));
-        if (!rc) {
-            GLSL::printShaderInfoLog(shaderId);
-            std::cerr << "Failed to compile" << std::endl;
-            return 0;
-        }
-
-        uint progId(glCreateProgram());
-        glAttachShader(progId, shaderId);
-        glLinkProgram(progId);
-        glGetProgramiv(progId, GL_LINK_STATUS, &rc);
-        if (!rc) {
-            GLSL::printProgramInfoLog(progId);
-            std::cerr << "Failed to link" << std::endl;
-            return 0;
-        }
-
-        if (glGetError()) {
-            std::cerr << "OpenGL error" << std::endl;
-            return 0;
-        }
-
-        return progId;
-    }
-
-    static bool setupShaders(const std::string & resourcesDir) {
-        std::string shadersDir(resourcesDir + "/shaders");
-
+    static bool setupShaders() {
+        std::string shadersPath(g_resourcesDir + "/RLD/shaders/");
         // Foil Shader
-        s_foilProg = std::make_shared<Program>();
-        s_foilProg->setVerbose(true);
-        s_foilProg->setShaderNames(shadersDir + "/foil.vert", shadersDir + "/foil.frag");
-        if (!s_foilProg->init()) {
-            std::cerr << "Failed to initialize foil shader" << std::endl;
+        if (!(s_foilProg = Shader::load(shadersPath + "foil.vert", shadersPath + "foil.frag"))) {
+            std::cerr << "Failed to load foil shader" << std::endl;
             return false;
         }
-        s_foilProg->addUniform("u_projMat");
-        s_foilProg->addUniform("u_viewMat");
-        s_foilProg->addUniform("u_modelMat");
-        s_foilProg->addUniform("u_normalMat");
 
         // Prospect Compute Shader
-        if (!(s_prospectProg = loadShader(shadersDir + "/sim_prospect.comp"))) {
+        if (!(s_prospectProg = Shader::load(shadersPath + "prospect.comp"))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
             return false;
         }
 
         // Outline Compute Shader
-        if (!(s_outlineProg = loadShader(shadersDir + "/sim_outline.comp"))) {
+        if (!(s_outlineProg = Shader::load(shadersPath + "outline.comp"))) {
             std::cerr << "Failed to load outline shader" << std::endl;
             return false;
         }
-    
+
         // Move Compute Shader
-        if (!(s_moveProg = loadShader(shadersDir + "/sim_move.comp"))) {
+        if (!(s_moveProg = Shader::load(shadersPath + "move.comp"))) {
             std::cerr << "Failed to load move shader" << std::endl;
             return false;
         }
-    
+
         // Draw Compute Shader
-        if (!(s_drawProg = loadShader(shadersDir + "/sim_draw.comp"))) {
+        if (!(s_drawProg = Shader::load(shadersPath + "draw.comp"))) {
             std::cerr << "Failed to load draw shader" << std::endl;
             return false;
         }
-    
+
         // Draw Turbulence Compute Shader
-        if (!(s_prettyProg = loadShader(shadersDir + "/sim_pretty.comp"))) {
+        if (!(s_prettyProg = Shader::load(shadersPath + "pretty.comp"))) {
             std::cerr << "Failed to load pretty shader" << std::endl;
             return false;
         }
@@ -300,7 +265,7 @@ namespace rld {
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16_SNORM, s_texSize, s_texSize);
 
         // Depth render buffer
-        uint fboDepthRB(0);
+        u32 fboDepthRB(0);
         glGenRenderbuffers(1, &fboDepthRB);
         glBindRenderbuffer(GL_RENDERBUFFER, fboDepthRB);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, s_texSize, s_texSize);
@@ -312,7 +277,7 @@ namespace rld {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_fboTex, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, s_fboNormTex, 0);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fboDepthRB);
-        uint drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+        u32 drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
         glDrawBuffers(2, drawBuffers);
 
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -331,36 +296,37 @@ namespace rld {
     }
 
     static void computeProspect() {
-        glUseProgram(s_prospectProg);
+        s_prospectProg->bind();
 
-        glDispatchCompute((s_texSize + 7) / 8, (s_texSize + 7) / 8, 1); // Must also tweak in shader
-        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all     
+        //glDispatchCompute((s_texSize + 7) / 8, (s_texSize + 7) / 8, 1); // Must also tweak in shader
+        glDispatchCompute(1, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
     static void computeOutline() {
-        glUseProgram(s_outlineProg);
+        s_outlineProg->bind();
 
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
     static void computeMove() {
-        glUseProgram(s_moveProg);
+        s_moveProg->bind();
 
         glDispatchCompute(1, 1, 1);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all  
+        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
     static void computeDraw() {
-        glUseProgram(s_drawProg);
-    
+        s_drawProg->bind();
+
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
     static void computePretty() {
-        glUseProgram(s_prettyProg);
-    
+        s_prettyProg->bind();
+
         glDispatchCompute(1, 1, 1); // Must also tweak in shader
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
@@ -374,22 +340,22 @@ namespace rld {
 
         s_foilProg->bind();
 
-        float zNear(s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize);
+        float nearDist(s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize);
         float windframeRadius(s_windframeWidth * 0.5f);
         mat4 projMat(glm::ortho(
             -windframeRadius, // left
             windframeRadius,  // right
             -windframeRadius, // bottom
             windframeRadius,  // top
-            zNear, // near
-            zNear + s_sliceSize // far
-        ));        
-        glUniformMatrix4fv(s_foilProg->getUniform("u_projMat"), 1, GL_FALSE, reinterpret_cast<const float *>(&projMat));
+            nearDist, // near
+            nearDist + s_sliceSize // far
+        ));
+        s_foilProg->uniform("u_projMat", projMat);
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        s_model->draw(s_modelMat, s_normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
+        s_model->draw(s_modelMat, s_normalMat, s_foilProg->uniformLocation("u_modelMat"), s_foilProg->uniformLocation("u_normalMat"));
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        s_model->draw(s_modelMat, s_normalMat, s_foilProg->getUniform("u_modelMat"), s_foilProg->getUniform("u_normalMat"));
+        s_model->draw(s_modelMat, s_normalMat, s_foilProg->uniformLocation("u_modelMat"), s_foilProg->uniformLocation("u_normalMat"));
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
 
@@ -427,7 +393,7 @@ namespace rld {
         }
         else {
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
-            p = reinterpret_cast<Result *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, s_sliceCount * sizeof(Result), GL_MAP_READ_BIT));         
+            p = reinterpret_cast<Result *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, s_sliceCount * sizeof(Result), GL_MAP_READ_BIT));
         }
 
         s_lifts.clear();
@@ -458,7 +424,14 @@ namespace rld {
         s_constants.liftC = s_liftC;
         s_constants.dragC = s_dragC;
         s_constants.windframeSize = s_windframeWidth;
+        s_constants.windframeDepth = s_windframeDepth;
         s_constants.sliceSize = s_sliceSize;
+        s_constants.turbulenceDist = s_turbulenceDist;
+        s_constants.maxSearchDist = s_maxSearchDist;
+        s_constants.windShadDist = s_windShadDist;
+        s_constants.backforceC = s_backforceC;
+        s_constants.flowback = s_flowback;
+        s_constants.initVelC = s_initVelC;
         s_constants.windSpeed = s_windSpeed;
         s_constants.dt = s_dt;
         s_constants.slice = 0;
@@ -512,17 +485,22 @@ namespace rld {
 
 
 
-    bool setup(const std::string & resourceDir, const int texSize, int sliceCount, float liftC, float dragC) {
+    bool setup(const int texSize, int sliceCount, float liftC, float dragC, float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC) {
         s_texSize = texSize;
         s_maxGeoPixels = s_texSize * s_texSize / k_maxPixelsDivisor;
         s_maxAirPixels = s_maxGeoPixels;
         s_sliceCount = sliceCount;
         s_liftC = liftC;
         s_dragC = dragC;
-
+        s_turbulenceDist = turbulenceDist;
+        s_maxSearchDist = maxSearchDist;
+        s_windShadDist = windShadDist;
+        s_backforceC = backforceC;
+        s_flowback = flowback;
+        s_initVelC = initVelC;
 
         // Setup shaders
-        if (!setupShaders(resourceDir)) {
+        if (!setupShaders()) {
             std::cerr << "Failed to setup shaders" << std::endl;
             return false;
         }
@@ -541,7 +519,7 @@ namespace rld {
             s_resultsMappedPtr = reinterpret_cast<Result *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, s_sliceCount * sizeof(Result), GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT));
         }
         else {
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT);        
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT);
         }
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -573,7 +551,7 @@ namespace rld {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, s_texSize, s_texSize);
-        uint clearcolor = 0;
+        u32 clearcolor = 0;
         glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearcolor);
 
         if (glGetError() != GL_NO_ERROR) {
@@ -586,7 +564,7 @@ namespace rld {
             std::cerr << "Failed to setup framebuffer" << std::endl;
             return false;
         }
-    
+
         return true;
     }
 
@@ -631,21 +609,21 @@ namespace rld {
             s_torq = vec3();
             s_swap = 1;
         }
-        
+
         s_swap = 1 - s_swap;
 
         s_constants.slice = s_currentSlice;
-        s_constants.sliceZ = s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize;
+        s_constants.sliceZ = s_windframeDepth * 0.5f - s_currentSlice * s_sliceSize;
         uploadConstants();
         resetCounters(false);
 
-        if (isExternalCall) setBindings();        
+        if (isExternalCall) setBindings();
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO[s_swap]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);
 
+        clearFlagTex();
         renderGeometry(); // Render geometry to fbo
         computeProspect(); // Scan fbo and generate geo pixels
-        clearFlagTex();
         computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
         computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
@@ -668,6 +646,10 @@ namespace rld {
         s_currentSlice = 0;
         setBindings();
         while (!step(false));
+    }
+
+    void reset() {
+        s_currentSlice = 0;
     }
 
     int slice() {
@@ -694,23 +676,23 @@ namespace rld {
         return s_drags.data();
     }
 
-    const vec3 & torque() {
+    const vec3 & torq() {
         return s_torq;
     }
 
-    const vec3 * torques() {
+    const vec3 * torqs() {
         return s_torqs.data();
     }
 
-    uint frontTex() {
+    u32 frontTex() {
         return s_fboTex;
     }
 
-    uint sideTex() {
+    u32 sideTex() {
         return s_sideTex;
     }
 
-    uint turbulenceTex() {
+    u32 turbulenceTex() {
         return s_turbTex;
     }
 

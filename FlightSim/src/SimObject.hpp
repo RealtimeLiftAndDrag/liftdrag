@@ -1,33 +1,59 @@
 #pragma once
 
+#include "glm/gtx/quaternion.hpp"
+
 #include "Common/Global.hpp"
 
 class SimObject {
-    vec3 acc;
-    vec3 a_vel;
-    vec3 a_acc;
-    float mass;
-    bool gravityOn;
-    float timeScale;
-	float maxThrust;
-	float thrustVal;
-public:
-    vec3 pos;
-    vec3 vel;
-    vec3 a_pos;
-    float thrust; //val between 0 and 1
 
-    SimObject();
-    mat4 getTransform();
-    void addTranslationalForce(vec3 force);
-    void addAngularForce(vec3 force);
-	void applyThrust();
+    public: 
+
+    // `direction` must be normalized and should not be +-z
+    SimObject(float mass, const vec3 & momentsOfInertia, float dryThrust, const vec3 & position, const vec3 & direction, float speed);
+    
     void update(float time);
-    void setGravityOn(bool _gravityOn);
-    void setMass(float _mass);
-	void setMaxThrust(float _maxThrust);
-    void setTimeScale(float _timeScale);
-    mat4 getTranslate();
-    mat4 getRotate();
-	float getThrustVal();
+
+	void reset(const vec3 & position, const vec3 & direction, float speed);
+
+    // `force` is in world space
+    void addTranslationalForce(const vec3 & force);
+
+    // `force` is in world space
+    void addAngularForce(const vec3 & force);
+
+    const vec3 & position() const { return m_position; }
+
+    const vec3 & velocity() const { return m_velocity; }
+
+    const vec3 & acceleration() const { return m_acceleration; }
+
+    const quat & orientation() const { return m_orientation; }
+
+    const mat3 & orientMatrix() const { return m_orientMatrix; }
+
+    const vec3 & u() const { return m_u; }
+    const vec3 & v() const { return m_v; }
+    const vec3 & w() const { return m_w; }
+
+    void thrust(float thrust);
+    float thrust() const { return m_thrust; }
+
+    const float k_mass, k_invMass;
+    const vec3 k_momentsOfInertia; // moments of inertia for pitch, yaw, and roll
+    const float k_dryThrust; // TODO: wet thrust
+
+    private:
+
+    vec3 m_position;
+    vec3 m_velocity;
+    vec3 m_acceleration;
+    quat m_orientation;
+    union {
+        mat3 m_orientMatrix;
+        struct { vec3 m_u, m_v, m_w; };
+    };
+    vec3 m_angularVel;
+    vec3 m_angularAcc;
+    float m_thrust; // Between 0 and 1
+
 };
