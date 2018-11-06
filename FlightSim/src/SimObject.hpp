@@ -13,6 +13,8 @@ class SimObject {
     
     void update(float time);
 
+	void reset(const vec3 & position, const vec3 & direction, float speed);
+
     // `force` is in world space
     void addTranslationalForce(const vec3 & force);
 

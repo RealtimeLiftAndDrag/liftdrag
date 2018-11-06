@@ -29,8 +29,8 @@ namespace ProgTerrain {
     float time = 1.0;
     namespace {
 
-        static const int k_meshSize(300);
-        static const float k_meshRes(2.f); // Higher value = less verticies per unit of measurement
+        static const int k_meshSize(100);
+        static const float k_meshRes(50.f); // Higher value = less verticies per unit of measurement
         void init_mesh() {
             //generate the VAO
             glGenVertexArrays(1, &TerrainVertexArrayID);
