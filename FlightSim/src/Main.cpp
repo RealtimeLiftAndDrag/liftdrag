@@ -204,24 +204,24 @@ static void keyCallback(GLFWwindow *window, int key, int scancode, int action, i
     }
     // K enables wind view
     else if (key == GLFW_KEY_K && action == GLFW_RELEASE) {
-		s_windView = !s_windView;
+        s_windView = !s_windView;
     }
-	// R resets the object
-	else if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
-		s_simObject->reset(k_initPos, k_initDir, k_initSpeed);
-	}
-	// R resets the object
-	else if (key == GLFW_KEY_P && action == GLFW_RELEASE) {
-		s_unpaused = !s_unpaused;
-	}
+    // R resets the object
+    else if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
+        s_simObject->reset(k_initPos, k_initDir, k_initSpeed);
+    }
+    // R resets the object
+    else if (key == GLFW_KEY_P && action == GLFW_RELEASE) {
+        s_unpaused = !s_unpaused;
+    }
 }
 
 void detMatrices();
 
 static void framebufferSizeCallback(GLFWwindow * window, int width, int height) {
-	s_windowSize.x = width;
-	s_windowSize.y = height;
-	detMatrices();
+    s_windowSize.x = width;
+    s_windowSize.y = height;
+    detMatrices();
 }
 
 static bool setupObject() {
@@ -234,7 +234,7 @@ static bool setupObject() {
 
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)); // flip right-side up
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)) * s_modelMat; // turn to face -z
-    s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 2.0f)) * s_modelMat;
+    //s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 2.0f)) * s_modelMat; // move center of gravity forward to help with stability
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
 
     s_turbulenceDist = 0.225f;
@@ -292,7 +292,7 @@ static bool setup() {
     glfwMakeContextCurrent(s_window);
     glfwSwapInterval(0); // VSync on or off
     glfwSetKeyCallback(s_window, keyCallback);
-	glfwSetFramebufferSizeCallback(s_window, framebufferSizeCallback);
+    glfwSetFramebufferSizeCallback(s_window, framebufferSizeCallback);
 
     // Setup GLAD
     if (!gladLoadGL()) {
@@ -333,7 +333,7 @@ static bool setup() {
     }
 
     detMatrices();
-	s_unpaused = true;
+    s_unpaused = true;
     return true;
 }
 
@@ -463,10 +463,10 @@ static void render(float dt) {
     glDisable(GL_BLEND);
 
     rld::set(*s_model, rldModelMat, rldNormalMat, k_windframeWidth, k_windframeDepth, glm::length(wind), false);
-	if (s_unpaused) {
-		rld::sweep();
-	}
-	
+    if (s_unpaused) {
+        rld::sweep();
+    }
+    
     vec3 lift = windBasis * vec3(rld::lift().x, rld::lift().y, 0.0f); // TODO: figure out what is up with lift along z axis
     vec3 drag = windBasis * rld::drag();
     vec3 torq = windBasis * rld::torq();
@@ -474,11 +474,11 @@ static void render(float dt) {
     //drag.x = drag.y = 0.0f;
     //torq.x = torq.z = 0.0f;
 
-	if (s_unpaused) {
-		s_simObject->addTranslationalForce(lift + drag);
-		s_simObject->addAngularForce(torq);
-		s_simObject->update(dt);
-	}
+    if (s_unpaused) {
+        s_simObject->addTranslationalForce(lift + drag);
+        s_simObject->addAngularForce(torq);
+        s_simObject->update(dt);
+    }
     
     std::cout << glm::to_string(s_simObject->velocity()) << std::endl;
 

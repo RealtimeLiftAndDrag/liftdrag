@@ -252,7 +252,7 @@ void main() {
                         //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
                     }
 
-                    if (color.r != 0.0f) { // we found an geo pixel
+                    if (color.r != 0.0f) { // we found a geo pixel
                         int geoI = imageLoad(u_flagImg, pixel).x;
                         if (geoI != 0) { // TODO: this should not be necessary, just here for sanity
                             --geoI;
@@ -270,9 +270,9 @@ void main() {
                                 // Write turbulence pixel at air and half way between air and geometry
                                 setScreenTurbulent((airScreenPos + screenPos) * 0.5f);
                             }
-
-                            break;
                         }
+
+                        break;
                     }
                 }
             }

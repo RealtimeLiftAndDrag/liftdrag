@@ -51,12 +51,17 @@ vec2 windToScreen(vec2 wind) {
     return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
 }
 
+vec3 safeNormalize(vec3 v) {
+    float d = dot(v, v);
+    return d > 0.0f ? v / sqrt(d) : vec3(0.0f);
+}
+
 void main() {
     // Using the g and b channels to store wind position
     vec2 subPixelPos = windToScreen(in_pos.xy);
     subPixelPos -= gl_FragCoord.xy - 0.5f;
     out_color = vec4(k_inactiveVal, subPixelPos, 0.0f);
-    out_norm = vec4(normalize(in_norm), 0.0f);
+    out_norm = vec4(safeNormalize(in_norm), 0.0f);
 
     // Side View
     if (bool(u_debug)) {
