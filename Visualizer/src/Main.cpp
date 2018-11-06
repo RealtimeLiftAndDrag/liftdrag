@@ -179,7 +179,7 @@ static void changeElevatorAngle(float deltaAngle) {
 
 static void setSimulation(float angleOfAttack, bool debug) {
     mat4 rotMat(glm::rotate(mat4(), angleOfAttack, vec3(0.0f, 1.0f, 0.0f)));
-	//mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
+    //mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
 
     rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
 }
