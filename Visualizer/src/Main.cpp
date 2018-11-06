@@ -434,7 +434,7 @@ static bool setupModel() {
 
         case SimModel::f18:
             s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
-            s_windframeWidth = 22.0f;//14.5f;
+            s_windframeWidth = 14.5f;
             s_windframeDepth = 22.0f;
             s_turbulenceDist = 0.225f;
             s_windShadDist = 1.5f;
