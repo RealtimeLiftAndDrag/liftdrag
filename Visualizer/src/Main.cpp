@@ -599,7 +599,7 @@ void processController(float dt) {
 
     // Use stick to seek to an angle, release to sweep
     static int s_prevLStickXDir(0);
-    int lStickXDir(glm::sign(s_controller.lStick().x));
+    int lStickXDir(glm::sign(s_controller.state().lStick.x));
     if (lStickXDir != s_prevLStickXDir) {
         s_prevLStickXDir = lStickXDir;
         if (lStickXDir) startSeeking(lStickXDir);
@@ -608,7 +608,7 @@ void processController(float dt) {
 
     // Triggers increment or decrement angle of attack
     if (!rld::slice()) {
-        float dir(glm::ceil(s_controller.rTrigger()) - glm::ceil(s_controller.lTrigger()));
+        float dir(glm::ceil(s_controller.state().rTrigger) - glm::ceil(s_controller.state().lTrigger));
         if (dir) {
             doAngle(nearestVal(s_angleOfAttack, k_manualAngleIncrement) + dir * k_manualAngleIncrement);
         }
@@ -616,7 +616,7 @@ void processController(float dt) {
 
     static constexpr float s_interval(0.05f);
     static float s_time(s_interval);
-    bool state(s_controller.aButton());
+    bool state(s_controller.state().a);
     if (state) {
         s_time += dt;
         if (s_time >= s_interval) {

@@ -216,6 +216,19 @@ static void keyCallback(GLFWwindow *window, int key, int scancode, int action, i
     }
 }
 
+void lStickCallback(int player, vec2 val) {
+    s_controllerPitch = -val.y;
+    s_controllerRoll = val.x;
+}
+
+void rStickCallback(int player, vec2 val) {
+    s_controllerYaw = val.x;
+}
+
+void rTriggerCallback(int player, float val) {
+    s_controllerThrust = val;
+}
+
 void detMatrices();
 
 static void framebufferSizeCallback(GLFWwindow * window, int width, int height) {
@@ -328,9 +341,9 @@ static bool setup() {
 
     // Setup xbox controller
     s_controller.poll();
-    if (s_controller.connected()) {
-        std::cout << "Controller connected" << std::endl;
-    }
+    s_controller.lStickCallback(lStickCallback);
+    s_controller.rStickCallback(rStickCallback);
+    s_controller.rTriggerCallback(rTriggerCallback);
 
     detMatrices();
     s_unpaused = true;
@@ -374,18 +387,8 @@ static float triggerVal(u08 v) {
     return fv >= k_threshold ? (fv - k_threshold) * k_invFactor : 0.0f;
 }
 
-static void processController() {
-    if (s_controller.connected()) {
-        s_controller.poll();
-        s_controllerYaw = s_controller.rStick().x;
-        s_controllerPitch = -s_controller.lStick().y;
-        s_controllerRoll = s_controller.lStick().x;
-        s_controllerThrust = s_controller.rTrigger();
-    }
-}
-
 static void update(float dt) {
-    processController();
+    s_controller.poll();
 
     // Update yaw
     if (s_controllerYaw) { // Controller takes priority
@@ -480,7 +483,7 @@ static void render(float dt) {
         s_simObject->update(dt);
     }
     
-    std::cout << glm::to_string(s_simObject->velocity()) << std::endl;
+    //std::cout << glm::to_string(s_simObject->velocity()) << std::endl;
 
     glViewport(0, 0, s_windowSize.x, s_windowSize.y);
 
