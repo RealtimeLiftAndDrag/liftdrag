@@ -4,7 +4,7 @@
 
 #include <vector>
 
-#include "Common/Global.hpp"
+#include "Common/Controller.hpp"
 
 namespace ui {
 
@@ -54,6 +54,14 @@ namespace ui {
         virtual void mouseButtonEvent(int button, int action, int mods) {}
 
         virtual void scrollEvent(const ivec2 & delta) {}
+
+        virtual void controllerStickEvent(Controller::Stick stick, vec2 val) {}
+
+        virtual void controllerTriggerEvent(Controller::Trigger trigger, float val) {}
+
+        virtual void controllerDpadEvent(ivec2 val) {}
+
+        virtual void controllerButtonEvent(Controller::Button button, bool pressed) {}
 
         virtual void focusEvent() {}
 
@@ -122,6 +130,14 @@ namespace ui {
         virtual void mouseButtonEvent(int button, int action, int mods) override;
 
         virtual void scrollEvent(const ivec2 & delta) override;
+
+        virtual void controllerStickEvent(Controller::Stick stick, vec2 val) override;
+
+        virtual void controllerTriggerEvent(Controller::Trigger trigger, float val) override;
+
+        virtual void controllerDpadEvent(ivec2 val) override;
+
+        virtual void controllerButtonEvent(Controller::Button button, bool pressed) override;
 
         virtual void add(shr<Component> component);
 

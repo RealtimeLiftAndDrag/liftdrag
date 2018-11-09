@@ -598,7 +598,7 @@ void processController(float dt) {
 
     // Use stick to seek to an angle, release to sweep
     static int s_prevLStickXDir(0);
-    int lStickXDir(glm::sign(state.lStick.x));
+    int lStickXDir(int(glm::sign(state.lStick.x)));
     if (lStickXDir != s_prevLStickXDir) {
         s_prevLStickXDir = lStickXDir;
         if (lStickXDir) startSeeking(lStickXDir);
