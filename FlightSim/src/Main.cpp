@@ -88,7 +88,6 @@ static constexpr float k_keyAngleSpeed(90.0f); // how quickly the rudders/ailero
 static constexpr float k_returnAngleSpeed(90.0f); // how quickly the rudders/ailerons/elevators will return to their default position in degrees per second
 
 static GLFWwindow * s_window;
-static Controller s_controller(0);
 
 // These apply when using the keyboard to control the plane
 static bool s_keyboardYawCCW, s_keyboardYawCW;
@@ -216,17 +215,20 @@ static void keyCallback(GLFWwindow *window, int key, int scancode, int action, i
     }
 }
 
-void lStickCallback(int player, vec2 val) {
-    s_controllerPitch = -val.y;
-    s_controllerRoll = val.x;
+void stickCallback(int player, Controller::Stick stick, vec2 val) {
+    if (stick == Controller::Stick::left) {
+        s_controllerPitch = -val.y;
+        s_controllerRoll = val.x;
+    }
+    else if (stick == Controller::Stick::right) {
+        s_controllerYaw = val.x;
+    }
 }
 
-void rStickCallback(int player, vec2 val) {
-    s_controllerYaw = val.x;
-}
-
-void rTriggerCallback(int player, float val) {
-    s_controllerThrust = val;
+void triggerCallback(int player, Controller::Trigger trigger, float val) {\
+    if (trigger == Controller::Trigger::right) {
+        s_controllerThrust = val;
+    }
 }
 
 void detMatrices();
@@ -340,10 +342,9 @@ static bool setup() {
     ProgTerrain::init_geom();
 
     // Setup xbox controller
-    s_controller.poll();
-    s_controller.lStickCallback(lStickCallback);
-    s_controller.rStickCallback(rStickCallback);
-    s_controller.rTriggerCallback(rTriggerCallback);
+    Controller::poll(1);
+    Controller::stickCallback(stickCallback);
+    Controller::triggerCallback(triggerCallback);
 
     detMatrices();
     s_unpaused = true;
@@ -388,7 +389,7 @@ static float triggerVal(u08 v) {
 }
 
 static void update(float dt) {
-    s_controller.poll();
+    Controller::poll(1);
 
     // Update yaw
     if (s_controllerYaw) { // Controller takes priority

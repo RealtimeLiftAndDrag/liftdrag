@@ -101,8 +101,6 @@ static float s_flowback;
 static float s_initVelC;
 static vec2 s_angleGraphRange, s_sliceGraphRange;
 
-static Controller s_controller(0);
-
 //all in degrees
 static float s_angleOfAttack(0.0f);
 static float s_aileronAngle(0.0f);
@@ -495,7 +493,7 @@ static bool setup() {
     }
 
     // Set connected state
-    s_controller.poll();
+    Controller::poll(1);
 
     s_frontTexViewer.reset(new ui::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(128)));
     s_turbTexViewer.reset(new ui::TexViewer(rld::turbulenceTex(), ivec2(rld::texSize()) / 4, ivec2(128)));
@@ -592,14 +590,15 @@ static void updateF18InfoText() {
 }
 
 void processController(float dt) {
-    if (!s_controller.connected()) {
+    if (!Controller::connected(0)) {
         return;
     }
-    s_controller.poll();
+    Controller::poll(1);
+    const Controller::State & state(Controller::state(0));
 
     // Use stick to seek to an angle, release to sweep
     static int s_prevLStickXDir(0);
-    int lStickXDir(glm::sign(s_controller.state().lStick.x));
+    int lStickXDir(glm::sign(state.lStick.x));
     if (lStickXDir != s_prevLStickXDir) {
         s_prevLStickXDir = lStickXDir;
         if (lStickXDir) startSeeking(lStickXDir);
@@ -608,7 +607,7 @@ void processController(float dt) {
 
     // Triggers increment or decrement angle of attack
     if (!rld::slice()) {
-        float dir(glm::ceil(s_controller.state().rTrigger) - glm::ceil(s_controller.state().lTrigger));
+        float dir(glm::ceil(state.rTrigger) - glm::ceil(state.lTrigger));
         if (dir) {
             doAngle(nearestVal(s_angleOfAttack, k_manualAngleIncrement) + dir * k_manualAngleIncrement);
         }
@@ -616,8 +615,7 @@ void processController(float dt) {
 
     static constexpr float s_interval(0.05f);
     static float s_time(s_interval);
-    bool state(s_controller.state().a);
-    if (state) {
+    if (state.a) {
         s_time += dt;
         if (s_time >= s_interval) {
             s_shouldStep = true;

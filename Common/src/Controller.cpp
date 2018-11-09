@@ -10,96 +10,140 @@
 
 
 
-static XINPUT_STATE s_xboxState;
+namespace Controller {
 
-static float stickVal(s16 v) {
-    constexpr float k_posNormFactor(1.0f / 32767.0f), k_negNormFactor(1.0f / 32768.0f);
-    constexpr float k_threshold(0.2f);
-    constexpr float k_invFactor(1.0f / (1.0f - k_threshold));
+    static State s_states[k_maxPlayerCount];
 
-    float fv(v >= 0 ? v * k_posNormFactor : v * k_negNormFactor);
-    if (fv >= +k_threshold) return (fv - k_threshold) * k_invFactor;
-    if (fv <= -k_threshold) return (fv + k_threshold) * k_invFactor;
-    return 0.0f;
-}
+    static void (*s_stickCallback)(int, Stick, vec2);
+    static void (*s_triggerCallback)(int, Trigger, float);
+    static void (*s_dpadCallback)(int, ivec2);
+    static void (*s_buttonCallback)(int, Button, bool);
 
-static float triggerVal(u08 v) {
-    constexpr float k_normFactor(1.0f / 255.0f);
-    constexpr float k_threshold(0.1f);
-    constexpr float k_invFactor(1.0f / (1.0f - k_threshold));
+    static float stickVal(s16 v) {
+        constexpr float k_posNormFactor(1.0f / 32767.0f), k_negNormFactor(1.0f / 32768.0f);
+        constexpr float k_threshold(0.2f);
+        constexpr float k_invFactor(1.0f / (1.0f - k_threshold));
 
-    float fv(v * k_normFactor);
-    return fv >= k_threshold ? (fv - k_threshold) * k_invFactor : 0.0f;
-}
-
-static ivec2 dpadVal(WORD buttons) {
-    ivec2 dpad;
-    if (buttons & XINPUT_GAMEPAD_DPAD_LEFT ) ++dpad.x;
-    if (buttons & XINPUT_GAMEPAD_DPAD_RIGHT) --dpad.x;
-    if (buttons & XINPUT_GAMEPAD_DPAD_DOWN ) ++dpad.y;
-    if (buttons & XINPUT_GAMEPAD_DPAD_UP   ) --dpad.y;
-    return dpad;
-}
-
-
-
-Controller::Controller(int player) :
-    m_player(player),
-    m_connected(false),
-    m_state{}
-{}
-
-void Controller::poll() {
-    m_connected = !XInputGetState(m_player, &s_xboxState);
-    if (!m_connected) {
-        return;
+        float fv(v >= 0 ? v * k_posNormFactor : v * k_negNormFactor);
+        if (fv >= +k_threshold) return (fv - k_threshold) * k_invFactor;
+        if (fv <= -k_threshold) return (fv + k_threshold) * k_invFactor;
+        return 0.0f;
     }
 
-    // Save previous state
-    State prevState(m_state);
+    static float triggerVal(u08 v) {
+        constexpr float k_normFactor(1.0f / 255.0f);
+        constexpr float k_threshold(0.1f);
+        constexpr float k_invFactor(1.0f / (1.0f - k_threshold));
 
-    // Update state
-    m_state. lStick.x = stickVal(s_xboxState.Gamepad.sThumbLX);
-    m_state. lStick.y = stickVal(s_xboxState.Gamepad.sThumbLY);
-    m_state. rStick.x = stickVal(s_xboxState.Gamepad.sThumbRX);
-    m_state. rStick.y = stickVal(s_xboxState.Gamepad.sThumbRY);
-    m_state. lTrigger = triggerVal(s_xboxState.Gamepad.bLeftTrigger);
-    m_state. rTrigger = triggerVal(s_xboxState.Gamepad.bRightTrigger);
-    m_state.     dpad = dpadVal(s_xboxState.Gamepad.wButtons);
-    m_state.        a = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_A;
-    m_state.        b = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_B;
-    m_state.        x = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_X;
-    m_state.        y = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_Y;
-    m_state.      dpU = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP;
-    m_state.      dpD = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
-    m_state.      dpL = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
-    m_state.      dpR = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
-    m_state.lShoulder = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER;
-    m_state.rShoulder = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
-    m_state.   lThumb = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB;
-    m_state.   rThumb = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB;
-    m_state.    start = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_START;
-    m_state.     back = s_xboxState.Gamepad.wButtons & XINPUT_GAMEPAD_BACK;
+        float fv(v * k_normFactor);
+        return fv >= k_threshold ? (fv - k_threshold) * k_invFactor : 0.0f;
+    }
+
+    static ivec2 dpadVal(WORD buttons) {
+        ivec2 dpad;
+        if (buttons & XINPUT_GAMEPAD_DPAD_LEFT ) ++dpad.x;
+        if (buttons & XINPUT_GAMEPAD_DPAD_RIGHT) --dpad.x;
+        if (buttons & XINPUT_GAMEPAD_DPAD_DOWN ) ++dpad.y;
+        if (buttons & XINPUT_GAMEPAD_DPAD_UP   ) --dpad.y;
+        return dpad;
+    }
+
+    static void pollPlayer(int player) {
+        State & state(s_states[player]);        
+
+        XINPUT_STATE xboxState;
+        if (!(state.connected = !XInputGetState(player, &xboxState))) {
+            return;
+        }
+        XINPUT_GAMEPAD & gamepad(xboxState.Gamepad);
+        WORD buttons(gamepad.wButtons);
+
+        // Save previous state
+        State prevState(state);
+
+        // Update state
+        state. lStick.x = stickVal(gamepad.sThumbLX);
+        state. lStick.y = stickVal(gamepad.sThumbLY);
+        state. rStick.x = stickVal(gamepad.sThumbRX);
+        state. rStick.y = stickVal(gamepad.sThumbRY);
+        state. lTrigger = triggerVal(gamepad.bLeftTrigger);
+        state. rTrigger = triggerVal(gamepad.bRightTrigger);
+        state.     dpad = dpadVal(buttons);
+        state.        a = buttons & XINPUT_GAMEPAD_A;
+        state.        b = buttons & XINPUT_GAMEPAD_B;
+        state.        x = buttons & XINPUT_GAMEPAD_X;
+        state.        y = buttons & XINPUT_GAMEPAD_Y;
+        state.      dpU = buttons & XINPUT_GAMEPAD_DPAD_UP;
+        state.      dpD = buttons & XINPUT_GAMEPAD_DPAD_DOWN;
+        state.      dpL = buttons & XINPUT_GAMEPAD_DPAD_LEFT;
+        state.      dpR = buttons & XINPUT_GAMEPAD_DPAD_RIGHT;
+        state.lShoulder = buttons & XINPUT_GAMEPAD_LEFT_SHOULDER;
+        state.rShoulder = buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+        state.   lThumb = buttons & XINPUT_GAMEPAD_LEFT_THUMB;
+        state.   rThumb = buttons & XINPUT_GAMEPAD_RIGHT_THUMB;
+        state.    start = buttons & XINPUT_GAMEPAD_START;
+        state.     back = buttons & XINPUT_GAMEPAD_BACK;
     
-    // Call callbacks if there was a change of state
-    if (   m_lStickCallback && m_state.   lStick != prevState.   lStick)    m_lStickCallback(m_player, m_state.   lStick);
-    if (   m_rStickCallback && m_state.   rStick != prevState.   rStick)    m_rStickCallback(m_player, m_state.   rStick);
-    if ( m_lTriggerCallback && m_state. lTrigger != prevState. lTrigger)  m_lTriggerCallback(m_player, m_state. lTrigger);
-    if ( m_rTriggerCallback && m_state. rTrigger != prevState. rTrigger)  m_rTriggerCallback(m_player, m_state. rTrigger);
-    if (     m_dpadCallback && m_state.     dpad != prevState.     dpad)      m_dpadCallback(m_player, m_state.     dpad);
-    if (        m_aCallback && m_state.        a != prevState.        a)         m_aCallback(m_player, m_state.        a);
-    if (        m_bCallback && m_state.        b != prevState.        b)         m_bCallback(m_player, m_state.        b);
-    if (        m_xCallback && m_state.        x != prevState.        x)         m_xCallback(m_player, m_state.        x);
-    if (        m_yCallback && m_state.        y != prevState.        y)         m_yCallback(m_player, m_state.        y);
-    if (      m_dpUCallback && m_state.      dpU != prevState.      dpU)       m_dpUCallback(m_player, m_state.      dpU);
-    if (      m_dpDCallback && m_state.      dpD != prevState.      dpD)       m_dpDCallback(m_player, m_state.      dpD);
-    if (      m_dpLCallback && m_state.      dpL != prevState.      dpL)       m_dpLCallback(m_player, m_state.      dpL);
-    if (      m_dpRCallback && m_state.      dpR != prevState.      dpR)       m_dpRCallback(m_player, m_state.      dpR);
-    if (m_lShoulderCallback && m_state.lShoulder != prevState.lShoulder) m_lShoulderCallback(m_player, m_state.lShoulder);
-    if (m_rShoulderCallback && m_state.rShoulder != prevState.rShoulder) m_rShoulderCallback(m_player, m_state.rShoulder);
-    if (   m_lThumbCallback && m_state.   lThumb != prevState.   lThumb)    m_lThumbCallback(m_player, m_state.   lThumb);
-    if (   m_rThumbCallback && m_state.   rThumb != prevState.   rThumb)    m_rThumbCallback(m_player, m_state.   rThumb);
-    if (    m_startCallback && m_state.    start != prevState.    start)     m_startCallback(m_player, m_state.    start);
-    if (     m_backCallback && m_state.     back != prevState.     back)      m_backCallback(m_player, m_state.     back);
+        // Call callbacks if there was a change of state
+        if (s_stickCallback) {
+            if (state.lStick != prevState.lStick) s_stickCallback(player, Stick:: left, state.lStick);
+            if (state.rStick != prevState.rStick) s_stickCallback(player, Stick::right, state.rStick);
+        }
+        if (s_triggerCallback) {
+            if (state. lTrigger != prevState. lTrigger) s_triggerCallback(player, Trigger:: left, state.lTrigger);
+            if (state. rTrigger != prevState. rTrigger) s_triggerCallback(player, Trigger::right, state.rTrigger);
+        }
+        if (s_dpadCallback) {
+            if (state.dpad != prevState.dpad) s_dpadCallback(player, state.dpad);
+        }
+        if (s_buttonCallback) {
+            if (state.        a != prevState.        a) s_buttonCallback(player, Button::        a, state.        a);
+            if (state.        b != prevState.        b) s_buttonCallback(player, Button::        b, state.        b);
+            if (state.        x != prevState.        x) s_buttonCallback(player, Button::        x, state.        x);
+            if (state.        y != prevState.        y) s_buttonCallback(player, Button::        y, state.        y);
+            if (state.      dpU != prevState.      dpU) s_buttonCallback(player, Button::      dpU, state.      dpU);
+            if (state.      dpD != prevState.      dpD) s_buttonCallback(player, Button::      dpD, state.      dpD);
+            if (state.      dpL != prevState.      dpL) s_buttonCallback(player, Button::      dpL, state.      dpL);
+            if (state.      dpR != prevState.      dpR) s_buttonCallback(player, Button::      dpR, state.      dpR);
+            if (state.lShoulder != prevState.lShoulder) s_buttonCallback(player, Button::lShoulder, state.lShoulder);
+            if (state.rShoulder != prevState.rShoulder) s_buttonCallback(player, Button::rShoulder, state.rShoulder);
+            if (state.   lThumb != prevState.   lThumb) s_buttonCallback(player, Button::   lThumb, state.   lThumb);
+            if (state.   rThumb != prevState.   rThumb) s_buttonCallback(player, Button::   rThumb, state.   rThumb);
+            if (state.    start != prevState.    start) s_buttonCallback(player, Button::    start, state.    start);
+            if (state.     back != prevState.     back) s_buttonCallback(player, Button::     back, state.     back);
+        }
+    }
+
+
+
+    void poll(int nPlayers) {
+        nPlayers = glm::clamp(nPlayers, 0, k_maxPlayerCount);
+        for (int player(0); player < nPlayers; ++player) pollPlayer(player);
+    }
+
+    bool connected(int player) {
+        return s_states[player].connected;
+    }
+
+    const State & state(int player) {
+        return s_states[player];
+    }
+
+    void stickCallback(void (*callback)(int, Stick, vec2)) {
+        s_stickCallback = callback;
+    }
+
+    void triggerCallback(void (*callback)(int, Trigger, float)) {
+        s_triggerCallback = callback;
+    }
+
+    void dpadCallback(void (*callback)(int, ivec2)) {
+        s_dpadCallback = callback;
+    }
+
+    void buttonCallback(void (*callback)(int, Button, bool)) {
+        s_buttonCallback = callback;
+    }
+
 
 }
