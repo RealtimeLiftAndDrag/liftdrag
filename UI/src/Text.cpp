@@ -205,8 +205,8 @@ namespace ui {
         if (m_editing) cancelEditing();
     }
 
-    void TextField::actionCallback(std::function<void(void)> func) {
-        m_actionCallback = move(func);
+    void TextField::actionCallback(void (*callback)(void)) {
+        m_actionCallback = callback;
     }
 
     bool TextField::valid(char c) const {
@@ -274,7 +274,7 @@ namespace ui {
     }
 
     bool NumberField::valid(char c) const {
-        return std::isdigit(c) || c == '.' || c == '-';
+        return std::isdigit(c) || c == '.' || c == '-' || c == 'e' || c == 'E';
     }
 
 
@@ -290,7 +290,14 @@ namespace ui {
         if (std::isnan(val)) {
             return false;
         }
-        val = glm::clamp(val, m_minVal, m_maxVal);
+        if (val < m_minVal) {
+            val = m_minVal;
+            str = util::numberString(val, m_fixed, m_precision);
+        }
+        else if (val > m_maxVal) {
+            val = m_maxVal;
+            str = util::numberString(val, m_fixed, m_precision);
+        }
         m_value = val;
         return true;
     }

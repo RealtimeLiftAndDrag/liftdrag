@@ -235,7 +235,7 @@ namespace ui {
         // Focus
 
         if (true) {//m_graph.m_isFocusX) {
-            float focusOrigin((m_graph.m_isFocusX ? m_graph.m_focusX : m_graph.m_markX - viewCenter.x) * viewToScreen.x);
+            float focusOrigin(((m_graph.m_isFocusX ? m_graph.m_focusX : m_graph.m_markX) - viewCenter.x) * viewToScreen.x);
 
             s_linesProg->uniform("u_color", k_focusColor);
             // Vertical
@@ -452,13 +452,12 @@ namespace ui {
         m_markX(0.0f),
         m_innerComp(new InnerComp(*this, minPlotSize, maxPlotSize))
     {
-        add(m_innerComp);
-
         if (!title.empty()) {
             int lineCount(::Text::detDimensions(title).y);
             shr<ui::Text> titleComp(new ui::Text(title, ivec2(), vec4(1.0f), ivec2(int(title.size()), lineCount), ivec2(0, lineCount)));
             add(titleComp);
         }
+        add(m_innerComp);
     }
 
     void Graph::addCurve(const std::string & xLabel, const vec3 & color, int maxNPoints) {

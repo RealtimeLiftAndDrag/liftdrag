@@ -91,11 +91,11 @@ namespace ui {
             }
         }
 
-        ivec2 pos(position());
+        ivec2 pos(position().x, position().y + size().y);
         for (int i(0); i < int(m_components.size()); ++i) {
+            pos.y -= tempHeights[i];
             m_components[i]->position(pos);
             m_components[i]->size(ivec2(size().x, tempHeights[i]));
-            pos.y += tempHeights[i];
         }
 
         packComponents();

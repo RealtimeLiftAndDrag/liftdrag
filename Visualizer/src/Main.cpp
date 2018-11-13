@@ -58,7 +58,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::f18);
+static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
@@ -110,19 +110,20 @@ static float s_elevatorAngle(0.0f);
 static bool s_shouldStep(false);
 static bool s_shouldSweep(true);
 static bool s_shouldAutoProgress(false);
+static bool s_shouldReset(false);
 static int s_seekDir(0);
 static float s_seekAngle(0.0f);
+static bool s_isInfoChange(true);
+static bool s_isF18Change(true);
+static bool s_isVariableChange(false);
 
 static shr<MainUIC> s_mainUIC;
 static shr<ui::TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
-static shr<ui::String> s_angleLabel, s_angleLiftLabel, s_angleDragLabel, s_angleTorqueLabel;
 static shr<ui::NumberField> s_angleField;
 static shr<ui::Vector> s_angleLiftNum, s_angleDragNum, s_angleTorqueNum;
-static shr<ui::String> s_rudderLabel, s_elevatorLabel, s_aileronLabel;
 static shr<ui::Number> s_rudderNum, s_elevatorNum, s_aileronNum;
+static shr<ui::NumberField> s_windSpeedField, s_turbDistField, s_maxSearchDistField, s_windShadDistField, s_backforceCField, s_flowbackField, s_initVelCField;
 
-static bool s_isInfoChange(true);
-static bool s_isF18Change(true);
 
 
 
@@ -148,7 +149,8 @@ static float nearestVal(float v, float increment) {
 }
 
 static void setAngleOfAttack(float angle) {
-    if (glm::abs(angle) <= 90.0f) {
+    angle = glm::clamp(angle, -90.0f, 90.0f);
+    if (angle != s_angleOfAttack) {
         s_angleOfAttack = angle;
         s_isInfoChange = true;
     }
@@ -280,9 +282,16 @@ void doAngle(float angle) {
         return;
     }
     
-    rld::reset();
     setAngleOfAttack(angle);
     s_shouldSweep = true;
+    s_shouldReset = true;
+}
+
+void doSweep() {
+    s_shouldStep = false;
+    s_shouldSweep = true;
+    s_shouldAutoProgress = false;
+    s_shouldReset = true;
 }
 
 void startSeeking(int dir) {
@@ -295,7 +304,7 @@ void startSeeking(int dir) {
     s_shouldStep = false;
     s_shouldSweep = false;
     s_shouldAutoProgress = false;
-    rld::reset();
+    s_shouldReset = true;
 }
 
 void stopSeeking() {
@@ -462,6 +471,159 @@ static bool setupModel() {
     return true;
 }
 
+static void setupUI() {
+    s_frontTexViewer.reset(new ui::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(128)));
+    s_turbTexViewer.reset(new ui::TexViewer(rld::turbulenceTex(), ivec2(rld::texSize()) / 4, ivec2(128)));
+    s_sideTexViewer.reset(new ui::TexViewer(rld::sideTex(), ivec2(rld::texSize()), ivec2(128)));
+
+    shr<ui::HorizontalGroup> displayGroup(new ui::HorizontalGroup());
+    displayGroup->add(s_frontTexViewer);
+    displayGroup->add(s_sideTexViewer);
+
+    shr<ui::Graph> angleGraph(results::angleGraph());
+    shr<ui::Graph> sliceGraph(results::sliceGraph());
+
+    // --- Angle Info ---
+
+    shr<ui::VerticalGroup> angleLabelGroup(new ui::VerticalGroup());
+    shr<ui::VerticalGroup> angleValueGroup(new ui::VerticalGroup());
+
+    angleLabelGroup->add(shr<ui::String>(new ui::String("Angle: ", 1, vec4(1.0f))));
+    s_angleField.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 5, 0, true, 1, -90.0f, 90.0f));
+    s_angleField->actionCallback([](){
+        doAngle(float(s_angleField->value()));
+    });
+    angleValueGroup->add(s_angleField);
+
+    angleLabelGroup->add(shr<ui::String>(new ui::String("Lift: ", 1, vec4(1.0f))));
+    s_angleLiftNum.reset(new ui::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
+    angleValueGroup->add(s_angleLiftNum);
+
+    angleLabelGroup->add(shr<ui::String>(new ui::String("Drag: ", 1, vec4(1.0f))));
+    s_angleDragNum.reset(new ui::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
+    angleValueGroup->add(s_angleDragNum);
+
+    angleLabelGroup->add(shr<ui::String>(new ui::String("Torq: ", 1, vec4(1.0f))));
+    s_angleTorqueNum.reset(new ui::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
+    angleValueGroup->add(s_angleTorqueNum);
+
+    shr<ui::HorizontalGroup> angleGroup(new ui::HorizontalGroup());
+    angleGroup->add(angleLabelGroup);
+    angleGroup->add(angleValueGroup);
+
+    // --- F18 Info ---
+
+    shr<ui::HorizontalGroup> f18Group(new ui::HorizontalGroup());
+
+    f18Group->add(shr<ui::String>(new ui::String("Rudder: ", 1, vec4(1.0f))));
+    s_rudderNum.reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    f18Group->add(s_rudderNum);
+
+    f18Group->add(shr<ui::String>(new ui::String("Elevator: ", 1, vec4(1.0f))));
+    s_elevatorNum.reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    f18Group->add(s_elevatorNum);
+
+    f18Group->add(shr<ui::String>(new ui::String("Aileron: ", 1, vec4(1.0f))));
+    s_aileronNum.reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    f18Group->add(s_aileronNum);
+
+    //ivec2 textSize(Text::detDimensions(k_controlsString));
+    //shr<ui::Text> controlsText(new ui::Text(k_controlsString, ivec2(1, 0), vec4(1.0f), textSize, ivec2(textSize.x, 0)));
+
+    // --- Variables ---
+
+    const int k_variableWidth(10), k_variablePrecision(3);
+
+    shr<ui::VerticalGroup> variablesLabelGroup(new ui::VerticalGroup());
+    shr<ui::VerticalGroup> variablesFieldGroup(new ui::VerticalGroup());
+
+    variablesLabelGroup->add(shr<ui::String>(new ui::String("Wind Speed: ", -1, vec4(1.0f))));
+    s_windSpeedField.reset(new ui::BoundedNumberField(s_windSpeed, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
+    s_windSpeedField->actionCallback([]() {
+        s_windSpeed = float(s_windSpeedField->value());
+        s_isVariableChange = true;
+        doSweep();
+    });
+    variablesFieldGroup->add(s_windSpeedField);
+    
+    variablesLabelGroup->add(shr<ui::String>(new ui::String("Turbulence Dist: ", -1, vec4(1.0f))));
+    s_turbDistField.reset(new ui::BoundedNumberField(s_turbulenceDist, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
+    s_turbDistField->actionCallback([]() {
+        s_turbulenceDist = float(s_turbDistField->value());
+        s_isVariableChange = true;
+        doSweep();
+    });
+    variablesFieldGroup->add(s_turbDistField);
+    
+    variablesLabelGroup->add(shr<ui::String>(new ui::String("Max Search Dist: ", -1, vec4(1.0f))));
+    s_maxSearchDistField.reset(new ui::BoundedNumberField(s_maxSearchDist, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
+    s_maxSearchDistField->actionCallback([]() {
+        s_maxSearchDist = float(s_maxSearchDistField->value());
+        s_isVariableChange = true;
+        doSweep();
+    });
+    variablesFieldGroup->add(s_maxSearchDistField);
+    
+    variablesLabelGroup->add(shr<ui::String>(new ui::String("Windshadow Dist: ", -1, vec4(1.0f))));
+    s_windShadDistField.reset(new ui::BoundedNumberField(s_windShadDist, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
+    s_windShadDistField->actionCallback([]() {
+        s_windShadDist = float(s_windShadDistField->value());
+        s_isVariableChange = true;
+        doSweep();
+    });
+    variablesFieldGroup->add(s_windShadDistField);
+    
+    variablesLabelGroup->add(shr<ui::String>(new ui::String("Backforce Mult: ", -1, vec4(1.0f))));
+    s_backforceCField.reset(new ui::BoundedNumberField(s_backforceC, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
+    s_backforceCField->actionCallback([]() {
+        s_backforceC = float(s_backforceCField->value());
+        s_isVariableChange = true;
+        doSweep();
+    });
+    variablesFieldGroup->add(s_backforceCField);
+    
+    variablesLabelGroup->add(shr<ui::String>(new ui::String("Flowback: ", -1, vec4(1.0f))));
+    s_flowbackField.reset(new ui::BoundedNumberField(s_flowback, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, 1.0));
+    s_flowbackField->actionCallback([]() {
+        s_flowback = float(s_flowbackField->value());
+        s_isVariableChange = true;
+        doSweep();
+    });
+    variablesFieldGroup->add(s_flowbackField);
+    
+    variablesLabelGroup->add(shr<ui::String>(new ui::String("Init Vel Mult: ", -1, vec4(1.0f))));
+    s_initVelCField.reset(new ui::BoundedNumberField(s_initVelC, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
+    s_initVelCField->actionCallback([]() {
+        s_initVelC = float(s_initVelCField->value());
+        s_isVariableChange = true;
+        doSweep();
+    });
+    variablesFieldGroup->add(s_initVelCField);
+
+    shr<ui::HorizontalGroup> variablesGroup(new ui::HorizontalGroup());
+    variablesGroup->add(variablesLabelGroup);
+    variablesGroup->add(variablesFieldGroup);
+
+    // ---
+
+    shr<ui::VerticalGroup> infoGroup(new ui::VerticalGroup());
+    //infoGroup->add(controlsText);
+    infoGroup->add(angleGroup);
+    infoGroup->add(f18Group);
+    infoGroup->add(variablesGroup);
+
+    shr<ui::HorizontalGroup> bottomGroup(new ui::HorizontalGroup());
+    bottomGroup->add(angleGraph);
+    bottomGroup->add(sliceGraph);
+    bottomGroup->add(infoGroup);
+
+    s_mainUIC.reset(new MainUIC());
+    s_mainUIC->add(displayGroup);
+    s_mainUIC->add(bottomGroup);
+
+    ui::setRootComponent(s_mainUIC);
+}
+
 static bool setup() {
     // Setup UI, which includes GLFW and GLAD
     if (!ui::setup(k_defWindowSize, "Realtime Lift and Drag Visualizer", 4, 5, false)) {
@@ -495,79 +657,7 @@ static bool setup() {
     // Set connected state
     Controller::poll(1);
 
-    s_frontTexViewer.reset(new ui::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(128)));
-    s_turbTexViewer.reset(new ui::TexViewer(rld::turbulenceTex(), ivec2(rld::texSize()) / 4, ivec2(128)));
-    s_sideTexViewer.reset(new ui::TexViewer(rld::sideTex(), ivec2(rld::texSize()), ivec2(128)));
-
-    shr<ui::HorizontalGroup> displayGroup(new ui::HorizontalGroup());
-    displayGroup->add(s_frontTexViewer);
-    displayGroup->add(s_sideTexViewer);
-
-    shr<ui::Graph> angleGraph(results::angleGraph());
-    shr<ui::Graph> sliceGraph(results::sliceGraph());
-
-    s_angleLabel      .reset(new ui::String("Angle: ", 1, vec4(1.0f)));
-    s_angleLiftLabel  .reset(new ui::String("Lift: ", 1, vec4(1.0f)));
-    s_angleDragLabel  .reset(new ui::String("Drag: ", 1, vec4(1.0f)));
-    s_angleTorqueLabel.reset(new ui::String("Torq: ", 1, vec4(1.0f)));
-    s_rudderLabel     .reset(new ui::String("Rudder: ", 1, vec4(1.0f)));
-    s_elevatorLabel   .reset(new ui::String("Elevator: ", 1, vec4(1.0f)));
-    s_aileronLabel    .reset(new ui::String("Aileron: ", 1, vec4(1.0f)));
-
-    s_angleField    .reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 5, 0, true, 1, -90.0f, 90.0f));
-    s_angleField->actionCallback([&](){
-        if (rld::slice() == 0 && !s_shouldAutoProgress) {
-            setAngleOfAttack(float(s_angleField->value()));
-        }
-    });
-    s_angleLiftNum  .reset(new ui::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
-    s_angleDragNum  .reset(new ui::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
-    s_angleTorqueNum.reset(new ui::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
-    s_rudderNum     .reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
-    s_elevatorNum   .reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
-    s_aileronNum    .reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
-
-    shr<ui::HorizontalGroup> f18Info(new ui::HorizontalGroup());
-    f18Info->add(s_rudderLabel);
-    f18Info->add(s_rudderNum);
-    f18Info->add(s_elevatorLabel);
-    f18Info->add(s_elevatorNum);
-    f18Info->add(s_aileronLabel);
-    f18Info->add(s_aileronNum);
-
-    ivec2 textSize(Text::detDimensions(k_controlsString));
-    shr<ui::Text> controlsText(new ui::Text(k_controlsString, ivec2(1, 0), vec4(1.0f), textSize, ivec2(textSize.x, 0)));
-
-    shr<ui::VerticalGroup> infoGroup(new ui::VerticalGroup());
-    infoGroup->add(controlsText);
-    infoGroup->add(f18Info);
-    shr<ui::HorizontalGroup> angleTorqueGroup(new ui::HorizontalGroup());
-    angleTorqueGroup->add(s_angleTorqueLabel);
-    angleTorqueGroup->add(s_angleTorqueNum);
-    infoGroup->add(angleTorqueGroup);
-    shr<ui::HorizontalGroup> angleDragGroup(new ui::HorizontalGroup());
-    angleDragGroup->add(s_angleDragLabel);
-    angleDragGroup->add(s_angleDragNum);
-    infoGroup->add(angleDragGroup);
-    shr<ui::HorizontalGroup> angleLiftGroup(new ui::HorizontalGroup());
-    angleLiftGroup->add(s_angleLiftLabel);
-    angleLiftGroup->add(s_angleLiftNum);
-    infoGroup->add(angleLiftGroup);
-    shr<ui::HorizontalGroup> angleGroup(new ui::HorizontalGroup());
-    angleGroup->add(s_angleLabel);
-    angleGroup->add(s_angleField);
-    infoGroup->add(angleGroup);
-
-    shr<ui::HorizontalGroup> bottomGroup(new ui::HorizontalGroup());
-    bottomGroup->add(angleGraph);
-    bottomGroup->add(sliceGraph);
-    bottomGroup->add(infoGroup);
-
-    s_mainUIC.reset(new MainUIC());
-    s_mainUIC->add(bottomGroup);
-    s_mainUIC->add(displayGroup);
-
-    ui::setRootComponent(s_mainUIC);
+    setupUI();
 
     return true;
 }
@@ -630,12 +720,30 @@ void processController(float dt) {
 }
 
 static void update(float dt) {
-    if (s_seekDir) {
-        s_seekAngle += float(s_seekDir) * k_seekSpeed * dt;
-        setAngleOfAttack(nearestVal(s_seekAngle, k_manualAngleIncrement));
+    if (s_shouldReset) {
+        rld::reset();
+        s_shouldReset = false;
     }
 
-    if (s_shouldStep || s_shouldSweep) {
+    if (s_isVariableChange && rld::slice() == 0) {
+        rld::setVariables(s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC);
+        s_isVariableChange = false;
+    }
+
+    if (s_seekDir) {
+        s_seekAngle += float(s_seekDir) * k_seekSpeed * dt;
+        if (s_seekAngle > 90.0f) {
+            s_seekAngle = 90.0f;
+            s_seekDir = 0;
+        }
+        else if (s_seekAngle < -90.0f) {
+            s_seekAngle = -90.0f;
+            s_seekDir = 0;
+        }
+
+        setAngleOfAttack(nearestVal(s_seekAngle, k_manualAngleIncrement));
+    }
+    else if (s_shouldStep || s_shouldSweep) {
         int slice(rld::slice());
 
         if (slice == 0) { // About to do first slice

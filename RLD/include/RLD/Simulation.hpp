@@ -13,6 +13,9 @@ namespace rld {
 
     bool setup(int texSize, int sliceCount, float liftC, float dragC, float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC);
 
+    // Sets the following variables. Must be called at the start of a sweep and after setup
+    void setVariables(float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC);
+
     void cleanup();
 
     // Sets the parameters of the simulation. Should be called once before each sweep

@@ -53,4 +53,7 @@ using std::move;
 
 using namespace std::string_literals;
 
+template <typename T> constexpr T k_infinity{std::numeric_limits<T>::infinity()};
+template <typename T> constexpr T k_nan{std::numeric_limits<T>::quiet_nan()};
+
 extern std::string g_resourcesDir;

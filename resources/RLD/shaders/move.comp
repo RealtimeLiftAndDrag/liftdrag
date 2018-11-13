@@ -346,7 +346,7 @@ void main() {
         airVelocity += backforce * u_dt;
         // Sweep back by diminishing xy components
         float factor;
-        if (false && k_doWindShadow) {
+        if (k_doWindShadow) {
             factor = mix(u_flowback, 1.0f, getScreenShadFactor(airScreenPos));
         }
         else {

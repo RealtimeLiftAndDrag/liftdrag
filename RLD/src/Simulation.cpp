@@ -492,12 +492,7 @@ namespace rld {
         s_sliceCount = sliceCount;
         s_liftC = liftC;
         s_dragC = dragC;
-        s_turbulenceDist = turbulenceDist;
-        s_maxSearchDist = maxSearchDist;
-        s_windShadDist = windShadDist;
-        s_backforceC = backforceC;
-        s_flowback = flowback;
-        s_initVelC = initVelC;
+        setVariables(turbulenceDist, maxSearchDist, windShadDist, backforceC, flowback, initVelC);
 
         // Setup shaders
         if (!setupShaders()) {
@@ -566,6 +561,15 @@ namespace rld {
         }
 
         return true;
+    }
+
+    void setVariables(float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC) {
+        s_turbulenceDist = turbulenceDist;
+        s_maxSearchDist = maxSearchDist;
+        s_windShadDist = windShadDist;
+        s_backforceC = backforceC;
+        s_flowback = flowback;
+        s_initVelC = initVelC;
     }
 
     void cleanup() {

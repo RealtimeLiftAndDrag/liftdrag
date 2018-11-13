@@ -2,8 +2,6 @@
 
 
 
-#include <functional>
-
 #include "Common/Text.hpp"
 
 #include "Group.hpp"
@@ -104,7 +102,7 @@ namespace ui {
 
         bool m_editing;
         std::string m_savedString;
-        std::function<void(void)> m_actionCallback;
+        void (*m_actionCallback)(void);
 
         public:
 
@@ -124,7 +122,7 @@ namespace ui {
 
         virtual void unfocusEvent() override;
 
-        virtual void actionCallback(std::function<void(void)> func) final;
+        virtual void actionCallback(void (*callback)(void)) final;
 
         virtual bool valid(char c) const;
 
