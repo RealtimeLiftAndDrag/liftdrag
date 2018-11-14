@@ -6,6 +6,10 @@
 #define DEBUG false
 #endif
 
+#ifndef DO_WIND_SHADOW
+#define DO_WIND_SHADOW false
+#endif
+
 layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
@@ -37,10 +41,9 @@ struct AirGeoMapElement {
 // Constants -------------------------------------------------------------------
 
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
-
 const bool k_debug = DEBUG;
-
-float k_airDensity = 1.0f;
+const float k_airDensity = 1.0f;
+const bool k_doWindShadow = DO_WIND_SHADOW;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -183,7 +186,7 @@ void main() {
             vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
 
             // Set wind shadow
-            if (geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
+            if (k_doWindShadow && geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
                 imageStore(u_shadImg, texCoord / 4, vec4(u_slice * u_sliceSize / u_windframeDepth, 0.0f, 0.0f, 0.0f));
             }
             // Calculate drag and torque

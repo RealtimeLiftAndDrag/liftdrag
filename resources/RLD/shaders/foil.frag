@@ -4,14 +4,17 @@
 #define DEBUG false
 #endif
 
+#ifndef DISTINGUISH_ACTIVE_PIXELS
+#define DISTINGUISH_ACTIVE_PIXELS false
+#endif
+
 // Types -----------------------------------------------------------------------
 
 // Constants -------------------------------------------------------------------
 
 const bool k_debug = DEBUG;
-
-const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
-const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
+const bool k_distinguishActivePixels = DISTINGUISH_ACTIVE_PIXELS; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
+const float k_inactiveVal = k_distinguishActivePixels && k_debug ? 1.0f / 3.0f : 1.0f;
 
 // Inputs ----------------------------------------------------------------------
 

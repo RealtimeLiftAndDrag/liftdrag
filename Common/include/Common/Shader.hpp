@@ -14,20 +14,20 @@ class Shader {
     static unq<Shader> load(
         const std::string & vertFile,
         const std::string & fragFile,
-        std::initializer_list<pair<std::string_view, std::string_view>> defines = {}
+        std::initializer_list<duo<std::string_view>> defines = {}
     );
     static unq<Shader> load(
         const std::string & vertFile,
         const std::string & geomFile,
         const std::string & fragFile,
-        std::initializer_list<pair<std::string_view, std::string_view>> defines = {}
+        std::initializer_list<duo<std::string_view>> defines = {}
     );
     static unq<Shader> load(
         const std::string & vertFile,
         const std::string & tescFile,
         const std::string & teseFile,
         const std::string & fragFile,
-        std::initializer_list<pair<std::string_view, std::string_view>> defines = {}
+        std::initializer_list<duo<std::string_view>> defines = {}
     );
     static unq<Shader> load(
         const std::string & vertFile,
@@ -35,11 +35,11 @@ class Shader {
         const std::string & teseFile,
         const std::string & geomFile,
         const std::string & fragFile,
-        std::initializer_list<pair<std::string_view, std::string_view>> defines = {}
+        std::initializer_list<duo<std::string_view>> defines = {}
     );
     static unq<Shader> load(
         const std::string & compFile,
-        std::initializer_list<pair<std::string_view, std::string_view>> defines = {}
+        std::initializer_list<duo<std::string_view>> defines = {}
     );
 
     u32 glId() const { return m_glId; }

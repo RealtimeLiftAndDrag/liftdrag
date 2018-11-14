@@ -17,6 +17,9 @@ namespace rld {
 
     static constexpr int k_maxPixelsDivisor(16); // max dense pixels is the total pixels divided by this
     static constexpr int k_maxGeoPerAir(3); // Maximum number of different geo pixels that an air pixel can be associated with
+    static constexpr bool k_distinguishActivePixels(true); // In debug mode, makes certain "active" pixels brigher for visual clarity, but lowers performance
+    static constexpr bool k_doTurbulence(false);
+    static constexpr bool k_doWindShadow(false);
 
     static constexpr bool k_persistentMapping(false); // Should use persistent mapping for mutables ssbo // TODO: test performance
 
@@ -156,58 +159,70 @@ namespace rld {
 
     static bool setupShaders() {
         std::string shadersPath(g_resourcesDir + "/RLD/shaders/");
+        std::initializer_list<duo<std::string_view>> defines{
+            { "DISTINGUISH_ACTIVE_PIXELS", k_distinguishActivePixels ? "true" : "false" },
+            { "DO_TURBULENCE", k_doTurbulence ? "true" : "false" },
+            { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" }
+        };
+        std::initializer_list<duo<std::string_view>> debugDefines{
+            { "DEBUG", "true" },
+            { "DISTINGUISH_ACTIVE_PIXELS", k_distinguishActivePixels ? "true" : "false" },
+            { "DO_TURBULENCE", k_doTurbulence ? "true" : "false" },
+            { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" }
+        };
+
         // Foil Shader
-        if (!(s_foilShader = Shader::load(shadersPath + "foil.vert", shadersPath + "foil.frag"))) {
+        if (!(s_foilShader = Shader::load(shadersPath + "foil.vert", shadersPath + "foil.frag", defines))) {
             std::cerr << "Failed to load foil shader" << std::endl;
             return false;
         }
-        if (!(s_foilShaderDebug = Shader::load(shadersPath + "foil.vert", shadersPath + "foil.frag", { { "DEBUG", "true" } }))) {
+        if (!(s_foilShaderDebug = Shader::load(shadersPath + "foil.vert", shadersPath + "foil.frag", debugDefines))) {
             std::cerr << "Failed to load debug foil shader" << std::endl;
             return false;
         }
 
         // Prospect Compute Shader
-        if (!(s_prospectShader = Shader::load(shadersPath + "prospect.comp"))) {
+        if (!(s_prospectShader = Shader::load(shadersPath + "prospect.comp", defines))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
             return false;
         }
-        if (!(s_prospectShaderDebug = Shader::load(shadersPath + "prospect.comp", { { "DEBUG", "true" } }))) {
+        if (!(s_prospectShaderDebug = Shader::load(shadersPath + "prospect.comp", debugDefines))) {
             std::cerr << "Failed to load debug prospect shader" << std::endl;
             return false;
         }
 
         // Outline Compute Shader
-        if (!(s_outlineShader = Shader::load(shadersPath + "outline.comp"))) {
+        if (!(s_outlineShader = Shader::load(shadersPath + "outline.comp", defines))) {
             std::cerr << "Failed to load outline shader" << std::endl;
             return false;
         }
-        if (!(s_outlineShaderDebug = Shader::load(shadersPath + "outline.comp", { { "DEBUG", "true" } }))) {
+        if (!(s_outlineShaderDebug = Shader::load(shadersPath + "outline.comp", debugDefines))) {
             std::cerr << "Failed to load debug outline shader" << std::endl;
             return false;
         }
 
         // Move Compute Shader
-        if (!(s_moveShader = Shader::load(shadersPath + "move.comp"))) {
+        if (!(s_moveShader = Shader::load(shadersPath + "move.comp", defines))) {
             std::cerr << "Failed to load move shader" << std::endl;
             return false;
         }
-        if (!(s_moveShaderDebug = Shader::load(shadersPath + "move.comp", { { "DEBUG", "true" } }))) {
+        if (!(s_moveShaderDebug = Shader::load(shadersPath + "move.comp", debugDefines))) {
             std::cerr << "Failed to load debug move shader" << std::endl;
             return false;
         }
 
         // Draw Compute Shader
-        if (!(s_drawShader = Shader::load(shadersPath + "draw.comp"))) {
+        if (!(s_drawShader = Shader::load(shadersPath + "draw.comp", defines))) {
             std::cerr << "Failed to load draw shader" << std::endl;
             return false;
         }
-        if (!(s_drawShaderDebug = Shader::load(shadersPath + "draw.comp", { { "DEBUG", "true" } }))) {
+        if (!(s_drawShaderDebug = Shader::load(shadersPath + "draw.comp", debugDefines))) {
             std::cerr << "Failed to load debug draw shader" << std::endl;
             return false;
         }
 
         // Pretty Compute Shader
-        if (!(s_prettyShader = Shader::load(shadersPath + "pretty.comp"))) {
+        if (!(s_prettyShader = Shader::load(shadersPath + "pretty.comp", defines))) {
             std::cerr << "Failed to load pretty shader" << std::endl;
             return false;
         }
