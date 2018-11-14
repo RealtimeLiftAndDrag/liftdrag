@@ -373,7 +373,7 @@ namespace rld {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
         glViewport(0, 0, s_texSize, s_texSize);
 
-        // Clear framebuffer.
+        // Clear framebuffer
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         Shader & foilShader(s_debug ? *s_foilShaderDebug : *s_foilShader);

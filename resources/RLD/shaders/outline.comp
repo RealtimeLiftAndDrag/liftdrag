@@ -181,25 +181,47 @@ void main() {
 
         // Look for existing air pixel
         if (shouldSearch) {
-            vec2 screenPos = geoScreenPos;
-            ivec2 pixel = geoTexCoord;
-            vec2 screenDir = normalize(geoNormal.xy);
-            vec2 corner = step(vec2(0.0f), screenDir);
+            vec2 searchScreenPos = geoScreenPos;
+            ivec2 searchPixel = geoTexCoord;
+            vec2 searchDir = normalize(geoNormal.xy);
+            vec2 corner = step(vec2(0.0f), searchDir);
             float totalDist = 0.0f;
 
+
+            // Check for air on geometry
+            vec4 color = imageLoad(u_fboImg, searchPixel);
+            if (color.g != 0.0f) {
+                int airI = imageLoad(u_flagImg, searchPixel).x;
+                if (airI != 0) { // TODO: this should not be necessary, just here for sanity
+                    --airI;
+
+                    shouldSpawn = false;
+
+                    if (u_airPixels[airI].windPos == vec2(0.0f)) u_airPixels[airI].windPos = geoWindPos; // TODO: get rid of this
+
+                    int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
+                    if (mapI < MAX_GEO_PER_AIR) {
+                        u_airGeoMap[airI].geoIndices[mapI] = geoI;
+                    }
+                }
+            }
+
+
+
             // Search along line in direction of geo normal
+            if (shouldSpawn)
             while (true) {
                 // TODO: potentially optimize line search
-                vec2 delta = corner - (screenPos - vec2(pixel));
-                vec2 dist = abs(delta / screenDir);
+                vec2 delta = corner - (searchScreenPos - vec2(searchPixel));
+                vec2 dist = abs(delta / searchDir);
                 if (dist.x < dist.y) {
-                    screenPos += screenDir * dist.x;
-                    pixel.x += int(sign(screenDir.x));
+                    searchScreenPos += searchDir * dist.x;
+                    searchPixel.x += int(sign(searchDir.x));
                     totalDist += screenToWindDist(dist.x);
                 }
                 else {
-                    screenPos += screenDir * dist.y;
-                    pixel.y += int(sign(screenDir.y));
+                    searchScreenPos += searchDir * dist.y;
+                    searchPixel.y += int(sign(searchDir.y));
                     totalDist += screenToWindDist(dist.y);
                 }
 
@@ -208,15 +230,15 @@ void main() {
                 }
 
                 // If find turbulence, stop looking and mark turbulence
-                if (k_doTurbulence && isScreenTurbulent(screenPos)) {
+                if (k_doTurbulence && isScreenTurbulent(searchScreenPos)) {
                     // Write turbulence pixel half way between found turbulence and geometry
-                    setScreenTurbulent((geoScreenPos + screenPos) * 0.5f);
+                    setScreenTurbulent((geoScreenPos + searchScreenPos) * 0.5f);
 
                     shouldSpawn = false;
                     break;
                 }
 
-                vec4 color = imageLoad(u_fboImg, pixel);
+                color = imageLoad(u_fboImg, searchPixel);
 
                 // Visualize the search
                 //if (k_debug) {
@@ -227,7 +249,7 @@ void main() {
                     break;
                 }
                 if (color.g != 0.0f) { // we found an air pixel
-                    int airI = imageLoad(u_flagImg, pixel).x;
+                    int airI = imageLoad(u_flagImg, searchPixel).x;
                     if (airI != 0) { // TODO: this should not be necessary, just here for sanity
                         --airI;
 
@@ -237,7 +259,7 @@ void main() {
                             u_airPixels[airI].turbulence.x = 1.0f;
                             // Don't need to write turbulence at air because it happens in move shader
                             // Write turbulence pixel half way between air and geometry
-                            setScreenTurbulent((geoScreenPos + screenPos) * 0.5f);
+                            setScreenTurbulent((geoScreenPos + searchScreenPos) * 0.5f);
 
                             shouldSpawn = false;
                             break;

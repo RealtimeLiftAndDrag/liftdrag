@@ -119,6 +119,7 @@ vec2 screenToWind(vec2 screen) {
     return (screen / u_screenSize - 0.5f) * u_windframeSize;
 }
 
+// Returns one of <1, 0>, <-1, 0>, <0, 1>, <0, -1> corresponding to dir
 ivec2 getPixelDelta(vec2 dir) {
     vec2 signs = sign(dir);
     vec2 mags = dir * signs;
@@ -180,7 +181,7 @@ void main() {
                 continue;
             }
 
-            imageStore(u_fboImg, texCoord, vec4(color.r, 0.0f, 0.0f, 0.0f)); // TODO: totally unnecessary??
+            imageStore(u_fboImg, texCoord, vec4(color.r, 0.0f, 0.0f, 0.0f));
 
             vec2 geoWindPos = screenToWind(vec2(texCoord) + color.gb);
             vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
