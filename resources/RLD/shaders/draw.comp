@@ -161,10 +161,14 @@ void doOne(int prevAirI) {
                 //vec2 tangentVel = geoNormal.xy * geoNormal.z; // Equivalent to above
                 //tangentVel = tangentVel * u_windSpeed;
 
-                float speed = length(air.velocity);
                 vec2 norm = normalize(geoNormal.xy);
-                float d = max(dot(air.velocity / speed, norm), 0.0f);
-                air.velocity = mix(geoNormal.z * u_windSpeed, speed, d) * norm;
+                if (geoNormal.z > 0.0f) {
+                    air.velocity = max(dot(air.velocity, norm), geoNormal.z * u_windSpeed) * norm;
+                }
+                else {
+                    air.velocity = geoNormal.z * u_windSpeed * norm;
+                }
+
                 air.backforce = vec2(0.0f);
                 air.turbulence = vec2(0.0f);
                 break;
