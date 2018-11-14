@@ -63,7 +63,7 @@ static unq<Model> s_model;
 static unq<SimObject> s_simObject;
 static unq<Shader> s_planeShader;
 
-static mat4 s_modelMat; 
+static mat4 s_modelMat;
 static mat3 s_normalMat;
 static float s_windSpeed;
 static float s_turbulenceDist;
@@ -470,7 +470,7 @@ static void render(float dt) {
     if (s_unpaused) {
         rld::sweep();
     }
-    
+
     vec3 lift = windBasis * vec3(rld::lift().x, rld::lift().y, 0.0f); // TODO: figure out what is up with lift along z axis
     vec3 drag = windBasis * rld::drag();
     vec3 torq = windBasis * rld::torq();
@@ -483,7 +483,7 @@ static void render(float dt) {
         s_simObject->addAngularForce(torq);
         s_simObject->update(dt);
     }
-    
+
     //std::cout << glm::to_string(s_simObject->velocity()) << std::endl;
 
     glViewport(0, 0, s_windowSize.x, s_windowSize.y);
@@ -504,7 +504,7 @@ static void render(float dt) {
             projMat = s_perspectiveMat;
         }
     }
-    else {        
+    else {
         modelMat = s_simObject->orientMatrix();
         modelMat = modelMat * s_modelMat;
         modelMat[3] = vec4(s_simObject->position(), 1.0f);

@@ -278,11 +278,11 @@ void doAngle(float angle) {
 
     s_shouldStep = false;
     s_shouldAutoProgress = false;
-    
+
     if (angle == s_angleOfAttack && s_shouldSweep) {
         return;
     }
-    
+
     setAngleOfAttack(angle);
     s_shouldSweep = true;
     s_shouldReset = true;
@@ -546,7 +546,7 @@ static void setupUI() {
         doSweep();
     });
     variablesFieldGroup->add(s_windSpeedField);
-    
+
     variablesLabelGroup->add(shr<ui::String>(new ui::String("Turbulence Dist: ", -1, vec4(1.0f))));
     s_turbDistField.reset(new ui::BoundedNumberField(s_turbulenceDist, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
     s_turbDistField->actionCallback([]() {
@@ -555,7 +555,7 @@ static void setupUI() {
         doSweep();
     });
     variablesFieldGroup->add(s_turbDistField);
-    
+
     variablesLabelGroup->add(shr<ui::String>(new ui::String("Max Search Dist: ", -1, vec4(1.0f))));
     s_maxSearchDistField.reset(new ui::BoundedNumberField(s_maxSearchDist, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
     s_maxSearchDistField->actionCallback([]() {
@@ -564,7 +564,7 @@ static void setupUI() {
         doSweep();
     });
     variablesFieldGroup->add(s_maxSearchDistField);
-    
+
     variablesLabelGroup->add(shr<ui::String>(new ui::String("Windshadow Dist: ", -1, vec4(1.0f))));
     s_windShadDistField.reset(new ui::BoundedNumberField(s_windShadDist, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
     s_windShadDistField->actionCallback([]() {
@@ -573,7 +573,7 @@ static void setupUI() {
         doSweep();
     });
     variablesFieldGroup->add(s_windShadDistField);
-    
+
     variablesLabelGroup->add(shr<ui::String>(new ui::String("Backforce Mult: ", -1, vec4(1.0f))));
     s_backforceCField.reset(new ui::BoundedNumberField(s_backforceC, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
     s_backforceCField->actionCallback([]() {
@@ -582,7 +582,7 @@ static void setupUI() {
         doSweep();
     });
     variablesFieldGroup->add(s_backforceCField);
-    
+
     variablesLabelGroup->add(shr<ui::String>(new ui::String("Flowback: ", -1, vec4(1.0f))));
     s_flowbackField.reset(new ui::BoundedNumberField(s_flowback, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, 1.0));
     s_flowbackField->actionCallback([]() {
@@ -591,7 +591,7 @@ static void setupUI() {
         doSweep();
     });
     variablesFieldGroup->add(s_flowbackField);
-    
+
     variablesLabelGroup->add(shr<ui::String>(new ui::String("Init Vel Mult: ", -1, vec4(1.0f))));
     s_initVelCField.reset(new ui::BoundedNumberField(s_initVelC, 1, vec4(1.0f), k_variableWidth, 0, false, k_variablePrecision, 0.0, k_infinity<double>));
     s_initVelCField->actionCallback([]() {

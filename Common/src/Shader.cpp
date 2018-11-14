@@ -53,11 +53,11 @@ static bool link(u32 progId, u32 vertId, u32 tescId, u32 teseId, u32 geomId, u32
             glGetProgramInfoLog(progId, errLen, nullptr, log.get());
             std::cerr << log.get();
         }
-        
+
         glGetError(); // clear error
         return false;
     }
-    
+
     if (vertId) glDetachShader(progId, vertId);
     if (tescId) glDetachShader(progId, tescId);
     if (teseId) glDetachShader(progId, teseId);
@@ -154,7 +154,7 @@ static u32 createProgram(
     if (geomId) glDeleteShader(geomId);
     if (fragId) glDeleteShader(fragId);
     if (compId) glDeleteShader(compId);
-    
+
     if (glGetError()) {
         return 0;
     }

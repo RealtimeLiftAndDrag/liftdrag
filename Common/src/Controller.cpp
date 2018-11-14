@@ -49,7 +49,7 @@ namespace Controller {
     }
 
     static void pollPlayer(int player) {
-        State & state(s_states[player]);        
+        State & state(s_states[player]);
 
         XINPUT_STATE xboxState;
         if (!(state.connected = !XInputGetState(player, &xboxState))) {
@@ -83,7 +83,7 @@ namespace Controller {
         state.   rThumb = buttons & XINPUT_GAMEPAD_RIGHT_THUMB;
         state.    start = buttons & XINPUT_GAMEPAD_START;
         state.     back = buttons & XINPUT_GAMEPAD_BACK;
-    
+
         // Call callbacks if there was a change of state
         if (s_stickCallback) {
             if (state.lStick != prevState.lStick) s_stickCallback(player, Stick:: left, state.lStick);

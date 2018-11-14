@@ -30,7 +30,7 @@ void main() {
 
 	//color.rgb = vec3(1, 0, 0);
 	color.rgb = mix(tcol.rgb, ncol.rgb, oscillate(time, 0.1f, 1.0f));
-	
+
 	//float y = normalizeFloat(vertex_tex.y, 0.0f, 0.5f);
 
 	if (vertex_tex.y > 0.44) {

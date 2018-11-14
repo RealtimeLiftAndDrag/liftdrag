@@ -31,7 +31,7 @@ namespace ui {
 
     static unq<Shader> s_compProg;
     static uint s_squareVBO, s_squareVAO;
-    
+
     static shr<Component> s_root;
     static shr<Component> s_tooltip;
     static bool s_isTooltipChange;
@@ -128,7 +128,7 @@ namespace ui {
     }
 
 
-    
+
     void Component::render() const {
         if (m_backColor.a == 0.0f && m_borderColor.a == 0.0f) {
             return;

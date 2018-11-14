@@ -6,7 +6,7 @@
 
 
 
-namespace ui {    
+namespace ui {
 
     class TextField : public Text {
 
