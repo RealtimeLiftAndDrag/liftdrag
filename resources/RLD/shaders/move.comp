@@ -54,8 +54,6 @@ float k_airDensity = 1.0f;
 const bool k_distinguishActivePixels = DISTINGUISH_ACTIVE_PIXELS; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 const bool k_doTurbulence = DO_TURBULENCE;
 const bool k_doWindShadow = DO_WIND_SHADOW;
-const bool k_doLineSearch = true;
-const bool k_ignoreEdges = false;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -215,28 +213,21 @@ void main() {
             vec2 searchDir = u_airPixels[airI].backforce.xy;
             if (searchDir != vec2(0.0f)) {
                 vec2 screenDir = normalize(searchDir);
-                vec2 corner; if (k_doLineSearch) corner = step(vec2(0.0f), screenDir);
+                vec2 corner = step(vec2(0.0f), screenDir);
                 float totalDist = 0.0f;
                 while (true) {
-                    if (k_doLineSearch) {
-                        // TODO: optimize
-                        vec2 delta = corner - (screenPos - vec2(pixel));
-                        vec2 dist = abs(delta / screenDir);
-                        if (dist.x < dist.y) {
-                            screenPos += screenDir * dist.x;
-                            pixel.x += int(sign(screenDir.x));
-                            totalDist += screenToWindDist(dist.x);
-                        }
-                        else {
-                            screenPos += screenDir * dist.y;
-                            pixel.y += int(sign(screenDir.y));
-                            totalDist += screenToWindDist(dist.y);
-                        }
+                    // TODO: potentially optimize line search
+                    vec2 delta = corner - (screenPos - vec2(pixel));
+                    vec2 dist = abs(delta / screenDir);
+                    if (dist.x < dist.y) {
+                        screenPos += screenDir * dist.x;
+                        pixel.x += int(sign(screenDir.x));
+                        totalDist += screenToWindDist(dist.x);
                     }
                     else {
-                        screenPos += screenDir;
-                        pixel = ivec2(screenPos);
-                        totalDist += screenToWindDist(1.0f);
+                        screenPos += screenDir * dist.y;
+                        pixel.y += int(sign(screenDir.y));
+                        totalDist += screenToWindDist(dist.y);
                     }
 
                     if (totalDist > u_maxSearchDist) {
@@ -258,9 +249,9 @@ void main() {
                     vec4 color = imageLoad(u_fboImg, pixel);
 
                     // Visualize the search
-                    if (k_debug) {
-                        //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
-                    }
+                    //if (k_debug) {
+                    //    imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+                    //}
 
                     if (color.r != 0.0f) { // we found a geo pixel
                         int geoI = imageLoad(u_flagImg, pixel).x;
