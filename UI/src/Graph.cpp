@@ -92,13 +92,13 @@ namespace ui {
 
     float Graph::Curve::valAt(float x) const {
         if (points.empty() || x < points[0].x) {
-            return std::numeric_limits<float>::quiet_NaN();
+            return k_nan<float>;
         }
 
         int i(0);
         while (i < points.size() && points[i].x < x) ++i;
         if (i == points.size()) {
-            return std::numeric_limits<float>::quiet_NaN();
+            return k_nan<float>;
         }
 
         if (x == points[i].x) {

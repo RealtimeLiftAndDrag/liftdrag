@@ -219,9 +219,9 @@ void main() {
                 vec4 color = imageLoad(u_fboImg, pixel);
 
                 // Visualize the search
-                if (k_debug) {
-                    //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
-                }
+                //if (k_debug) {
+                //    imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+                //}
 
                 if (color.r != 0.0f) { // we found a geo pixel
                     break;

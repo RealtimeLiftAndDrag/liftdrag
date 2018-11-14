@@ -19,7 +19,7 @@ namespace rld {
     static constexpr int k_maxGeoPerAir(3); // Maximum number of different geo pixels that an air pixel can be associated with
     static constexpr bool k_distinguishActivePixels(true); // In debug mode, makes certain "active" pixels brigher for visual clarity, but lowers performance
     static constexpr bool k_doTurbulence(false);
-    static constexpr bool k_doWindShadow(false);
+    static constexpr bool k_doWindShadow(true);
 
     static constexpr bool k_persistentMapping(false); // Should use persistent mapping for mutables ssbo // TODO: test performance
 

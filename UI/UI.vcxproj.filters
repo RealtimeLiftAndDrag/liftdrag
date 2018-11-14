@@ -33,6 +33,9 @@
     <ClInclude Include="include\UI\UI.hpp">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="include\UI\Field.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\resources\UI\shaders\graph_curve.frag">
@@ -83,6 +86,9 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\UI.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Field.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

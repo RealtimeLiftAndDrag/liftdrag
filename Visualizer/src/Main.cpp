@@ -35,6 +35,7 @@ extern "C" {
 #include "UI/UI.hpp"
 #include "UI/Group.hpp"
 #include "UI/Text.hpp"
+#include "UI/Field.hpp"
 #include "UI/Graph.hpp"
 #include "UI/TexViewer.hpp"
 
