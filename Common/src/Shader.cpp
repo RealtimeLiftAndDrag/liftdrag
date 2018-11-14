@@ -162,13 +162,91 @@ static u32 createProgram(
     return progId;
 }
 
+static std::string createDefinesStr(std::initializer_list<pair<std::string_view, std::string_view>> defines) {
+    std::stringstream ss;
+    for (const auto & define : defines) {
+        ss << "#define " << define.first << " " << define.second << '\n';
+    }
+    return ss.str();
+}
+
+// Returns string index and line number of line following version declaration
+static duo<size_t> findPostVersionPos(const std::string & src) {
+    size_t pos(0), line(1);
+    // Find first `'#'`, which ought to be the `#version` declaration
+    while (true) {
+        if (pos >= src.size()) {
+            return { -1, -1 };
+        }
+        if (src.at(pos) == '#') {
+            break;
+        }
+        if (src.at(pos) == '\n') ++line;
+        ++pos;
+    }
+    ++pos;
+
+    // Find next `'\n'`
+    while (true) {
+        if (pos >= src.size()) {
+            return { -1, -1 };
+        }
+        if (src.at(pos) == '\n') {
+            break;
+        }
+        ++pos;
+    }
+    ++pos;
+    ++line;
+
+    return { pos, line };
+}
+
+static std::string injectDefines(const std::string & src, const std::string & defines) {
+    auto [pos, line](findPostVersionPos(src));
+    if (pos == -1) {
+        return src;
+    }
+
+    std::stringstream ss;
+    ss << std::string_view(src.c_str(), pos);
+    ss << defines;
+    ss << "#line " << line << '\n'; // So shader compilation error lines match source
+    ss << std::string_view(src.c_str() + pos);
+    return ss.str();
+}
+
+static u32 createProgram(
+    const std::string & vertSrc,
+    const std::string & tescSrc,
+    const std::string & teseSrc,
+    const std::string & geomSrc,
+    const std::string & fragSrc,
+    const std::string & compSrc,
+    std::initializer_list<pair<std::string_view, std::string_view>> defines
+) {
+    if (defines.size() == 0) {
+        return createProgram(vertSrc, tescSrc, teseSrc, geomSrc, fragSrc, compSrc);
+    }
+
+    std::string definesStr(createDefinesStr(defines));
+    std::string newVertSrc; if (vertSrc.size()) newVertSrc = injectDefines(vertSrc, definesStr);
+    std::string newTescSrc; if (tescSrc.size()) newTescSrc = injectDefines(tescSrc, definesStr);
+    std::string newTeseSrc; if (teseSrc.size()) newTeseSrc = injectDefines(teseSrc, definesStr);
+    std::string newGeomSrc; if (geomSrc.size()) newGeomSrc = injectDefines(geomSrc, definesStr);
+    std::string newFragSrc; if (fragSrc.size()) newFragSrc = injectDefines(fragSrc, definesStr);
+    std::string newCompSrc; if (compSrc.size()) newCompSrc = injectDefines(compSrc, definesStr);
+    return createProgram(newVertSrc, newTescSrc, newTeseSrc, newGeomSrc, newFragSrc, newCompSrc);
+}
+
 static u32 loadProgram(
     const std::string & vertFile,
     const std::string & tescFile,
     const std::string & teseFile,
     const std::string & geomFile,
     const std::string & fragFile,
-    const std::string & compFile
+    const std::string & compFile,
+    std::initializer_list<pair<std::string_view, std::string_view>> defines
 ) {
     std::string vertSrc, tescSrc, teseSrc, geomSrc, fragSrc, compSrc;
     if (vertFile.size()) {
@@ -208,31 +286,34 @@ static u32 loadProgram(
         }
     }
 
-    return createProgram(vertSrc, tescSrc, teseSrc, geomSrc, fragSrc, compSrc);
+    return createProgram(vertSrc, tescSrc, teseSrc, geomSrc, fragSrc, compSrc, defines);
 }
 
 unq<Shader> Shader::load(
     const std::string & vertFile,
-    const std::string & fragFile
+    const std::string & fragFile,
+    std::initializer_list<pair<std::string_view, std::string_view>> defines
 ) {
-    return load(vertFile, "", "", "", fragFile);
+    return load(vertFile, "", "", "", fragFile, defines);
 }
 
 unq<Shader> Shader::load(
     const std::string & vertFile,
     const std::string & geomFile,
-    const std::string & fragFile
+    const std::string & fragFile,
+    std::initializer_list<pair<std::string_view, std::string_view>> defines
 ) {
-    return load(vertFile, "", "", geomFile, fragFile);
+    return load(vertFile, "", "", geomFile, fragFile, defines);
 }
 
 unq<Shader> Shader::load(
     const std::string & vertFile,
     const std::string & tescFile,
     const std::string & teseFile,
-    const std::string & fragFile
+    const std::string & fragFile,
+    std::initializer_list<pair<std::string_view, std::string_view>> defines
 ) {
-    return load(vertFile, tescFile, teseFile, "", fragFile);
+    return load(vertFile, tescFile, teseFile, "", fragFile, defines);
 }
 
 unq<Shader> Shader::load(
@@ -240,7 +321,8 @@ unq<Shader> Shader::load(
     const std::string & tescFile,
     const std::string & teseFile,
     const std::string & geomFile,
-    const std::string & fragFile
+    const std::string & fragFile,
+    std::initializer_list<pair<std::string_view, std::string_view>> defines
 ) {
     if (vertFile.empty()) {
         std::cerr << "Missing vertex shader" << std::endl;
@@ -261,7 +343,7 @@ unq<Shader> Shader::load(
         }
     }
 
-    u32 progId(loadProgram(vertFile, tescFile, teseFile, geomFile, fragFile, ""));
+    u32 progId(loadProgram(vertFile, tescFile, teseFile, geomFile, fragFile, "", defines));
     if (!progId) {
         return nullptr;
     }
@@ -269,13 +351,16 @@ unq<Shader> Shader::load(
     return unq<Shader>(new Shader(progId));
 }
 
-unq<Shader> Shader::load(const std::string & compFile) {
+unq<Shader> Shader::load(
+    const std::string & compFile,
+    std::initializer_list<pair<std::string_view, std::string_view>> defines
+) {
     if (compFile.empty()) {
         std::cerr << "Missing compute shader" << std::endl;
         return nullptr;
     }
 
-    u32 progId(loadProgram("", "", "", "", "", compFile));
+    u32 progId(loadProgram("", "", "", "", "", compFile, defines));
     if (!progId) {
         return nullptr;
     }

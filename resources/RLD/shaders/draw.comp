@@ -2,6 +2,10 @@
 
 #define MAX_GEO_PER_AIR 3
 
+#ifndef DEBUG
+#define DEBUG false
+#endif
+
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
@@ -34,6 +38,8 @@ struct AirGeoMapElement {
 
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
 
+const bool k_debug = DEBUG;
+
 const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
@@ -64,7 +70,6 @@ layout (binding = 0, std140) uniform Constants {
     float u_dt;
     int u_slice;
     float u_sliceZ;
-    uint u_debug;
 };
 
 layout (binding = 0, std430) restrict buffer GeoPixels {
@@ -114,7 +119,7 @@ void main() {
 
         ivec2 texCoord = ivec2(windToScreen(windPos.xy));
         ivec2 sideTexCoord;
-        if (bool(u_debug)) {
+        if (k_debug) {
             sideTexCoord = ivec2(windToScreen(vec2(-u_sliceZ, windPos.y)));
         }
 

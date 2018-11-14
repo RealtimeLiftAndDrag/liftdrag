@@ -2,6 +2,10 @@
 
 #define MAX_GEO_PER_AIR 3
 
+#ifndef DEBUG
+#define DEBUG false
+#endif
+
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
@@ -33,6 +37,8 @@ struct AirGeoMapElement {
 // Constants -------------------------------------------------------------------
 
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
+
+const bool k_debug = DEBUG;
 
 const bool k_doTurbulence = false; // Must also change in move shader
 
@@ -76,7 +82,6 @@ layout (binding = 0, std140) uniform Constants {
     float u_dt;
     int u_slice;
     float u_sliceZ;
-    uint u_debug;
 };
 
 layout (binding = 0, std430) restrict buffer GeoPixels {
@@ -222,7 +227,7 @@ void main() {
                 vec4 color = imageLoad(u_fboImg, pixel);
 
                 // Visualize the search
-                if (bool(u_debug)) {
+                if (k_debug) {
                     //imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
                 }
 
@@ -294,7 +299,7 @@ void main() {
             u_airPixels[airI].turbulence = vec2(0.0f);
 
             // Draw to fbo to avoid another draw later, only necessary for seeing the results immediately
-            if (bool(u_debug)) {
+            if (k_debug) {
                 vec4 color = imageLoad(u_fboImg, geoTexCoord);
                 color.g = k_inactiveVal;
                 imageStore(u_fboImg, geoTexCoord, color);
@@ -313,7 +318,7 @@ void main() {
         }
 
         // Color active geo pixels more brightly
-        if (bool(u_debug) && k_distinguishActivePixels) {
+        if (k_debug && k_distinguishActivePixels) {
             vec4 color = imageLoad(u_fboImg, geoTexCoord);
             color.r = 1.0f;
             imageStore(u_fboImg, geoTexCoord, color);

@@ -36,7 +36,6 @@ layout (binding = 0, std140) uniform Constants {
     float u_dt;
     int u_slice;
     float u_sliceZ;
-    uint u_debug;
 };
 
 // Shared ----------------------------------------------------------------------
