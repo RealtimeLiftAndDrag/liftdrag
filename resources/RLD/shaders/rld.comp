@@ -1,5 +1,13 @@
 #version 450 core
 
+#ifndef WORK_GROUP_SIZE
+#define WORK_GROUP_SIZE 1024
+#endif
+
+#ifndef WORK_GROUP_SIZE_2D
+#define WORK_GROUP_SIZE_2D ivec2(32, 32)
+#endif
+
 #define MAX_GEO_PER_AIR 3
 
 #ifndef DEBUG
@@ -18,7 +26,7 @@
 #define DISTINGUISH_ACTIVE_PIXELS false
 #endif
 
-layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 
@@ -48,7 +56,8 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
-const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
+const int k_workGroupSize = WORK_GROUP_SIZE;
+const ivec2 k_workGroupSize2D = WORK_GROUP_SIZE_2D;
 const bool k_debug = DEBUG;
 const float k_airDensity = 1.0f;
 const bool k_doWindShadow = DO_WIND_SHADOW;
@@ -191,8 +200,8 @@ ivec2 getPixelDelta(vec2 dir) {
 }
 
 void accumulate() {
-    uint workI = gl_LocalInvocationIndex;
-    for (uint n = k_workGroupSize / 2; n > 0; n /= 2) {
+    int workI = int(gl_LocalInvocationIndex);
+    for (int n = k_workGroupSize / 2; n > 0; n /= 2) {
         barrier();
         if (workI < n) s_accumulationArray[workI] += s_accumulationArray[workI + n];
     }
@@ -206,7 +215,7 @@ vec3 totalTorq = vec3(0.0f);
 
 // Prospect --------------------------------------------------------------------
 
-void prospect(int workI, ivec2 texCoord) {
+void prospect(ivec2 texCoord) {
     // If not geometry, ignore
     vec4 color = imageLoad(u_fboImg, texCoord);
     if (color.r == 0.0f) {
@@ -656,8 +665,9 @@ void move(int airI) {
 // Main ------------------------------------------------------------------------
 
 void main() {
-    int workI = int(gl_LocalInvocationIndex);
-    ivec2 workCoord = ivec2(workI % 32, workI / 32); // TODO: magic
+    const int workI = int(gl_LocalInvocationIndex);
+    const ivec2 workI2D = ivec2(workI % k_workGroupSize2D.x, workI / k_workGroupSize2D.x);
+    const bool isThread2D = all(lessThan(workI2D, k_workGroupSize2D)); // 2D workgroup area may be slightly smaller than the 1D workgroup size
     s_accumulationArray[workI] = vec3(0.0f);
 
     // Zero results
@@ -668,39 +678,43 @@ void main() {
     }
         
     // Prospect
-    for (ivec2 texCoord = ivec2(0, workCoord.y); texCoord.y < u_screenSize; texCoord.y += 32) { // TODO: magic
-        for (texCoord.x = workCoord.x; texCoord.x < u_screenSize; texCoord.x += 32) { // TODO: magic
-            prospect(workI, texCoord);
+    if (isThread2D) {
+        for (ivec2 texCoord = ivec2(0, workI2D.y); texCoord.y < u_screenSize; texCoord.y += k_workGroupSize2D.y) {
+            for (texCoord.x = workI2D.x; texCoord.x < u_screenSize; texCoord.x += k_workGroupSize2D.x) {
+                prospect(texCoord);
+            }
         }
     }
 
     barrier();
 
     // Copy turbulence textue to previous turbulence texture
-    for (ivec2 texCoord = ivec2(0, workCoord.y); texCoord.y < u_screenSize / 4; texCoord.y += 32) { // TODO: magic
-        for (texCoord.x = workCoord.x; texCoord.x < u_screenSize / 4; texCoord.x += 32) { // TODO: magic
-            imageStore(u_prevTurbImg, texCoord, imageLoad(u_turbImg, texCoord));
+    if (isThread2D) {
+        for (ivec2 texCoord = ivec2(0, workI2D.y); texCoord.y < u_screenSize / 4; texCoord.y += k_workGroupSize2D.y) {
+            for (texCoord.x = workI2D.x; texCoord.x < u_screenSize / 4; texCoord.x += k_workGroupSize2D.x) {
+                imageStore(u_prevTurbImg, texCoord, imageLoad(u_turbImg, texCoord));
+            }
         }
     }
 
     barrier();
 
     // Draw
-    for (int prevAirI = workI; prevAirI < u_prevAirCount; prevAirI += int(k_workGroupSize)) {
+    for (int prevAirI = workI; prevAirI < u_prevAirCount; prevAirI += k_workGroupSize) {
         draw(prevAirI);
     }
 
     barrier();
 
     // Outline
-    for (int geoI = workI; geoI < u_geoCount; geoI += int(k_workGroupSize)) {
+    for (int geoI = workI; geoI < u_geoCount; geoI += k_workGroupSize) {
         outline(geoI);
     }
 
     barrier();
 
     // Move
-    for (int airI = workI; airI < u_airCount; airI += int(k_workGroupSize)) {
+    for (int airI = workI; airI < u_airCount; airI += k_workGroupSize) {
         move(airI);
     }
 

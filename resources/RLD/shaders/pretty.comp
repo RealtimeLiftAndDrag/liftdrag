@@ -1,12 +1,16 @@
 #version 450 core
 
-layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+#ifndef WORK_GROUP_SIZE
+#define WORK_GROUP_SIZE 1024
+#endif
+
+layout (local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 
 // Constants -------------------------------------------------------------------
 
-const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
+const int k_workGroupSize = WORK_GROUP_SIZE;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -56,7 +60,7 @@ float getShadFactor(float shad) {
 }
 
 void main() {
-    int workI = int(gl_LocalInvocationIndex);
+    const int workI = int(gl_LocalInvocationIndex);
     int sideX = int(windToScreen(-u_sliceZ));
     float depth = u_slice * u_sliceSize;
 
@@ -64,7 +68,7 @@ void main() {
     for (texCoord.y = workI; texCoord.y < u_screenSize; texCoord.y += int(k_workGroupSize)) {
         s_sideVals[workI] = vec4(0.0f);
 
-        for (texCoord.x = 0/*u_screenSize * 2 / 3*/; texCoord.x < u_screenSize; ++texCoord.x) {
+        for (texCoord.x = 0; texCoord.x < u_screenSize; ++texCoord.x) {
             vec4 color = imageLoad(u_fboImg, texCoord);
             float geo = color.r;
             float air = color.g;

@@ -15,6 +15,10 @@
 
 namespace rld {
 
+    static constexpr bool k_useAllCores(true); // Will utilize as many gpu cores as possible
+    static constexpr int k_coresToUse(1024); // Otherwise, use this many
+    static constexpr int k_warpSize(64); // Should correspond to target architecture
+    static const ivec2 k_warpSize2D(8, 8); // The components multiplied must equal warp size
     static constexpr int k_maxPixelsDivisor(16); // max dense pixels is the total pixels divided by this
     static constexpr int k_maxGeoPerAir(3); // Maximum number of different geo pixels that an air pixel can be associated with
     static constexpr bool k_distinguishActivePixels(true); // In debug mode, makes certain "active" pixels brigher for visual clarity, but lowers performance
@@ -94,6 +98,8 @@ namespace rld {
 
 
 
+    static int s_workGroupSize;
+    static ivec2 s_workGroupSize2D;
     static int s_texSize; // Width and height of the textures, which are square
     static int s_maxGeoPixels;
     static int s_maxAirPixels;
@@ -161,12 +167,19 @@ namespace rld {
 
     static bool setupShaders() {
         std::string shadersPath(g_resourcesDir + "/RLD/shaders/");
+        std::string workGroupSizeStr(std::to_string(s_workGroupSize));
+        std::string workGroupSize2DStr("ivec2(" + std::to_string(s_workGroupSize2D.x) + ", " + std::to_string(s_workGroupSize2D.y) + ")");
         std::initializer_list<duo<std::string_view>> defines{
+            { "WORK_GROUP_SIZE", workGroupSizeStr },
+            { "WORK_GROUP_SIZE_2D", workGroupSize2DStr },
+            { "DEBUG", "false" },
             { "DISTINGUISH_ACTIVE_PIXELS", k_distinguishActivePixels ? "true" : "false" },
             { "DO_TURBULENCE", k_doTurbulence ? "true" : "false" },
             { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" }
         };
         std::initializer_list<duo<std::string_view>> debugDefines{
+            { "WORK_GROUP_SIZE", workGroupSizeStr },
+            { "WORK_GROUP_SIZE_2D", workGroupSize2DStr },
             { "DEBUG", "true" },
             { "DISTINGUISH_ACTIVE_PIXELS", k_distinguishActivePixels ? "true" : "false" },
             { "DO_TURBULENCE", k_doTurbulence ? "true" : "false" },
@@ -549,6 +562,15 @@ namespace rld {
 
 
     bool setup(const int texSize, int sliceCount, float liftC, float dragC, float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC) {
+        int coreCount(0);
+        if (k_useAllCores) glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &coreCount);
+        else coreCount = k_coresToUse;
+        int warpCount(coreCount / k_warpSize);
+        s_workGroupSize = warpCount * k_warpSize; // we want workgroups to be a warp multiple
+        s_workGroupSize2D.x = int(std::round(std::sqrt(float(warpCount))));
+        s_workGroupSize2D.y = warpCount / s_workGroupSize2D.x;
+        s_workGroupSize2D *= k_warpSize2D;
+        
         s_texSize = texSize;
         s_maxGeoPixels = s_texSize * s_texSize / k_maxPixelsDivisor;
         s_maxAirPixels = s_maxGeoPixels;
