@@ -75,6 +75,7 @@ layout (binding = 0, std140) uniform Constants {
     float u_dt;
     int u_slice;
     float u_sliceZ;
+    float u_pixelSize;
 };
 
 layout (binding = 0, std430) restrict buffer GeoPixels {
@@ -158,8 +159,7 @@ void main() {
     ivec2 workCoord = ivec2(gl_LocalInvocationID.xy);
     s_accumulationArray[gl_LocalInvocationIndex] = vec3(0.0f);
 
-    float pixelArea = screenToWindDist(1.0f);
-    pixelArea *= pixelArea;
+    float pixelArea = u_pixelSize * u_pixelSize;
 
     vec3 totalDrag = vec3(0.0f);
     vec3 totalTorq = vec3(0.0f);

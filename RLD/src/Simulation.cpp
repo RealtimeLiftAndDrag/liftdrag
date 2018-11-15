@@ -66,6 +66,7 @@ namespace rld {
         float dt;
         s32 slice;
         float sliceZ;
+        float pixelSize;
     };
 
     // Mirrors GPU struct
@@ -129,11 +130,12 @@ namespace rld {
     static std::vector<vec3> s_torqs; // Torqs for each slice
     static int s_swap;
 
+    static unq<Shader> s_shader, s_shaderDebug;
     static unq<Shader> s_foilShader, s_foilShaderDebug;
-    static unq<Shader> s_prospectShader, s_prospectShaderDebug;
-    static unq<Shader> s_outlineShader, s_outlineShaderDebug;
-    static unq<Shader> s_moveShader, s_moveShaderDebug;
-    static unq<Shader> s_drawShader, s_drawShaderDebug;
+    //static unq<Shader> s_prospectShader, s_prospectShaderDebug;
+    //static unq<Shader> s_outlineShader, s_outlineShaderDebug;
+    //static unq<Shader> s_moveShader, s_moveShaderDebug;
+    //static unq<Shader> s_drawShader, s_drawShaderDebug;
     static unq<Shader> s_prettyShader;
 
     static Constants s_constants;
@@ -181,6 +183,17 @@ namespace rld {
             return false;
         }
 
+        // Compute Shader
+        if (!(s_shader = Shader::load(shadersPath + "rld.comp", defines))) {
+            std::cerr << "Failed to load rld shader" << std::endl;
+            return false;
+        }
+        if (!(s_shaderDebug = Shader::load(shadersPath + "rld.comp", debugDefines))) {
+            std::cerr << "Failed to load rld debug shader" << std::endl;
+            return false;
+        }
+
+        /*
         // Prospect Compute Shader
         if (!(s_prospectShader = Shader::load(shadersPath + "prospect.comp", defines))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
@@ -220,6 +233,7 @@ namespace rld {
             std::cerr << "Failed to load debug draw shader" << std::endl;
             return false;
         }
+        */
 
         // Pretty Compute Shader
         if (!(s_prettyShader = Shader::load(shadersPath + "pretty.comp", defines))) {
@@ -329,6 +343,15 @@ namespace rld {
         return true;
     }
 
+    static void compute() {
+        Shader & shader(s_debug ? *s_shaderDebug : *s_shader);
+        shader.bind();
+
+        glDispatchCompute(1, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+    }
+
+    /*
     static void computeProspect() {
         Shader & prospectShader(s_debug ? *s_prospectShaderDebug : *s_prospectShader);
         prospectShader.bind();
@@ -361,6 +384,7 @@ namespace rld {
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
+    */
 
     static void computePretty() {
         s_prettyShader->bind();
@@ -475,6 +499,7 @@ namespace rld {
         s_constants.dt = s_dt;
         s_constants.slice = 0;
         s_constants.sliceZ = s_windframeDepth * -0.5f;
+        s_constants.pixelSize = s_windframeWidth / float(s_texSize);
     }
 
     static void clearTurbTex() {
@@ -665,10 +690,11 @@ namespace rld {
 
         clearFlagTex();
         renderGeometry(); // Render geometry to fbo
-        computeProspect(); // Scan fbo and generate geo pixels
-        computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
-        computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
-        computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
+        compute();
+        //computeProspect(); // Scan fbo and generate geo pixels
+        //computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
+        //computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
+        //computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
         if (s_debug) computePretty(); // transforms the contents of the fbo, turb, and shad textures into a comprehensible front and side view
 
         ++s_currentSlice;
