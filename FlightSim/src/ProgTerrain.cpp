@@ -7,6 +7,9 @@
 #include "glm/gtc/matrix_transform.hpp"
 
 namespace ProgTerrain {
+
+    static constexpr bool k_doSky(false);
+
     // Our shader program
     unq<Shader> heightshader, progSky, progWater;
 
@@ -290,33 +293,35 @@ namespace ProgTerrain {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 5);
             glGenerateMipmap(GL_TEXTURE_2D);
 
-            // Skybox Texture
-            str = texturesPath + "sky.jpg";
-            strcpy_s(filepath, str.c_str());
-            data = stbi_load(filepath, &width, &height, &channels, 4);
-            glGenTextures(1, &SkyTexture);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, SkyTexture);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-            glGenerateMipmap(GL_TEXTURE_2D);
+            if (k_doSky) {
+                // Skybox Texture
+                str = texturesPath + "sky.jpg";
+                strcpy_s(filepath, str.c_str());
+                data = stbi_load(filepath, &width, &height, &channels, 4);
+                glGenTextures(1, &SkyTexture);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, SkyTexture);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+                glGenerateMipmap(GL_TEXTURE_2D);
 
-            // Skybox Texture
-            str = texturesPath + "sky2.jpg";
-            strcpy_s(filepath, str.c_str());
-            data = stbi_load(filepath, &width, &height, &channels, 4);
-            glGenTextures(1, &NightTexture);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, NightTexture);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-            glGenerateMipmap(GL_TEXTURE_2D);
+                // Skybox Texture
+                str = texturesPath + "sky2.jpg";
+                strcpy_s(filepath, str.c_str());
+                data = stbi_load(filepath, &width, &height, &channels, 4);
+                glGenTextures(1, &NightTexture);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, NightTexture);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+                glGenerateMipmap(GL_TEXTURE_2D);
+            }
         }
 
         void assign_textures() {
@@ -344,11 +349,13 @@ namespace ProgTerrain {
             glUniform1i(GrassNormalLocation, 6);
             glUniform1i(SandNormalLocation, 7);
 
-            SkyTextureLocation = glGetUniformLocation(progSky->glId(), "dayTexSampler");
-            NightTextureLocation = glGetUniformLocation(progSky->glId(), "nightTexSampler");
-            glUseProgram(progSky->glId());
-            glUniform1i(SkyTextureLocation, 0);
-            glUniform1i(NightTextureLocation, 1);
+            if (k_doSky) {
+                SkyTextureLocation = glGetUniformLocation(progSky->glId(), "dayTexSampler");
+                NightTextureLocation = glGetUniformLocation(progSky->glId(), "nightTexSampler");
+                glUseProgram(progSky->glId());
+                glUniform1i(SkyTextureLocation, 0);
+                glUniform1i(NightTextureLocation, 1);
+            }
         }
     }
     void init_shaders() {
@@ -365,12 +372,14 @@ namespace ProgTerrain {
             exit(1);
         }
 
-        // Initialize the GLSL progSkyram.
-        if (!(progSky = Shader::load(shadersPath + "skyvertex.glsl", shadersPath + "skyfrag.glsl"))) {
-            std::cerr << "Skybox shaders failed to compile... exiting!" << std::endl;
-            int hold;
-            std::cin >> hold;
-            exit(1);
+        if (k_doSky) {
+            // Initialize the GLSL progSkyram.
+            if (!(progSky = Shader::load(shadersPath + "skyvertex.glsl", shadersPath + "skyfrag.glsl"))) {
+                std::cerr << "Skybox shaders failed to compile... exiting!" << std::endl;
+                int hold;
+                std::cin >> hold;
+                exit(1);
+            }
         }
 
         // Initialize the GLSL program.
@@ -389,7 +398,9 @@ namespace ProgTerrain {
         init_mesh();
         init_water();
 
-        skySphere = Model::load(g_resourcesDir + "/models/sphere.obj");
+        if (k_doSky) {
+            skySphere = Model::load(g_resourcesDir + "/models/sphere.obj");
+        }
 
         init_textures();
         assign_textures();
@@ -484,12 +495,11 @@ namespace ProgTerrain {
     }
 
     void render(const mat4 &V, const mat4 &P, const vec3 &camPos) {
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glDisable(GL_DEPTH_TEST);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        drawSkyBox(V, P, camPos);
-        glEnable(GL_DEPTH_TEST);
+        if (k_doSky) {
+            glDisable(GL_DEPTH_TEST);
+            drawSkyBox(V, P, camPos);
+            glEnable(GL_DEPTH_TEST);
+        }
         float centerOffset = -k_meshSize * k_meshRes / 2.0f;
         vec3 offset = camPos;
         offset.y = 0;
@@ -501,7 +511,5 @@ namespace ProgTerrain {
         }
         drawTerrain(V, P, camPos, centerOffset, offset);
         glBindVertexArray(0);
-        glDisable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
     }
 }

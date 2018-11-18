@@ -7,7 +7,7 @@
     APIs: gl=4.5
     Profile: compatibility
     Extensions:
-        
+
     Loader: True
     Local files: True
     Omit khrplatform: True
@@ -35,6 +35,8 @@
 #define NOMINMAX 1
 #endif
 #include <windows.h>
+#undef near
+#undef far
 #endif
 
 #ifndef APIENTRY

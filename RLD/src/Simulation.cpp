@@ -570,7 +570,7 @@ namespace rld {
         s_workGroupSize2D.x = int(std::round(std::sqrt(float(warpCount))));
         s_workGroupSize2D.y = warpCount / s_workGroupSize2D.x;
         s_workGroupSize2D *= k_warpSize2D;
-        
+
         s_texSize = texSize;
         s_maxGeoPixels = s_texSize * s_texSize / k_maxPixelsDivisor;
         s_maxAirPixels = s_maxGeoPixels;

@@ -81,4 +81,29 @@ namespace util {
         return uchar(c) >= 32 && uchar(c) != 127 && uchar(c) != 255;
     }
 
+    inline vec3 fromSpherical(float theta, float phi) {
+        float sinPhi(std::sin(phi));
+        return vec3(std::cos(theta) * sinPhi, std::sin(theta) * sinPhi, std::cos(phi));
+    }
+
+    inline vec3 fromSpherical(float radius, float theta, float phi) {
+        return radius * fromSpherical(theta, phi);
+    }
+
+    inline bool isZero(float v) {
+        return glm::abs(v) < std::numeric_limits<float>::epsilon();
+    }
+
+    inline bool isZero(const vec2 & v) {
+        return isZero(v.x) && isZero(v.y);
+    }
+
+    inline bool isZero(const vec3 & v) {
+        return isZero(v.x) && isZero(v.y) && isZero(v.z);
+    }
+
+    inline bool isZero(const vec4 & v) {
+        return isZero(v.x) && isZero(v.y) && isZero(v.z) && isZero(v.w);
+    }
+
 }

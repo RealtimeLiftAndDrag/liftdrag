@@ -9,5 +9,6 @@ namespace ProgTerrain {
     }
     void init_shaders();
     void init_geom();
+    // Expects blending and depth testing to be enabled
     void render(const mat4 &V, const mat4 &P, const vec3 &camPos);
 }

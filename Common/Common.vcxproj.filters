@@ -58,6 +58,12 @@
     <ClCompile Include="src\Controller.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\SkyBox.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Camera.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Common\Global.hpp">
@@ -90,12 +96,24 @@
     <ClInclude Include="src\xboxcontroller.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="include\Common\SkyBox.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Common\Camera.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\resources\Common\shaders\text.frag">
       <Filter>resources\shaders</Filter>
     </None>
     <None Include="..\resources\Common\shaders\text.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Common\shaders\skybox.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Common\shaders\skybox.vert">
       <Filter>resources\shaders</Filter>
     </None>
   </ItemGroup>

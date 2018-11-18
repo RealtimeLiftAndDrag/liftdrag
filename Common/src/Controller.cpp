@@ -4,6 +4,8 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#undef near
+#undef far
 #include <XInput.h>
 
 #pragma comment(lib, "XInput.lib")
