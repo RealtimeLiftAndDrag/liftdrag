@@ -109,12 +109,13 @@ static float s_controllerPitch;
 static float s_controllerRoll;
 static float s_controllerThrust;
 
-
 static ivec2 s_camControlDelta;
 static bool s_windView;
 
 static mat4 s_windViewViewMat;
 static mat4 s_windViewOrthoMat;
+
+static Text s_text;
 
 
 
@@ -393,7 +394,7 @@ static bool setup() {
     Controller::triggerCallback(triggerCallback);
 
     // Setup sky box
-    std::string skyBoxPath(g_resourcesDir + "/FlightSim/textures/sky_florida_1024/");
+    std::string skyBoxPath(g_resourcesDir + "/FlightSim/textures/sky_florida_2048/");
     if (!(s_skyBox = SkyBox::create({
         skyBoxPath + "right.png",
         skyBoxPath + "left.png",
@@ -407,7 +408,12 @@ static bool setup() {
     }
 
     // Setup text
-
+    if (!Text::setup()) {
+        std::cerr << "Failed to setup text" << std::endl;
+        return false;
+    }
+    s_text.color(vec4(1.0f));
+    s_text.string("hi\nthere");
 
     // Setup camera
     s_camera.distance(k_initCamDist);
@@ -612,6 +618,7 @@ static void render(float dt) {
     //reset gl variables set to not mess up rld sim
     glDisable(GL_DEPTH_TEST);
 
+    s_text.render(ivec2(0, 0));
 }
 
 
