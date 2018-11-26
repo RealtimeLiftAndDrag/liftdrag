@@ -25,6 +25,7 @@ extern "C" {
 #include "Common/Controller.hpp"
 #include "Common/SkyBox.hpp"
 #include "Common/Camera.hpp"
+#include "Common/Text.hpp"
 #include "UI/Group.hpp"
 #include "RLD/Simulation.hpp"
 
@@ -404,6 +405,9 @@ static bool setup() {
         std::cerr << "Failed to create sky box" << std::endl;
         return false;
     }
+
+    // Setup text
+
 
     // Setup camera
     s_camera.distance(k_initCamDist);
