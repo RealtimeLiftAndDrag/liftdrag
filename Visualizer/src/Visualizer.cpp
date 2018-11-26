@@ -14,21 +14,20 @@ extern "C" {
 // TODO: lift should be independent of the number of slices
 // TODO: how far away should turbulence start? linear or squared air speed? -> don't know, no drag
 // TODO: front-facing drag only on outline?? -> approx using prospect, long term solution as density flow nonsense
-// TODO: infinity area thing
 // TODO: velocity updating -> add windspeed to z, normalize, multiply so that z is equal to windspeed
 
 
+
+#include "Visualizer.hpp"
 
 #include <iostream>
 #include <sstream>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
-#include "glm/glm.hpp"
 #include "glm/gtc/constants.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "Common/Util.hpp"
-#include "Common/Model.hpp"
 #include "Common/Shader.hpp"
 #include "Common/GLInterface.hpp"
 #include "Common/Controller.hpp"
@@ -42,6 +41,7 @@ extern "C" {
 #include "RLD/Simulation.hpp"
 
 #include "Results.hpp"
+#include "Viewer.hpp"
 
 
 
@@ -622,7 +622,8 @@ static void setupUI() {
     s_mainUIC->add(displayGroup);
     s_mainUIC->add(bottomGroup);
 
-    ui::setRootComponent(s_mainUIC);
+    ui::setRootComponent(Viewer::component());
+    //ui::setRootComponent(s_mainUIC);
 }
 
 static bool setup() {
@@ -650,8 +651,15 @@ static bool setup() {
         return false;
     }
 
+    // Setup results
     if (!results::setup(k_simSliceCount, s_angleGraphRange, s_sliceGraphRange)) {
         std::cerr << "Failed to setup results" << std::endl;
+        return false;
+    }
+
+    // Setup viewer
+    if (!Viewer::setup()) {
+        std::cerr << "Failed to setup viewer" << std::endl;
         return false;
     }
 
@@ -804,6 +812,18 @@ static void update(float dt) {
 }
 
 
+
+const Model & model() {
+    return *s_model;
+}
+
+const mat4 & modelMat() {
+    return s_modelMat;
+}
+
+const mat3 & normalMat() {
+    return s_normalMat;
+}
 
 int main(int argc, char ** argv) {
     if (!processArgs(argc, argv)) {

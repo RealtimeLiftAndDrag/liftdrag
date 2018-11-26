@@ -16,12 +16,21 @@
     <ClCompile Include="src\Results.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\Main.cpp">
+    <ClCompile Include="src\Viewer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Visualizer.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Results.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Viewer.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Visualizer.hpp">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
