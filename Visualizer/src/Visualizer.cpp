@@ -26,7 +26,7 @@ extern "C" {
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 #include "glm/gtc/constants.hpp"
-#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtx/transform.hpp"
 #include "Common/Util.hpp"
 #include "Common/Shader.hpp"
 #include "Common/GLInterface.hpp"
@@ -59,7 +59,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::f18);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
@@ -90,8 +90,10 @@ static const std::string & k_controlsString(
 
 
 static unq<Model> s_model;
-static mat4 s_modelMat;
-static mat3 s_normalMat;
+static mat4 s_modelMat; // Particular to model, does not change
+static mat3 s_normalMat; // Particular to model, does not change
+static mat4 s_windModelMat; // Changes based on angle of attack
+static mat3 s_windNormalMat; // Changes based on angle of attack
 static float s_windframeWidth, s_windframeDepth;
 static float s_windSpeed = k_defWindSpeed;
 static float s_turbulenceDist;
@@ -167,7 +169,7 @@ static void setRudderAngle(float angle) {
     if (angle != s_rudderAngle) {
         s_rudderAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(glm::radians(-s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
         s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
@@ -186,11 +188,11 @@ static void setAileronAngle(float angle) {
     if (angle != s_aileronAngle) {
         s_aileronAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_aileronAngle), vec3(1.0f, 0.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(glm::radians(s_aileronAngle), vec3(1.0f, 0.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
 
-        modelMat = glm::rotate(mat4(), glm::radians(-s_aileronAngle), vec3(1.0f, 0.0f, 0.0f));
+        modelMat = glm::rotate(glm::radians(-s_aileronAngle), vec3(1.0f, 0.0f, 0.0f));
         normalMat = modelMat;
         s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
 
@@ -208,7 +210,7 @@ static void setElevatorAngle(float angle) {
     if (angle != s_elevatorAngle) {
         s_elevatorAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(glm::radians(-s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
         s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
@@ -222,9 +224,11 @@ static void changeElevatorAngle(float deltaAngle) {
 }
 
 static void setSimulation(float angleOfAttack, bool debug) {
-    mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
+    mat4 rotMat(glm::rotate(glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
+    s_windModelMat = rotMat * s_modelMat;
+    s_windNormalMat = mat3(rotMat) * s_normalMat;
 
-    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
+    rld::set(*s_model, s_windModelMat, s_windNormalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
 }
 
 static void submitResults(float angleOfAttack) {
@@ -617,12 +621,12 @@ static void setupUI() {
     bottomGroup->add(angleGraph);
     bottomGroup->add(sliceGraph);
     bottomGroup->add(infoGroup);
+    bottomGroup->add(Viewer::component());
 
     s_mainUIC.reset(new MainUIC());
     s_mainUIC->add(displayGroup);
     s_mainUIC->add(bottomGroup);
 
-    //ui::setRootComponent(Viewer::component());
     ui::setRootComponent(s_mainUIC);
 }
 
@@ -818,11 +822,19 @@ const Model & model() {
 }
 
 const mat4 & modelMat() {
-    return s_modelMat;
+    return s_windModelMat;
 }
 
 const mat3 & normalMat() {
-    return s_normalMat;
+    return s_windNormalMat;
+}
+
+float windframeWidth() {
+    return s_windframeWidth;
+}
+
+float windframeDepth() {
+    return s_windframeDepth;
 }
 
 int main(int argc, char ** argv) {

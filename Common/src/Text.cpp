@@ -83,7 +83,7 @@ bool Text::setup() {
     s_prog->bind();
     s_prog->uniform("u_fontSize", vec2(s_fontSize));
     s_prog->uniform("u_tex", 0);
-    s_prog->unbind();
+    Shader::unbind();
 
     if (glGetError() != GL_NO_ERROR) {
         std::cerr << "OpenGL error setting up shader" << std::endl;
@@ -187,7 +187,7 @@ void Text::render(const ivec2 & position) const {
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, int(m_string.length()));
     glBindVertexArray(0);
 
-    s_prog->unbind();
+    Shader::unbind();
 }
 
 void Text::renderAt(const ivec2 & basepoint) const {

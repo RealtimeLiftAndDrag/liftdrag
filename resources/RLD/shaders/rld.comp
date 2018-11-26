@@ -353,7 +353,7 @@ void outline(int geoI) {
     geoScreenPos = clamp(geoScreenPos, vec2(geoTexCoord), vec2(geoTexCoord + 1)); // necessary for edge cases
 
     bool shouldSpawn = geoNormal.z >= k_minNormalZ && geoNormal.z <= k_maxNormalZ;
-    bool shouldSearch = true;
+    bool shouldSearch = geoNormal != vec3(0.0f); // Ignore zero-normal geometry
 
     // If geo is in turbulence, forget it
     if (k_doTurbulence && isScreenTurbulent(geoScreenPos)) {

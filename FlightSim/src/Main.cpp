@@ -387,7 +387,7 @@ static bool setup() {
     }
     s_planeShader->bind();
     s_planeShader->uniform("u_lightDir", k_lightDir);
-    s_planeShader->unbind();
+    Shader::unbind();
 
     //setup progterrain
     ProgTerrain::init_shaders();
@@ -626,7 +626,7 @@ static void render(float dt) {
     s_planeShader->uniform("u_camPos", camPos);
     s_model->draw(modelMat, normalMat, s_planeShader->uniformLocation("u_modelMat"), s_planeShader->uniformLocation("u_normalMat"));
 
-    s_planeShader->unbind();
+    Shader::unbind();
 
     s_skyBox->render(viewMat, projMat);
 

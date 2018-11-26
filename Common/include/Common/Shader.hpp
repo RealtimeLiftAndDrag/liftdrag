@@ -42,10 +42,11 @@ class Shader {
         std::initializer_list<duo<std::string_view>> defines = {}
     );
 
+    static void unbind();
+
     u32 glId() const { return m_glId; }
 
     void bind();
-    void unbind();
 
     template <typename T> bool uniform(const std::string & name, const T & val);
     template <typename T> bool uniform(s32 location, const T & val);
