@@ -12,6 +12,8 @@ extern "C" {
 
 
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
@@ -42,7 +44,7 @@ public:
 
 };
 
-static const ivec2 k_defWindowSize(1280, 1280);
+static const ivec2 k_defWindowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 
 static constexpr int k_simTexSize(1024);
@@ -330,6 +332,7 @@ static void detMatrices() {
     );
 }
 
+
 static bool setup() {
     // Setup window
     glfwSetErrorCallback(errorCallback);
@@ -361,6 +364,8 @@ static bool setup() {
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glViewport(0, 0, s_windowSize.x, s_windowSize.y);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
 
     // Setup object
     if (!setupObject()) {
@@ -394,7 +399,7 @@ static bool setup() {
     Controller::triggerCallback(triggerCallback);
 
     // Setup sky box
-    std::string skyBoxPath(g_resourcesDir + "/FlightSim/textures/sky_florida_2048/");
+    std::string skyBoxPath(g_resourcesDir + "/FlightSim/textures/sky_florida_1024/");
     if (!(s_skyBox = SkyBox::create({
         skyBoxPath + "right.png",
         skyBoxPath + "left.png",
@@ -412,8 +417,7 @@ static bool setup() {
         std::cerr << "Failed to setup text" << std::endl;
         return false;
     }
-    s_text.color(vec4(1.0f));
-    s_text.string("hi\nthere");
+    s_text.color(vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
     // Setup camera
     s_camera.distance(k_initCamDist);
@@ -531,6 +535,18 @@ static void update(float dt) {
     }
 }
 
+static std::string createTextString(const vec3 & lift, const vec3 & drag, const vec3 & torq) {
+    constexpr int k_preDigits(7), k_postDigits(2);
+    constexpr int k_width(k_preDigits + k_postDigits + 2);
+    std::stringstream ss;
+    ss.precision(k_postDigits);
+    ss << std::fixed;
+    ss << "Lift: <" << std::setw(k_width) << lift.x << " " << std::setw(k_width) << lift.y << " " << std::setw(k_width) << lift.z << ">\n";
+    ss << "Drag: <" << std::setw(k_width) << drag.x << " " << std::setw(k_width) << drag.y << " " << std::setw(k_width) << drag.z << ">\n";
+    ss << "Torq: <" << std::setw(k_width) << torq.x << " " << std::setw(k_width) << torq.y << " " << std::setw(k_width) << torq.z << ">";
+    return ss.str();
+}
+
 static void render(float dt) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -617,7 +633,8 @@ static void render(float dt) {
 
     //reset gl variables set to not mess up rld sim
     glDisable(GL_DEPTH_TEST);
-
+    
+    s_text.string(createTextString(lift, drag, torq));
     s_text.render(ivec2(0, 0));
 }
 
