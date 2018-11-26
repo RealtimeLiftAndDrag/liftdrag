@@ -143,6 +143,16 @@ shared vec3 s_accumulationArray[k_workGroupSize];
 
 // Functions -------------------------------------------------------------------
 
+vec2 safeNormalize(vec2 v) {
+    float d = dot(v, v);
+    return d > 0.0f ? v / sqrt(d) : vec2(0.0f);
+}
+
+vec3 safeNormalize(vec3 v) {
+    float d = dot(v, v);
+    return d > 0.0f ? v / sqrt(d) : vec3(0.0f);
+}
+
 vec2 windToScreen(vec2 wind) {
     return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
 }
@@ -602,7 +612,7 @@ void move(int airI) {
         float area = u_pixelSize * u_sliceSize * (1.0f - abs(dot(geoNormal, normalize(vec3(airVelocity, -u_windSpeed)))));
 
         // Calculate backforce
-        vec2 thisBackforce = normalize(-geoNormal.xy) * dist;// * dist;// = dist*dist*a + dist*b + c;
+        vec2 thisBackforce = safeNormalize(-geoNormal.xy) * dist;// * dist;// = dist*dist*a + dist*b + c;
         thisBackforce *= u_backforceC;
         backforce += thisBackforce;
 
@@ -621,8 +631,7 @@ void move(int airI) {
     }
     // Average
     if (geoCount > 0) {
-        float invGeoCount = 1.0f / float(geoCount);
-        backforce *= invGeoCount;
+        backforce /= geoCount;
     }
     // Add to total
     totalLift += lift;

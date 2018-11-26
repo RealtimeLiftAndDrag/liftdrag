@@ -61,11 +61,6 @@ vec2 windToScreen(vec2 wind) {
     return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
 }
 
-vec3 safeNormalize(vec3 v) {
-    float d = dot(v, v);
-    return d > 0.0f ? v / sqrt(d) : vec3(0.0f);
-}
-
 void main() {
     // Completely ignore any zero-normal geometry
     if (in_norm == vec3(0.0f)) {
