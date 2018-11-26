@@ -622,8 +622,8 @@ static void setupUI() {
     s_mainUIC->add(displayGroup);
     s_mainUIC->add(bottomGroup);
 
-    ui::setRootComponent(Viewer::component());
-    //ui::setRootComponent(s_mainUIC);
+    //ui::setRootComponent(Viewer::component());
+    ui::setRootComponent(s_mainUIC);
 }
 
 static bool setup() {
