@@ -21,8 +21,7 @@ const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 0, rgba8ui) uniform uimage2D u_frontImg_uint;
-layout (binding = 1,   rgba8) uniform  image2D u_frontImg_unorm;
+layout (binding = 0, rgba8ui) uniform uimage2D u_frontImg;
 layout (binding = 7,   rgba8) uniform  image2D u_sideImg;
 
 layout (binding = 0) uniform sampler2D u_turbTex;
@@ -77,7 +76,7 @@ void main() {
         s_sideVals[workI] = vec4(0.0f);
 
         for (texCoord.x = 0; texCoord.x < u_screenSize; ++texCoord.x) {
-            uvec4 frontVal = imageLoad(u_frontImg_uint, texCoord);
+            uvec4 frontVal = imageLoad(u_frontImg, texCoord);
             float activeFactor = float(bool(frontVal & k_activeBit)) * (1.0f - k_inactiveVal) + k_inactiveVal;
             float geo = float(bool(frontVal & k_geoBit)) * activeFactor;
             float air = float(bool(frontVal & k_airBit)) * activeFactor;
@@ -90,7 +89,7 @@ void main() {
             color.g += air;
             color.b += turb * 0.5f;
             color.a = 1.0f;
-            imageStore(u_frontImg_unorm, texCoord, color);
+            imageStore(u_frontImg, texCoord, uvec4(round(color * 255.0f)));
 
             vec4 val = vec4(geo, air, turb, shad);
             s_sideVals[workI] = max(s_sideVals[workI], val);

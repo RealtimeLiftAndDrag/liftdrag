@@ -548,12 +548,11 @@ namespace rld {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
 
         glBindImageTexture(0,  s_frontTex_uint, 0, GL_FALSE, 0, GL_READ_WRITE,      GL_RGBA8UI);
-        glBindImageTexture(1, s_frontTex_unorm, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
-        glBindImageTexture(2,     s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
-        glBindImageTexture(3,        s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,         GL_R32I);
-        glBindImageTexture(4,        s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
-        glBindImageTexture(5,    s_prevTurbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
-        glBindImageTexture(6,        s_shadTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(1,     s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
+        glBindImageTexture(2,        s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,         GL_R32I);
+        glBindImageTexture(3,        s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(4,    s_prevTurbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(5,        s_shadTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
         glBindImageTexture(7,        s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
 
         glActiveTexture(GL_TEXTURE0);

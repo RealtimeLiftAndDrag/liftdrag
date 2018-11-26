@@ -71,13 +71,12 @@ const bool k_doTurbulence = DO_TURBULENCE;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 0,      rgba8ui) uniform uimage2D u_frontImg_uint;
-layout (binding = 1,        rgba8) uniform  image2D u_frontImg_unorm;
-layout (binding = 2, rgba16_snorm) uniform  image2D u_fboNormImg;
-layout (binding = 3,         r32i) uniform iimage2D u_flagImg;
-layout (binding = 4,           r8) uniform  image2D u_turbImg;
-layout (binding = 5,           r8) uniform  image2D u_prevTurbImg;
-layout (binding = 6,           r8) uniform  image2D u_shadImg;
+layout (binding = 0,      rgba8ui) uniform uimage2D u_frontImg;
+layout (binding = 1, rgba16_snorm) uniform  image2D u_fboNormImg;
+layout (binding = 2,         r32i) uniform iimage2D u_flagImg;
+layout (binding = 3,           r8) uniform  image2D u_turbImg;
+layout (binding = 4,           r8) uniform  image2D u_prevTurbImg;
+layout (binding = 5,           r8) uniform  image2D u_shadImg;
 
 layout (binding = 1) uniform sampler2D u_prevTurbTex;
 layout (binding = 2) uniform sampler2D u_shadTex;
@@ -229,7 +228,7 @@ vec3 totalTorq = vec3(0.0f);
 
 void prospect(ivec2 texCoord) {
     // If not geometry, ignore
-    uvec4 color = imageLoad(u_frontImg_uint, texCoord);
+    uvec4 color = imageLoad(u_frontImg, texCoord);
     if ((color.r & k_geoBit) == 0) {
         return;
     }
@@ -253,7 +252,7 @@ void prospect(ivec2 texCoord) {
     }
 
     ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
-    uvec4 nextColor = imageLoad(u_frontImg_uint, nextTexCoord);
+    uvec4 nextColor = imageLoad(u_frontImg, nextTexCoord);
     if ((nextColor.r & k_geoBit) != 0) {
         return;
     }
@@ -279,7 +278,7 @@ void draw(int prevAirI) {
         return;
     }
 
-    uvec4 color = imageLoad(u_frontImg_uint, airTexCoord);
+    uvec4 color = imageLoad(u_frontImg, airTexCoord);
 
     // If in geometry, follow the geo normals to find the edge
     if ((color.r & k_geoBit) != 0) {
@@ -291,7 +290,7 @@ void draw(int prevAirI) {
                 return;
             }
             ivec2 nextPixel = pixel + getPixelDelta(geoNormal.xy);
-            uvec4 nextColor = imageLoad(u_frontImg_uint, nextPixel);
+            uvec4 nextColor = imageLoad(u_frontImg, nextPixel);
 
             // We found the edge, move air to it
             if ((nextColor.r & k_geoBit) == 0) {
@@ -302,7 +301,7 @@ void draw(int prevAirI) {
                 //tangentVel = tangentVel * u_windSpeed;
 
                 // Set air to same position as geometry
-                air.windPos = screenToWind(vec2(airTexCoord) + imageLoad(u_frontImg_unorm, airTexCoord).gb);
+                air.windPos = screenToWind(vec2(airTexCoord) + vec2(imageLoad(u_frontImg, airTexCoord).gb) / 255.0f);
 
                 vec2 norm = normalize(geoNormal.xy);
                 if (geoNormal.z > 0.0f) {
@@ -348,7 +347,7 @@ void draw(int prevAirI) {
 
     // Draw to front view
     color.r |= k_airBit;
-    imageStore(u_frontImg_uint, airTexCoord, color);
+    imageStore(u_frontImg, airTexCoord, color);
 }
 
 // Outline ---------------------------------------------------------------------
@@ -378,7 +377,7 @@ void outline(int geoI) {
         float totalDist = 0.0f;
 
         // Check for air on geometry
-        uvec4 color = imageLoad(u_frontImg_uint, searchPixel);
+        uvec4 color = imageLoad(u_frontImg, searchPixel);
         if ((color.r & k_airBit) != 0) {
             int airI = imageLoad(u_flagImg, searchPixel).x;
             if (airI != 0) { // TODO: this should not be necessary, just here for sanity
@@ -423,7 +422,7 @@ void outline(int geoI) {
                 break;
             }
 
-            color = imageLoad(u_frontImg_uint, searchPixel);
+            color = imageLoad(u_frontImg, searchPixel);
 
             // Visualize the search
             //if (k_debug) {
@@ -488,17 +487,17 @@ void outline(int geoI) {
 
         // Draw to fbo to avoid another draw later, only necessary for seeing the results immediately
         if (k_debug) {
-            uvec4 color = imageLoad(u_frontImg_uint, geoTexCoord);
+            uvec4 color = imageLoad(u_frontImg, geoTexCoord);
             color.g |= k_airBit;
-            imageStore(u_frontImg_uint, geoTexCoord, color);
+            imageStore(u_frontImg, geoTexCoord, color);
         }
     }
 
     // Color active geo pixels more brightly
     if (k_debug && k_distinguishActivePixels) {
-        uvec4 color = imageLoad(u_frontImg_uint, geoTexCoord);
+        uvec4 color = imageLoad(u_frontImg, geoTexCoord);
         color.r |= k_activeBit;
-        imageStore(u_frontImg_uint, geoTexCoord, color);
+        imageStore(u_frontImg, geoTexCoord, color);
     }
 }
 
@@ -565,7 +564,7 @@ void move(int airI) {
                     break;
                 }
 
-                uvec4 color = imageLoad(u_frontImg_uint, searchPixel);
+                uvec4 color = imageLoad(u_frontImg, searchPixel);
 
                 // Visualize the search
                 //if (k_debug) {
@@ -640,9 +639,9 @@ void move(int airI) {
     // Color active air pixels more brightly
     if (k_debug && k_distinguishActivePixels && geoCount > 0) {
         ivec2 texCoord = ivec2(windToScreen(airWindPos));
-        uvec4 color = imageLoad(u_frontImg_uint, texCoord);
+        uvec4 color = imageLoad(u_frontImg, texCoord);
         color.r |= k_airBit | k_activeBit;
-        imageStore(u_frontImg_uint, texCoord, color);
+        imageStore(u_frontImg, texCoord, color);
     }
 
     // Update velocity
