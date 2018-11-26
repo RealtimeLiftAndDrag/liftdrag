@@ -43,7 +43,7 @@ bool Text::setup() {
     }
 
     // Setup font texture
-    
+
     // TODO: abstract this out
     int texWidth(0), texHeight(0), texChannels(0);
     std::string resourcesPath(g_resourcesDir + "/Common/");

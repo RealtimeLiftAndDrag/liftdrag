@@ -2,6 +2,14 @@
 
 #define MAX_GEO_PER_AIR 3
 
+#ifndef DEBUG
+#define DEBUG false
+#endif
+
+#ifndef DISTINGUISH_ACTIVE_PIXELS
+#define DISTINGUISH_ACTIVE_PIXELS false
+#endif
+
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
@@ -33,16 +41,18 @@ struct AirGeoMapElement {
 // Constants -------------------------------------------------------------------
 
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
-
-const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
-const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
-
-const bool k_ignoreEdges = false;
+const bool k_debug = DEBUG;
+const bool k_distinguishActivePixels = DISTINGUISH_ACTIVE_PIXELS; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
+const float k_inactiveVal = k_distinguishActivePixels && k_debug ? 1.0f / 3.0f : 1.0f;
+const int k_maxEdgeSeekSteps = 64; // Necessary in pathological cases where normals form a loop
+const float k_minNormalZ = 1.0f / 1000000.0f;
+const float k_maxNormalZ = 1.0f - k_minNormalZ;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 0, rgba8) uniform  image2D u_fboImg;
-layout (binding = 2,  r32i) uniform iimage2D u_flagImg;
+layout (binding = 0,        rgba8) uniform  image2D u_fboImg;
+layout (binding = 1, rgba16_snorm) uniform  image2D u_fboNormImg;
+layout (binding = 2,         r32i) uniform iimage2D u_flagImg;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -64,7 +74,7 @@ layout (binding = 0, std140) uniform Constants {
     float u_dt;
     int u_slice;
     float u_sliceZ;
-    uint u_debug;
+    float u_pixelSize;
 };
 
 layout (binding = 0, std430) restrict buffer GeoPixels {
@@ -105,42 +115,108 @@ vec2 windToScreen(vec2 wind) {
     return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
 }
 
+vec2 screenToWind(vec2 screen) {
+    return (screen / u_screenSize - 0.5f) * u_windframeSize;
+}
+
+// Returns one of <1, 0>, <-1, 0>, <0, 1>, <0, -1> corresponding to dir
+ivec2 getPixelDelta(vec2 dir) {
+    vec2 signs = sign(dir);
+    vec2 mags = dir * signs;
+    if (mags.y >= mags.x) {
+        return ivec2(0, int(signs.y));
+    }
+    else {
+        return ivec2(int(signs.x), 0);
+    }
+}
+
+void doOne(int prevAirI) {
+    AirPixel air = u_prevAirPixels[prevAirI];
+    ivec2 airTexCoord = ivec2(windToScreen(air.windPos));
+
+    // Check if in texture
+    if (airTexCoord.x < 0 || airTexCoord.y < 0 || airTexCoord.x >= u_screenSize || airTexCoord.y >= u_screenSize) {
+        return;
+    }
+
+    vec4 color = imageLoad(u_fboImg, airTexCoord);
+
+    // If in geometry, follow the geo normals to find the edge
+    if (color.r != 0.0f) {
+        ivec2 pixel = airTexCoord;
+        int steps = 0;
+        while (true) {
+            vec3 geoNormal = imageLoad(u_fboNormImg, airTexCoord).xyz;
+            if (abs(geoNormal.z) > k_maxNormalZ) {
+                return;
+            }
+            ivec2 nextPixel = pixel + getPixelDelta(geoNormal.xy);
+            vec4 nextColor = imageLoad(u_fboImg, nextPixel);
+
+            // We found the edge, move air to it
+            if (nextColor.r == 0.0f) {
+                airTexCoord = pixel;
+
+                //vec3 tangentVel = cross(geoNormal, cross(geoNormal, vec3(0.0f, 0.0f, 1.0f))); // TODO
+                //vec2 tangentVel = geoNormal.xy * geoNormal.z; // Equivalent to above
+                //tangentVel = tangentVel * u_windSpeed;
+
+                vec2 norm = normalize(geoNormal.xy);
+                if (geoNormal.z > 0.0f) {
+                    air.velocity = max(dot(air.velocity, norm), geoNormal.z * u_windSpeed) * norm;
+                }
+                else {
+                    air.velocity = geoNormal.z * u_windSpeed * norm;
+                }
+
+                air.backforce = vec2(0.0f);
+                air.turbulence = vec2(0.0f);
+                break;
+            }
+
+            // If air "inside" geometry, get rid of it, unless it's on the very edge
+            if (geoNormal.z < 0.0f) {
+                return;
+            }
+
+            // TODO: position here instead
+            air.windPos = vec2(0.0f); // Signify to outline shader that this air has been adjusted and needs properly positioned
+
+            pixel = nextPixel;
+            color = nextColor;
+            if (++steps >= k_maxEdgeSeekSteps) {
+                return;
+            }
+        }
+    }
+
+    // air.windPos now invalid if there was edge seek
+
+    // Air already exists at pixel
+    if (color.g != 0.0f) {
+        return;
+    }
+
+    // Move to current air pixel buffer
+    int airI = atomicAdd(u_airCount, 1);
+    if (airI >= u_maxAirPixels) {
+        return;
+    }
+    u_airPixels[airI] = air;
+    u_airGeoMap[airI].geoCount = 0; // This air pixel is not yet associated with any geometry
+
+    // Store air index
+    imageStore(u_flagImg, airTexCoord, ivec4(airI + 1, 0, 0, 0));
+
+    // Draw to front view
+    color.g = k_inactiveVal;
+    imageStore(u_fboImg, airTexCoord, color);
+}
+
 void main() {
     int workI = int(gl_LocalInvocationIndex);
-
     for (int prevAirI = workI; prevAirI < u_prevAirCount; prevAirI += int(k_workGroupSize)) {
-
-        vec2 windPos = u_prevAirPixels[prevAirI].windPos;
-
-        ivec2 texCoord = ivec2(windToScreen(windPos.xy));
-        ivec2 sideTexCoord;
-        if (bool(u_debug)) {
-            sideTexCoord = ivec2(windToScreen(vec2(-u_sliceZ, windPos.y)));
-        }
-
-        // Check if in texture
-        if (texCoord.x < 0 || texCoord.y < 0 || texCoord.x >= u_screenSize || texCoord.y >= u_screenSize) {
-            continue;
-        }
-        // Check if in geometry
-        vec4 color = imageLoad(u_fboImg, texCoord);
-        if (color.r != 0.0f) {
-            continue;
-        }
-
-        // Move to current air pixel buffer
-        int airI = atomicAdd(u_airCount, 1);
-        if (airI >= u_maxAirPixels) {
-            return;
-        }
-        u_airPixels[airI] = u_prevAirPixels[prevAirI];
-        u_airGeoMap[airI].geoCount = 0; // This air pixel is not yet associated with any geometry
-
-        // Store air index
-        imageStore(u_flagImg, texCoord, ivec4(airI + 1, 0, 0, 0));
-
-        // Draw to front view
-        color.g = k_inactiveVal;
-        imageStore(u_fboImg, texCoord, color);
+        doOne(prevAirI);
     }
 }

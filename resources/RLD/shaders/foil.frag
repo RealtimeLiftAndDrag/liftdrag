@@ -1,11 +1,20 @@
 #version 450 core
 
+#ifndef DEBUG
+#define DEBUG false
+#endif
+
+#ifndef DISTINGUISH_ACTIVE_PIXELS
+#define DISTINGUISH_ACTIVE_PIXELS false
+#endif
+
 // Types -----------------------------------------------------------------------
 
 // Constants -------------------------------------------------------------------
 
-const bool k_distinguishActivePixels = true; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
-const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
+const bool k_debug = DEBUG;
+const bool k_distinguishActivePixels = DISTINGUISH_ACTIVE_PIXELS; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
+const float k_inactiveVal = k_distinguishActivePixels && k_debug ? 1.0f / 3.0f : 1.0f;
 
 // Inputs ----------------------------------------------------------------------
 
@@ -42,7 +51,7 @@ layout (binding = 0, std140) uniform Constants {
     float u_dt;
     int u_slice;
     float u_sliceZ;
-    uint u_debug;
+    float u_pixelSize;
 };
 
 // Functions -------------------------------------------------------------------
@@ -64,7 +73,7 @@ void main() {
     out_norm = vec4(safeNormalize(in_norm), 0.0f);
 
     // Side View
-    if (bool(u_debug)) {
+    if (k_debug) {
         //if (windToScreen(vec2(in_pos.x, 0.0f)).x > u_screenSize * 2 / 3) {
         vec2 sideTexPos = windToScreen(vec2(-in_pos.z, in_pos.y));
         imageStore(u_sideImg, ivec2(sideTexPos), vec4(vec3(k_inactiveVal * 0.5f), 0.0f));

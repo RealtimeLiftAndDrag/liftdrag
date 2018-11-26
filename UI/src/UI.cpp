@@ -31,7 +31,7 @@ namespace ui {
 
     static unq<Shader> s_compProg;
     static uint s_squareVBO, s_squareVAO;
-    
+
     static shr<Component> s_root;
     static shr<Component> s_tooltip;
     static bool s_isTooltipChange;
@@ -104,6 +104,22 @@ namespace ui {
         //if (s_scrollCallback) s_scrollCallback(dvec2(xoffset, yoffset));
     }
 
+    static void controllerStickCallback(int player, Controller::Stick stick, vec2 val) {
+        s_root->controllerStickEvent(stick, val);
+    }
+
+    static void controllerTriggerCallback(int player, Controller::Trigger trigger, float val) {
+        s_root->controllerTriggerEvent(trigger, val);
+    }
+
+    static void controllerDpadCallback(int player, ivec2 val) {
+        s_root->controllerDpadEvent(val);
+    }
+
+    static void controllerButtonCallback(int player, Controller::Button button, bool pressed) {
+        s_root->controllerButtonEvent(button, pressed);
+    }
+
     static std::vector<int> distribute(int total, int n) {
         std::vector<int> vals(n, total / n);
         int excess(total % n);
@@ -112,7 +128,7 @@ namespace ui {
     }
 
 
-    
+
     void Component::render() const {
         if (m_backColor.a == 0.0f && m_borderColor.a == 0.0f) {
             return;
@@ -230,6 +246,22 @@ namespace ui {
         if (m_cursorOverComp) m_cursorOverComp->scrollEvent(delta);
     }
 
+    void Group::controllerStickEvent(Controller::Stick stick, vec2 val) {
+        if (m_cursorOverComp) m_cursorOverComp->controllerStickEvent(stick, val);
+    }
+
+    void Group::controllerTriggerEvent(Controller::Trigger trigger, float val) {
+        if (m_cursorOverComp) m_cursorOverComp->controllerTriggerEvent(trigger, val);
+    }
+
+    void Group::controllerDpadEvent(ivec2 val) {
+        if (m_cursorOverComp) m_cursorOverComp->controllerDpadEvent(val);
+    }
+
+    void Group::controllerButtonEvent(Controller::Button button, bool pressed) {
+        if (m_cursorOverComp) m_cursorOverComp->controllerButtonEvent(button, pressed);
+    }
+
     void Group::add(shr<Component> component) {
         m_components.emplace_back(component);
     }
@@ -278,6 +310,11 @@ namespace ui {
         glfwSetCursorEnterCallback(s_window, glfwCursorEnterCallback);
         glfwSetMouseButtonCallback(s_window, glfwMouseButtonCallback);
         glfwSetScrollCallback(s_window, glfwScrollCallback);
+        Controller::poll(1);
+        Controller::stickCallback(controllerStickCallback);
+        Controller::triggerCallback(controllerTriggerCallback);
+        Controller::dpadCallback(controllerDpadCallback);
+        Controller::buttonCallback(controllerButtonCallback);
 
         glfwGetFramebufferSize(s_window, &s_windowSize.x, &s_windowSize.y);
 

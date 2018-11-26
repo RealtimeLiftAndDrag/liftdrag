@@ -149,11 +149,14 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\Results.cpp" />
+    <ClCompile Include="src\Viewer.cpp" />
+    <ClCompile Include="src\Visualizer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Results.hpp" />
+    <ClInclude Include="src\Viewer.hpp" />
+    <ClInclude Include="src\Visualizer.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

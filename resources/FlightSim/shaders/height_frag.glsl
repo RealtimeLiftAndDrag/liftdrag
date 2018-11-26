@@ -171,6 +171,6 @@ void main()
 
 	color.a = 1;
 
-	
+
 }
 

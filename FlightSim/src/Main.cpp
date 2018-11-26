@@ -12,10 +12,12 @@ extern "C" {
 
 
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
-#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtx/transform.hpp"
 #include "glm/gtc/constants.hpp"
 #include "glm/gtx/string_cast.hpp"
 
@@ -23,6 +25,9 @@ extern "C" {
 #include "Common/Model.hpp"
 #include "Common/Shader.hpp"
 #include "Common/Controller.hpp"
+#include "Common/SkyBox.hpp"
+#include "Common/Camera.hpp"
+#include "Common/Text.hpp"
 #include "UI/Group.hpp"
 #include "RLD/Simulation.hpp"
 
@@ -39,7 +44,7 @@ public:
 
 };
 
-static const ivec2 k_defWindowSize(1280, 1280);
+static const ivec2 k_defWindowSize(1280, 720);
 static const std::string k_windowTitle("RLD Flight Simulator");
 
 static constexpr int k_simTexSize(1024);
@@ -52,18 +57,23 @@ static constexpr float k_windframeDepth(22.0f);
 static constexpr float k_fov(glm::radians(75.0f));
 static constexpr float k_near(0.01f), k_far(1000.0f);
 static constexpr float k_gravity(0.0f);//9.8f);
+static const vec3 k_lightDir(glm::normalize(vec3(-1.0f, 0.25f, -1.0f)));
 
-static vec3 k_initPos(0.0f, 80.0f, 0.0f);
-static vec3 k_initDir(0.0f, 0.0f, -1.0f);
-static float k_initSpeed(60.0f);
+static const vec3 k_initPos(0.0f, 80.0f, 0.0f);
+static const vec3 k_initDir(0.0f, 0.0f, -1.0f);
+static constexpr float k_initSpeed(60.0f);
+static constexpr float k_initCamDist(20.0f);
+static constexpr float k_camSpeed(0.05f);
 
 static ivec2 s_windowSize(k_defWindowSize);
 
 static unq<Model> s_model;
 static unq<SimObject> s_simObject;
 static unq<Shader> s_planeShader;
+static unq<SkyBox> s_skyBox;
+static ThirdPersonCamera s_camera;
 
-static mat4 s_modelMat; 
+static mat4 s_modelMat;
 static mat3 s_normalMat;
 static float s_windSpeed;
 static float s_turbulenceDist;
@@ -88,7 +98,6 @@ static constexpr float k_keyAngleSpeed(90.0f); // how quickly the rudders/ailero
 static constexpr float k_returnAngleSpeed(90.0f); // how quickly the rudders/ailerons/elevators will return to their default position in degrees per second
 
 static GLFWwindow * s_window;
-static Controller s_controller(0);
 
 // These apply when using the keyboard to control the plane
 static bool s_keyboardYawCCW, s_keyboardYawCW;
@@ -102,11 +111,13 @@ static float s_controllerPitch;
 static float s_controllerRoll;
 static float s_controllerThrust;
 
+static ivec2 s_camControlDelta;
 static bool s_windView;
 
-static mat4 s_perspectiveMat;
 static mat4 s_windViewViewMat;
 static mat4 s_windViewOrthoMat;
+
+static Text s_text;
 
 
 
@@ -214,6 +225,50 @@ static void keyCallback(GLFWwindow *window, int key, int scancode, int action, i
     else if (key == GLFW_KEY_P && action == GLFW_RELEASE) {
         s_unpaused = !s_unpaused;
     }
+    // Escape exits
+    else if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
+        glfwSetWindowShouldClose(s_window, true);
+    }
+}
+
+static ivec2 s_prevCursorPos;
+static bool s_isPrevCursorPosValid(false);
+
+void cursorPosCallback(GLFWwindow * window, double x, double y) {
+    ivec2 cursorPos{int(x), int(y)};
+    if (!s_isPrevCursorPosValid) {
+        s_prevCursorPos = cursorPos;
+        s_isPrevCursorPosValid = true;
+    }
+    ivec2 delta(cursorPos - s_prevCursorPos);
+
+    if (glfwGetMouseButton(s_window, 0)) {
+        s_camControlDelta += delta;
+    }
+
+    s_prevCursorPos = cursorPos;
+}
+
+void cursorEnterCallback(GLFWwindow * window, int entered) {
+    if (!entered) {
+        s_isPrevCursorPosValid = false;
+    }
+}
+
+void stickCallback(int player, Controller::Stick stick, vec2 val) {
+    if (stick == Controller::Stick::left) {
+        s_controllerPitch = -val.y;
+        s_controllerRoll = val.x;
+    }
+    else if (stick == Controller::Stick::right) {
+        s_controllerYaw = val.x;
+    }
+}
+
+void triggerCallback(int player, Controller::Trigger trigger, float val) {\
+    if (trigger == Controller::Trigger::right) {
+        s_controllerThrust = val;
+    }
 }
 
 void detMatrices();
@@ -255,15 +310,18 @@ static bool setupObject() {
 }
 
 static void detMatrices() {
-    // Perspective matrix
-    float aspect(float(s_windowSize.x) / float(s_windowSize.y));
-    float fov(s_windowSize.x >= s_windowSize.y ? k_fov : k_fov / aspect); // fov is always for smaller dimension
-    s_perspectiveMat = glm::perspective(fov, aspect, k_near, k_far);
+    if (s_windowSize.y <= s_windowSize.x) {
+        s_camera.fov(vec2(k_fov * float(s_windowSize.x) / float(s_windowSize.y), k_fov));
+    }
+    else {
+        s_camera.fov(vec2(k_fov, k_fov * float(s_windowSize.y) / float(s_windowSize.x)));
+    }
 
     // Wind view view matrix
     s_windViewViewMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -k_windframeDepth * 0.5f));
 
     // Wind view orthographic matrix
+    float aspect(float(s_windowSize.x) / float(s_windowSize.y));
     s_windViewOrthoMat = glm::ortho(
         -k_windframeWidth * 0.5f * aspect, // left
          k_windframeWidth * 0.5f * aspect, // right
@@ -273,6 +331,7 @@ static void detMatrices() {
          k_windframeDepth * 0.5f  // far
     );
 }
+
 
 static bool setup() {
     // Setup window
@@ -291,7 +350,10 @@ static bool setup() {
     }
     glfwMakeContextCurrent(s_window);
     glfwSwapInterval(0); // VSync on or off
+    glfwSetInputMode(s_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetKeyCallback(s_window, keyCallback);
+    glfwSetCursorPosCallback(s_window, cursorPosCallback);
+    glfwSetCursorEnterCallback(s_window, cursorEnterCallback);
     glfwSetFramebufferSizeCallback(s_window, framebufferSizeCallback);
 
     // Setup GLAD
@@ -302,6 +364,8 @@ static bool setup() {
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glViewport(0, 0, s_windowSize.x, s_windowSize.y);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
 
     // Setup object
     if (!setupObject()) {
@@ -321,16 +385,44 @@ static bool setup() {
         std::cerr << "Failed to load plane shader" << std::endl;
         return false;
     }
+    s_planeShader->bind();
+    s_planeShader->uniform("u_lightDir", k_lightDir);
+    s_planeShader->unbind();
 
     //setup progterrain
     ProgTerrain::init_shaders();
     ProgTerrain::init_geom();
 
     // Setup xbox controller
-    s_controller.poll();
-    if (s_controller.connected()) {
-        std::cout << "Controller connected" << std::endl;
+    Controller::poll(1);
+    Controller::stickCallback(stickCallback);
+    Controller::triggerCallback(triggerCallback);
+
+    // Setup sky box
+    std::string skyBoxPath(g_resourcesDir + "/FlightSim/textures/sky_florida_1024/");
+    if (!(s_skyBox = SkyBox::create({
+        skyBoxPath + "right.png",
+        skyBoxPath + "left.png",
+        skyBoxPath + "top.png",
+        skyBoxPath + "bottom.png",
+        skyBoxPath + "front.png",
+        skyBoxPath + "back.png"
+    }))) {
+        std::cerr << "Failed to create sky box" << std::endl;
+        return false;
     }
+
+    // Setup text
+    if (!Text::setup()) {
+        std::cerr << "Failed to setup text" << std::endl;
+        return false;
+    }
+    s_text.color(vec4(1.0f, 1.0f, 1.0f, 1.0f));
+
+    // Setup camera
+    s_camera.distance(k_initCamDist);
+    s_camera.near(k_near);
+    s_camera.far(k_far);
 
     detMatrices();
     s_unpaused = true;
@@ -374,18 +466,8 @@ static float triggerVal(u08 v) {
     return fv >= k_threshold ? (fv - k_threshold) * k_invFactor : 0.0f;
 }
 
-static void processController() {
-    if (s_controller.connected()) {
-        s_controller.poll();
-        s_controllerYaw = s_controller.rStick().x;
-        s_controllerPitch = -s_controller.lStick().y;
-        s_controllerRoll = s_controller.lStick().x;
-        s_controllerThrust = s_controller.rTrigger();
-    }
-}
-
 static void update(float dt) {
-    processController();
+    Controller::poll(1);
 
     // Update yaw
     if (s_controllerYaw) { // Controller takes priority
@@ -442,6 +524,27 @@ static void update(float dt) {
     else { // Otherwise keyboard
         s_simObject->thrust(float(s_keyboardThrust));
     }
+
+    // Update camera
+    if (s_camControlDelta != ivec2()) {
+        s_camera.thetaPhi(
+            s_camera.theta() - s_camControlDelta.x * k_camSpeed * dt,
+            s_camera.phi() - s_camControlDelta.y * k_camSpeed * dt
+        );
+        s_camControlDelta = ivec2();
+    }
+}
+
+static std::string createTextString(const vec3 & lift, const vec3 & drag, const vec3 & torq) {
+    constexpr int k_preDigits(7), k_postDigits(2);
+    constexpr int k_width(k_preDigits + k_postDigits + 2);
+    std::stringstream ss;
+    ss.precision(k_postDigits);
+    ss << std::fixed;
+    ss << "Lift: <" << std::setw(k_width) << lift.x << " " << std::setw(k_width) << lift.y << " " << std::setw(k_width) << lift.z << ">\n";
+    ss << "Drag: <" << std::setw(k_width) << drag.x << " " << std::setw(k_width) << drag.y << " " << std::setw(k_width) << drag.z << ">\n";
+    ss << "Torq: <" << std::setw(k_width) << torq.x << " " << std::setw(k_width) << torq.y << " " << std::setw(k_width) << torq.z << ">";
+    return ss.str();
 }
 
 static void render(float dt) {
@@ -466,7 +569,9 @@ static void render(float dt) {
     if (s_unpaused) {
         rld::sweep();
     }
-    
+
+    glEnable(GL_BLEND);
+
     vec3 lift = windBasis * vec3(rld::lift().x, rld::lift().y, 0.0f); // TODO: figure out what is up with lift along z axis
     vec3 drag = windBasis * rld::drag();
     vec3 torq = windBasis * rld::torq();
@@ -479,8 +584,8 @@ static void render(float dt) {
         s_simObject->addAngularForce(torq);
         s_simObject->update(dt);
     }
-    
-    std::cout << glm::to_string(s_simObject->velocity()) << std::endl;
+
+    //std::cout << glm::to_string(s_simObject->velocity()) << std::endl;
 
     glViewport(0, 0, s_windowSize.x, s_windowSize.y);
 
@@ -488,6 +593,7 @@ static void render(float dt) {
     mat3 normalMat;
     mat4 viewMat;
     mat4 projMat;
+    vec3 camPos;
 
     if (s_windView) { // What the wind sees (use for debugging)
         modelMat = rldModelMat;
@@ -497,35 +603,39 @@ static void render(float dt) {
         }
         else { // Perspective otherwise
             viewMat = s_windViewViewMat;
-            projMat = s_perspectiveMat;
+            projMat = s_camera.projMat();
         }
     }
-    else {        
+    else {
         modelMat = s_simObject->orientMatrix();
         modelMat = modelMat * s_modelMat;
         modelMat[3] = vec4(s_simObject->position(), 1.0f);
         normalMat = s_simObject->orientMatrix() * s_normalMat;
-        vec3 camPos(s_simObject->position() + s_simObject->orientMatrix() * vec3(0.0f, 0.0f, 20.0f));
-        viewMat = glm::lookAt(camPos, s_simObject->position(), vec3(0.0f, 1.0f, 0.0f));
-        projMat = s_perspectiveMat;
-        ProgTerrain::render(viewMat, projMat, -camPos); //todo no idea why I have to invert this
+        viewMat = mat4(glm::transpose(s_simObject->orientMatrix())) * glm::translate(-s_simObject->position());
+        viewMat = s_camera.viewMat() * viewMat;
+        camPos = s_simObject->position() + s_simObject->orientMatrix() * s_camera.position();
+        projMat = s_camera.projMat();
+        ProgTerrain::render(viewMat, projMat, -camPos);
     }
-
-    glEnable(GL_DEPTH_TEST);
 
     // TODO: disable backface culling
 
     s_planeShader->bind();
     s_planeShader->uniform("u_projMat", projMat);
     s_planeShader->uniform("u_viewMat", viewMat);
+    s_planeShader->uniform("u_camPos", camPos);
     s_model->draw(modelMat, normalMat, s_planeShader->uniformLocation("u_modelMat"), s_planeShader->uniformLocation("u_normalMat"));
 
     s_planeShader->unbind();
 
+    s_skyBox->render(viewMat, projMat);
+
 
     //reset gl variables set to not mess up rld sim
     glDisable(GL_DEPTH_TEST);
-
+    
+    s_text.string(createTextString(lift, drag, torq));
+    s_text.render(ivec2(0, 0));
 }
 
 

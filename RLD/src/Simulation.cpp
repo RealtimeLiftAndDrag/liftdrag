@@ -15,8 +15,15 @@
 
 namespace rld {
 
+    static constexpr bool k_useAllCores(true); // Will utilize as many gpu cores as possible
+    static constexpr int k_coresToUse(1024); // Otherwise, use this many
+    static constexpr int k_warpSize(64); // Should correspond to target architecture
+    static const ivec2 k_warpSize2D(8, 8); // The components multiplied must equal warp size
     static constexpr int k_maxPixelsDivisor(16); // max dense pixels is the total pixels divided by this
     static constexpr int k_maxGeoPerAir(3); // Maximum number of different geo pixels that an air pixel can be associated with
+    static constexpr bool k_distinguishActivePixels(true); // In debug mode, makes certain "active" pixels brigher for visual clarity, but lowers performance
+    static constexpr bool k_doTurbulence(false);
+    static constexpr bool k_doWindShadow(true);
 
     static constexpr bool k_persistentMapping(false); // Should use persistent mapping for mutables ssbo // TODO: test performance
 
@@ -63,7 +70,7 @@ namespace rld {
         float dt;
         s32 slice;
         float sliceZ;
-        u32 debug; // Enables non-essential features (e.g. sideview texture)
+        float pixelSize;
     };
 
     // Mirrors GPU struct
@@ -91,6 +98,8 @@ namespace rld {
 
 
 
+    static int s_workGroupSize;
+    static ivec2 s_workGroupSize2D;
     static int s_texSize; // Width and height of the textures, which are square
     static int s_maxGeoPixels;
     static int s_maxAirPixels;
@@ -127,12 +136,13 @@ namespace rld {
     static std::vector<vec3> s_torqs; // Torqs for each slice
     static int s_swap;
 
-    static unq<Shader> s_foilProg;
-    static unq<Shader> s_prospectProg;
-    static unq<Shader> s_outlineProg;
-    static unq<Shader> s_moveProg;
-    static unq<Shader> s_drawProg;
-    static unq<Shader> s_prettyProg;
+    static unq<Shader> s_shader, s_shaderDebug;
+    static unq<Shader> s_foilShader, s_foilShaderDebug;
+    //static unq<Shader> s_prospectShader, s_prospectShaderDebug;
+    //static unq<Shader> s_outlineShader, s_outlineShaderDebug;
+    //static unq<Shader> s_moveShader, s_moveShaderDebug;
+    //static unq<Shader> s_drawShader, s_drawShaderDebug;
+    static unq<Shader> s_prettyShader;
 
     static Constants s_constants;
 
@@ -157,38 +167,89 @@ namespace rld {
 
     static bool setupShaders() {
         std::string shadersPath(g_resourcesDir + "/RLD/shaders/");
+        std::string workGroupSizeStr(std::to_string(s_workGroupSize));
+        std::string workGroupSize2DStr("ivec2(" + std::to_string(s_workGroupSize2D.x) + ", " + std::to_string(s_workGroupSize2D.y) + ")");
+        std::initializer_list<duo<std::string_view>> defines{
+            { "WORK_GROUP_SIZE", workGroupSizeStr },
+            { "WORK_GROUP_SIZE_2D", workGroupSize2DStr },
+            { "DEBUG", "false" },
+            { "DISTINGUISH_ACTIVE_PIXELS", k_distinguishActivePixels ? "true" : "false" },
+            { "DO_TURBULENCE", k_doTurbulence ? "true" : "false" },
+            { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" }
+        };
+        std::initializer_list<duo<std::string_view>> debugDefines{
+            { "WORK_GROUP_SIZE", workGroupSizeStr },
+            { "WORK_GROUP_SIZE_2D", workGroupSize2DStr },
+            { "DEBUG", "true" },
+            { "DISTINGUISH_ACTIVE_PIXELS", k_distinguishActivePixels ? "true" : "false" },
+            { "DO_TURBULENCE", k_doTurbulence ? "true" : "false" },
+            { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" }
+        };
+
         // Foil Shader
-        if (!(s_foilProg = Shader::load(shadersPath + "foil.vert", shadersPath + "foil.frag"))) {
+        if (!(s_foilShader = Shader::load(shadersPath + "foil.vert", shadersPath + "foil.frag", defines))) {
             std::cerr << "Failed to load foil shader" << std::endl;
             return false;
         }
+        if (!(s_foilShaderDebug = Shader::load(shadersPath + "foil.vert", shadersPath + "foil.frag", debugDefines))) {
+            std::cerr << "Failed to load debug foil shader" << std::endl;
+            return false;
+        }
 
+        // Compute Shader
+        if (!(s_shader = Shader::load(shadersPath + "rld.comp", defines))) {
+            std::cerr << "Failed to load rld shader" << std::endl;
+            return false;
+        }
+        if (!(s_shaderDebug = Shader::load(shadersPath + "rld.comp", debugDefines))) {
+            std::cerr << "Failed to load rld debug shader" << std::endl;
+            return false;
+        }
+
+        /*
         // Prospect Compute Shader
-        if (!(s_prospectProg = Shader::load(shadersPath + "prospect.comp"))) {
+        if (!(s_prospectShader = Shader::load(shadersPath + "prospect.comp", defines))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
+            return false;
+        }
+        if (!(s_prospectShaderDebug = Shader::load(shadersPath + "prospect.comp", debugDefines))) {
+            std::cerr << "Failed to load debug prospect shader" << std::endl;
             return false;
         }
 
         // Outline Compute Shader
-        if (!(s_outlineProg = Shader::load(shadersPath + "outline.comp"))) {
+        if (!(s_outlineShader = Shader::load(shadersPath + "outline.comp", defines))) {
             std::cerr << "Failed to load outline shader" << std::endl;
+            return false;
+        }
+        if (!(s_outlineShaderDebug = Shader::load(shadersPath + "outline.comp", debugDefines))) {
+            std::cerr << "Failed to load debug outline shader" << std::endl;
             return false;
         }
 
         // Move Compute Shader
-        if (!(s_moveProg = Shader::load(shadersPath + "move.comp"))) {
+        if (!(s_moveShader = Shader::load(shadersPath + "move.comp", defines))) {
             std::cerr << "Failed to load move shader" << std::endl;
+            return false;
+        }
+        if (!(s_moveShaderDebug = Shader::load(shadersPath + "move.comp", debugDefines))) {
+            std::cerr << "Failed to load debug move shader" << std::endl;
             return false;
         }
 
         // Draw Compute Shader
-        if (!(s_drawProg = Shader::load(shadersPath + "draw.comp"))) {
+        if (!(s_drawShader = Shader::load(shadersPath + "draw.comp", defines))) {
             std::cerr << "Failed to load draw shader" << std::endl;
             return false;
         }
+        if (!(s_drawShaderDebug = Shader::load(shadersPath + "draw.comp", debugDefines))) {
+            std::cerr << "Failed to load debug draw shader" << std::endl;
+            return false;
+        }
+        */
 
-        // Draw Turbulence Compute Shader
-        if (!(s_prettyProg = Shader::load(shadersPath + "pretty.comp"))) {
+        // Pretty Compute Shader
+        if (!(s_prettyShader = Shader::load(shadersPath + "pretty.comp", defines))) {
             std::cerr << "Failed to load pretty shader" << std::endl;
             return false;
         }
@@ -295,8 +356,18 @@ namespace rld {
         return true;
     }
 
+    static void compute() {
+        Shader & shader(s_debug ? *s_shaderDebug : *s_shader);
+        shader.bind();
+
+        glDispatchCompute(1, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+    }
+
+    /*
     static void computeProspect() {
-        s_prospectProg->bind();
+        Shader & prospectShader(s_debug ? *s_prospectShaderDebug : *s_prospectShader);
+        prospectShader.bind();
 
         //glDispatchCompute((s_texSize + 7) / 8, (s_texSize + 7) / 8, 1); // Must also tweak in shader
         glDispatchCompute(1, 1, 1);
@@ -304,28 +375,32 @@ namespace rld {
     }
 
     static void computeOutline() {
-        s_outlineProg->bind();
+        Shader & outlineShader(s_debug ? *s_outlineShaderDebug : *s_outlineShader);
+        outlineShader.bind();
 
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
     static void computeMove() {
-        s_moveProg->bind();
+        Shader & moveShader(s_debug ? *s_moveShaderDebug : *s_moveShader);
+        moveShader.bind();
 
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
     static void computeDraw() {
-        s_drawProg->bind();
+        Shader & drawShader(s_debug ? *s_drawShaderDebug : *s_drawShader);
+        drawShader.bind();
 
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
+    */
 
     static void computePretty() {
-        s_prettyProg->bind();
+        s_prettyShader->bind();
 
         glDispatchCompute(1, 1, 1); // Must also tweak in shader
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
@@ -335,10 +410,11 @@ namespace rld {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
         glViewport(0, 0, s_texSize, s_texSize);
 
-        // Clear framebuffer.
+        // Clear framebuffer
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        s_foilProg->bind();
+        Shader & foilShader(s_debug ? *s_foilShaderDebug : *s_foilShader);
+        foilShader.bind();
 
         float nearDist(s_windframeDepth * -0.5f + s_currentSlice * s_sliceSize);
         float windframeRadius(s_windframeWidth * 0.5f);
@@ -350,16 +426,16 @@ namespace rld {
             nearDist, // near
             nearDist + s_sliceSize // far
         ));
-        s_foilProg->uniform("u_projMat", projMat);
+        foilShader.uniform("u_projMat", projMat);
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        s_model->draw(s_modelMat, s_normalMat, s_foilProg->uniformLocation("u_modelMat"), s_foilProg->uniformLocation("u_normalMat"));
+        s_model->draw(s_modelMat, s_normalMat, foilShader.uniformLocation("u_modelMat"), foilShader.uniformLocation("u_normalMat"));
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        s_model->draw(s_modelMat, s_normalMat, s_foilProg->uniformLocation("u_modelMat"), s_foilProg->uniformLocation("u_normalMat"));
+        s_model->draw(s_modelMat, s_normalMat, foilShader.uniformLocation("u_modelMat"), foilShader.uniformLocation("u_normalMat"));
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
 
-        s_foilProg->unbind();
+        foilShader.unbind();
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
@@ -436,7 +512,7 @@ namespace rld {
         s_constants.dt = s_dt;
         s_constants.slice = 0;
         s_constants.sliceZ = s_windframeDepth * -0.5f;
-        s_constants.debug = s_debug;
+        s_constants.pixelSize = s_windframeWidth / float(s_texSize);
     }
 
     static void clearTurbTex() {
@@ -486,18 +562,22 @@ namespace rld {
 
 
     bool setup(const int texSize, int sliceCount, float liftC, float dragC, float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC) {
+        int coreCount(0);
+        if (k_useAllCores) glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &coreCount);
+        else coreCount = k_coresToUse;
+        int warpCount(coreCount / k_warpSize);
+        s_workGroupSize = warpCount * k_warpSize; // we want workgroups to be a warp multiple
+        s_workGroupSize2D.x = int(std::round(std::sqrt(float(warpCount))));
+        s_workGroupSize2D.y = warpCount / s_workGroupSize2D.x;
+        s_workGroupSize2D *= k_warpSize2D;
+
         s_texSize = texSize;
         s_maxGeoPixels = s_texSize * s_texSize / k_maxPixelsDivisor;
         s_maxAirPixels = s_maxGeoPixels;
         s_sliceCount = sliceCount;
         s_liftC = liftC;
         s_dragC = dragC;
-        s_turbulenceDist = turbulenceDist;
-        s_maxSearchDist = maxSearchDist;
-        s_windShadDist = windShadDist;
-        s_backforceC = backforceC;
-        s_flowback = flowback;
-        s_initVelC = initVelC;
+        setVariables(turbulenceDist, maxSearchDist, windShadDist, backforceC, flowback, initVelC);
 
         // Setup shaders
         if (!setupShaders()) {
@@ -568,6 +648,15 @@ namespace rld {
         return true;
     }
 
+    void setVariables(float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC) {
+        s_turbulenceDist = turbulenceDist;
+        s_maxSearchDist = maxSearchDist;
+        s_windShadDist = windShadDist;
+        s_backforceC = backforceC;
+        s_flowback = flowback;
+        s_initVelC = initVelC;
+    }
+
     void cleanup() {
         if (k_persistentMapping) {
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
@@ -623,10 +712,11 @@ namespace rld {
 
         clearFlagTex();
         renderGeometry(); // Render geometry to fbo
-        computeProspect(); // Scan fbo and generate geo pixels
-        computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
-        computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
-        computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
+        compute();
+        //computeProspect(); // Scan fbo and generate geo pixels
+        //computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
+        //computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
+        //computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
         if (s_debug) computePretty(); // transforms the contents of the fbo, turb, and shad textures into a comprehensible front and side view
 
         ++s_currentSlice;

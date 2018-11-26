@@ -16,20 +16,20 @@ SimObject::SimObject(float mass, const vec3 & momentsOfInertia, float dryThrust,
     m_angularAcc(),
     m_thrust(0.0f)
 {
-	reset(position, direction, speed);
+    reset(position, direction, speed);
 }
 
 void SimObject::reset(const vec3 & position, const vec3 & direction, float speed) {
-	m_position = position;
-	m_velocity = direction * speed;
-	m_acceleration = vec3();
-	m_w = -direction;
-	m_u = glm::normalize(glm::cross(vec3(0.0f, 1.0f, 0.0f), m_w)); // TODO: this will break if `direction` is parallel to y axis
-	m_v = glm::cross(m_w, m_u);
-	m_orientation = glm::toQuat(m_orientMatrix);
-	m_angularVel = vec3();
-	m_angularAcc = vec3();
-	m_thrust = 0.0f;
+    m_position = position;
+    m_velocity = direction * speed;
+    m_acceleration = vec3();
+    m_w = -direction;
+    m_u = glm::normalize(glm::cross(vec3(0.0f, 1.0f, 0.0f), m_w)); // TODO: this will break if `direction` is parallel to y axis
+    m_v = glm::cross(m_w, m_u);
+    m_orientation = glm::toQuat(m_orientMatrix);
+    m_angularVel = vec3();
+    m_angularAcc = vec3();
+    m_thrust = 0.0f;
 }
 
 void SimObject::addTranslationalForce(const vec3 & force) {

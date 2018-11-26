@@ -2,6 +2,14 @@
 
 #define MAX_GEO_PER_AIR 3
 
+#ifndef DEBUG
+#define DEBUG false
+#endif
+
+#ifndef DO_WIND_SHADOW
+#define DO_WIND_SHADOW false
+#endif
+
 layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
@@ -33,8 +41,9 @@ struct AirGeoMapElement {
 // Constants -------------------------------------------------------------------
 
 const uint k_workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
-
-float k_airDensity = 1.0f;
+const bool k_debug = DEBUG;
+const float k_airDensity = 1.0f;
+const bool k_doWindShadow = DO_WIND_SHADOW;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -66,7 +75,7 @@ layout (binding = 0, std140) uniform Constants {
     float u_dt;
     int u_slice;
     float u_sliceZ;
-    uint u_debug;
+    float u_pixelSize;
 };
 
 layout (binding = 0, std430) restrict buffer GeoPixels {
@@ -111,6 +120,7 @@ vec2 screenToWind(vec2 screen) {
     return (screen / u_screenSize - 0.5f) * u_windframeSize;
 }
 
+// Returns one of <1, 0>, <-1, 0>, <0, 1>, <0, -1> corresponding to dir
 ivec2 getPixelDelta(vec2 dir) {
     vec2 signs = sign(dir);
     vec2 mags = dir * signs;
@@ -149,8 +159,7 @@ void main() {
     ivec2 workCoord = ivec2(gl_LocalInvocationID.xy);
     s_accumulationArray[gl_LocalInvocationIndex] = vec3(0.0f);
 
-    float pixelArea = screenToWindDist(1.0f);
-    pixelArea *= pixelArea;
+    float pixelArea = u_pixelSize * u_pixelSize;
 
     vec3 totalDrag = vec3(0.0f);
     vec3 totalTorq = vec3(0.0f);
@@ -172,13 +181,13 @@ void main() {
                 continue;
             }
 
-            imageStore(u_fboImg, texCoord, vec4(color.r, 0.0f, 0.0f, 0.0f)); // TODO: totally unnecessary??
+            imageStore(u_fboImg, texCoord, vec4(color.r, 0.0f, 0.0f, 0.0f));
 
             vec2 geoWindPos = screenToWind(vec2(texCoord) + color.gb);
             vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
 
             // Set wind shadow
-            if (geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
+            if (k_doWindShadow && geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
                 imageStore(u_shadImg, texCoord / 4, vec4(u_slice * u_sliceSize / u_windframeDepth, 0.0f, 0.0f, 0.0f));
             }
             // Calculate drag and torque

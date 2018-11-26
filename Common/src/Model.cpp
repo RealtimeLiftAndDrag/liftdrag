@@ -103,8 +103,8 @@ void Mesh::draw() const {
 }
 
 void Mesh::detSpan() {
-    m_spanMin = vec3( std::numeric_limits<float>::infinity());
-    m_spanMax = vec3(-std::numeric_limits<float>::infinity());
+    m_spanMin = vec3( k_infinity<float>);
+    m_spanMax = vec3(-k_infinity<float>);
     for (const vec3 & location : m_locations) {
         m_spanMin = glm::min(m_spanMin, location);
         m_spanMax = glm::max(m_spanMax, location);
@@ -266,8 +266,8 @@ void Model::detNameMap() {
 }
 
 void Model::detSpan() {
-    m_spanMin = vec3( std::numeric_limits<float>::infinity());
-    m_spanMax = vec3(-std::numeric_limits<float>::infinity());
+    m_spanMin = vec3( k_infinity<float>);
+    m_spanMax = vec3(-k_infinity<float>);
     for (const SubModel & subModel : m_subModels) {
         m_spanMin = glm::min(m_spanMin, subModel.m_mesh.spanMin());
         m_spanMax = glm::max(m_spanMax, subModel.m_mesh.spanMax());
