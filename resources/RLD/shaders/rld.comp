@@ -56,6 +56,7 @@ struct AirGeoMapElement {
 
 // Constants -------------------------------------------------------------------
 
+const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4; // Must also change in other shaders
 const int k_workGroupSize = WORK_GROUP_SIZE;
 const ivec2 k_workGroupSize2D = WORK_GROUP_SIZE_2D;
 const bool k_debug = DEBUG;
@@ -70,12 +71,13 @@ const bool k_doTurbulence = DO_TURBULENCE;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 0,        rgba8) uniform  image2D u_fboImg;
-layout (binding = 1, rgba16_snorm) uniform  image2D u_fboNormImg;
-layout (binding = 2,         r32i) uniform iimage2D u_flagImg;
-layout (binding = 3,           r8) uniform  image2D u_turbImg;
-layout (binding = 4,           r8) uniform  image2D u_prevTurbImg;
-layout (binding = 5,           r8) uniform  image2D u_shadImg;
+layout (binding = 0,      rgba8ui) uniform uimage2D u_frontImg_uint;
+layout (binding = 1,        rgba8) uniform  image2D u_frontImg_unorm;
+layout (binding = 2, rgba16_snorm) uniform  image2D u_fboNormImg;
+layout (binding = 3,         r32i) uniform iimage2D u_flagImg;
+layout (binding = 4,           r8) uniform  image2D u_turbImg;
+layout (binding = 5,           r8) uniform  image2D u_prevTurbImg;
+layout (binding = 6,           r8) uniform  image2D u_shadImg;
 
 layout (binding = 1) uniform sampler2D u_prevTurbTex;
 layout (binding = 2) uniform sampler2D u_shadTex;
@@ -217,14 +219,12 @@ vec3 totalTorq = vec3(0.0f);
 
 void prospect(ivec2 texCoord) {
     // If not geometry, ignore
-    vec4 color = imageLoad(u_fboImg, texCoord);
-    if (color.r == 0.0f) {
+    uvec4 color = imageLoad(u_frontImg_uint, texCoord);
+    if ((color.r & k_geoBit) == 0) {
         return;
     }
 
-    imageStore(u_fboImg, texCoord, vec4(color.r, 0.0f, 0.0f, 0.0f));
-
-    vec2 geoWindPos = screenToWind(vec2(texCoord) + color.gb);
+    vec2 geoWindPos = screenToWind(vec2(texCoord) + color.gb / 255.0f);
     vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
 
     // Set wind shadow
@@ -243,8 +243,8 @@ void prospect(ivec2 texCoord) {
     }
 
     ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
-    vec4 nextColor = imageLoad(u_fboImg, nextTexCoord);
-    if (nextColor.r != 0.0f) {
+    uvec4 nextColor = imageLoad(u_frontImg_uint, nextTexCoord);
+    if ((nextColor.r & k_geoBit) != 0) {
         return;
     }
 
@@ -269,10 +269,10 @@ void draw(int prevAirI) {
         return;
     }
 
-    vec4 color = imageLoad(u_fboImg, airTexCoord);
+    uvec4 color = imageLoad(u_frontImg_uint, airTexCoord);
 
     // If in geometry, follow the geo normals to find the edge
-    if (color.r != 0.0f) {
+    if ((color.r & k_geoBit) != 0) {
         ivec2 pixel = airTexCoord;
         int steps = 0;
         while (true) {
@@ -281,15 +281,18 @@ void draw(int prevAirI) {
                 return;
             }
             ivec2 nextPixel = pixel + getPixelDelta(geoNormal.xy);
-            vec4 nextColor = imageLoad(u_fboImg, nextPixel);
+            uvec4 nextColor = imageLoad(u_frontImg_uint, nextPixel);
 
             // We found the edge, move air to it
-            if (nextColor.r == 0.0f) {
+            if ((nextColor.r & k_geoBit) == 0) {
                 airTexCoord = pixel;
 
                 //vec3 tangentVel = cross(geoNormal, cross(geoNormal, vec3(0.0f, 0.0f, 1.0f))); // TODO
                 //vec2 tangentVel = geoNormal.xy * geoNormal.z; // Equivalent to above
                 //tangentVel = tangentVel * u_windSpeed;
+
+                // Set air to same position as geometry
+                air.windPos = screenToWind(vec2(airTexCoord) + imageLoad(u_frontImg_unorm, airTexCoord).gb);
 
                 vec2 norm = normalize(geoNormal.xy);
                 if (geoNormal.z > 0.0f) {
@@ -309,9 +312,6 @@ void draw(int prevAirI) {
                 return;
             }
 
-            // TODO: position here instead
-            air.windPos = vec2(0.0f); // Signify to outline shader that this air has been adjusted and needs properly positioned
-
             pixel = nextPixel;
             color = nextColor;
             if (++steps >= k_maxEdgeSeekSteps) {
@@ -320,10 +320,8 @@ void draw(int prevAirI) {
         }
     }
 
-    // air.windPos now invalid if there was edge seek
-
     // Air already exists at pixel
-    if (color.g != 0.0f) {
+    if ((color.r & k_airBit) != 0) {
         return;
     }
 
@@ -339,8 +337,8 @@ void draw(int prevAirI) {
     imageStore(u_flagImg, airTexCoord, ivec4(airI + 1, 0, 0, 0));
 
     // Draw to front view
-    color.g = k_inactiveVal;
-    imageStore(u_fboImg, airTexCoord, color);
+    color.r |= k_airBit;
+    imageStore(u_frontImg_uint, airTexCoord, color);
 }
 
 // Outline ---------------------------------------------------------------------
@@ -353,7 +351,7 @@ void outline(int geoI) {
     geoScreenPos = clamp(geoScreenPos, vec2(geoTexCoord), vec2(geoTexCoord + 1)); // necessary for edge cases
 
     bool shouldSpawn = geoNormal.z >= k_minNormalZ && geoNormal.z <= k_maxNormalZ;
-    bool shouldSearch = geoNormal != vec3(0.0f); // Ignore zero-normal geometry
+    bool shouldSearch = true;
 
     // If geo is in turbulence, forget it
     if (k_doTurbulence && isScreenTurbulent(geoScreenPos)) {
@@ -370,15 +368,13 @@ void outline(int geoI) {
         float totalDist = 0.0f;
 
         // Check for air on geometry
-        vec4 color = imageLoad(u_fboImg, searchPixel);
-        if (color.g != 0.0f) {
+        uvec4 color = imageLoad(u_frontImg_uint, searchPixel);
+        if ((color.r & k_airBit) != 0) {
             int airI = imageLoad(u_flagImg, searchPixel).x;
             if (airI != 0) { // TODO: this should not be necessary, just here for sanity
                 --airI;
 
                 shouldSpawn = false;
-
-                if (u_airPixels[airI].windPos == vec2(0.0f)) u_airPixels[airI].windPos = geoWindPos; // TODO: get rid of this
 
                 int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
                 if (mapI < MAX_GEO_PER_AIR) {
@@ -417,17 +413,17 @@ void outline(int geoI) {
                 break;
             }
 
-            color = imageLoad(u_fboImg, searchPixel);
+            color = imageLoad(u_frontImg_uint, searchPixel);
 
             // Visualize the search
             //if (k_debug) {
             //    imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
             //}
 
-            if (color.r != 0.0f) { // we found a geo pixel
+            if ((color.r & k_geoBit) != 0) { // we found a geo pixel
                 break;
             }
-            if (color.g != 0.0f) { // we found an air pixel
+            if ((color.r & k_airBit) != 0) { // we found an air pixel
                 int airI = imageLoad(u_flagImg, searchPixel).x;
                 if (airI != 0) { // TODO: this should not be necessary, just here for sanity
                     --airI;
@@ -482,17 +478,17 @@ void outline(int geoI) {
 
         // Draw to fbo to avoid another draw later, only necessary for seeing the results immediately
         if (k_debug) {
-            vec4 color = imageLoad(u_fboImg, geoTexCoord);
-            color.g = k_inactiveVal;
-            imageStore(u_fboImg, geoTexCoord, color);
+            uvec4 color = imageLoad(u_frontImg_uint, geoTexCoord);
+            color.g |= k_airBit;
+            imageStore(u_frontImg_uint, geoTexCoord, color);
         }
     }
 
     // Color active geo pixels more brightly
     if (k_debug && k_distinguishActivePixels) {
-        vec4 color = imageLoad(u_fboImg, geoTexCoord);
-        color.r = 1.0f;
-        imageStore(u_fboImg, geoTexCoord, color);
+        uvec4 color = imageLoad(u_frontImg_uint, geoTexCoord);
+        color.r |= k_activeBit;
+        imageStore(u_frontImg_uint, geoTexCoord, color);
     }
 }
 
@@ -559,14 +555,14 @@ void move(int airI) {
                     break;
                 }
 
-                vec4 color = imageLoad(u_fboImg, searchPixel);
+                uvec4 color = imageLoad(u_frontImg_uint, searchPixel);
 
                 // Visualize the search
                 //if (k_debug) {
                 //    imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
                 //}
 
-                if (color.r != 0.0f) { // we found a geo pixel
+                if ((color.r & k_geoBit) != 0) { // we found a geo pixel
                     int geoI = imageLoad(u_flagImg, searchPixel).x;
                     if (geoI != 0) { // TODO: this should not be necessary, just here for sanity
                         --geoI;
@@ -635,9 +631,9 @@ void move(int airI) {
     // Color active air pixels more brightly
     if (k_debug && k_distinguishActivePixels && geoCount > 0) {
         ivec2 texCoord = ivec2(windToScreen(airWindPos));
-        vec4 color = imageLoad(u_fboImg, texCoord);
-        color.g = 1.0f;
-        imageStore(u_fboImg, texCoord, color);
+        uvec4 color = imageLoad(u_frontImg_uint, texCoord);
+        color.r |= k_airBit | k_activeBit;
+        imageStore(u_frontImg_uint, texCoord, color);
     }
 
     // Update velocity

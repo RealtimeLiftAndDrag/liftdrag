@@ -152,14 +152,15 @@ namespace rld {
     static u32 s_airPixelsSSBO[2];
     static u32 s_airGeoMapSSBO;
 
-    static u32 s_fbo;
-    static u32 s_fboTex;
-    static u32 s_turbTex;
-    static u32 s_prevTurbTex;
-    static u32 s_shadTex;
-    static u32 s_fboNormTex;
-    static u32 s_flagTex;
-    static u32 s_sideTex;
+    static u32 s_fbo; // The handle for the framebuffer object
+    static u32 s_frontTex_uint; // The handle for the front texture (RGBA8UI)
+    static u32 s_frontTex_unorm; // A view of s_fboTex that is RGBA8
+    static u32 s_turbTex; // The handle for the turbulence texture (R8)
+    static u32 s_prevTurbTex; // The handle for the previous turbulence texture (R8)
+    static u32 s_shadTex; // The handle for the wind shadow texture (R8)
+    static u32 s_fboNormTex; // The handle for the normal texture (RGBA16_SNORM)
+    static u32 s_flagTex; // The handle for the flag texture (R32UI)
+    static u32 s_sideTex; // The handle for the side texture (RGBA8)
 
     static Result * s_resultsMappedPtr; // used for persistent mapping
 
@@ -261,15 +262,18 @@ namespace rld {
         float emptyColor[4]{};
 
         // Color texture
-        glGenTextures(1, &s_fboTex);
-        glBindTexture(GL_TEXTURE_2D, s_fboTex);
+        glGenTextures(1, &s_frontTex_uint);
+        glBindTexture(GL_TEXTURE_2D, s_frontTex_uint);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, s_texSize, s_texSize);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8UI, s_texSize, s_texSize);
         glBindTexture(GL_TEXTURE_2D, 0);
+        // Color texture view
+        glGenTextures(1, &s_frontTex_unorm);
+        glTextureView(s_frontTex_unorm, GL_TEXTURE_2D, s_frontTex_uint, GL_RGBA8, 0, 1, 0, 1);
 
         // Turbulence texture
         glGenTextures(1, &s_turbTex);
@@ -335,7 +339,7 @@ namespace rld {
         // Create FBO
         glGenFramebuffers(1, &s_fbo);
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_fboTex, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_frontTex_uint, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, s_fboNormTex, 0);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fboDepthRB);
         u32 drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
@@ -543,13 +547,14 @@ namespace rld {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
 
-        glBindImageTexture(0,      s_fboTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
-        glBindImageTexture(1,  s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
-        glBindImageTexture(2,     s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,         GL_R32I);
-        glBindImageTexture(3,     s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
-        glBindImageTexture(4, s_prevTurbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
-        glBindImageTexture(5,     s_shadTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
-        glBindImageTexture(6,     s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
+        glBindImageTexture(0,  s_frontTex_uint, 0, GL_FALSE, 0, GL_READ_WRITE,      GL_RGBA8UI);
+        glBindImageTexture(1, s_frontTex_unorm, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
+        glBindImageTexture(2,     s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
+        glBindImageTexture(3,        s_flagTex, 0, GL_FALSE, 0, GL_READ_WRITE,         GL_R32I);
+        glBindImageTexture(4,        s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(5,    s_prevTurbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(6,        s_shadTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        glBindImageTexture(7,        s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, s_turbTex);
@@ -775,7 +780,7 @@ namespace rld {
     }
 
     u32 frontTex() {
-        return s_fboTex;
+        return s_frontTex_unorm;
     }
 
     u32 sideTex() {

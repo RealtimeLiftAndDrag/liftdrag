@@ -12,6 +12,7 @@
 
 // Constants -------------------------------------------------------------------
 
+const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4; // Must also change in other shaders
 const bool k_debug = DEBUG;
 const bool k_distinguishActivePixels = DISTINGUISH_ACTIVE_PIXELS; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 const float k_inactiveVal = k_distinguishActivePixels && k_debug ? 1.0f / 3.0f : 1.0f;
@@ -24,12 +25,12 @@ layout (location = 2) in vec2 in_texCoord;
 
 // Outputs ---------------------------------------------------------------------
 
-layout (location = 0) out vec4 out_color;
+layout (location = 0) out uvec4 out_color;
 layout (location = 1) out vec4 out_norm;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 6, rgba8) uniform image2D u_sideImg;
+layout (binding = 7, rgba8) uniform image2D u_sideImg;
 
 // Uniform buffer for better read-only performance
 layout (binding = 0, std140) uniform Constants {
@@ -66,11 +67,15 @@ vec3 safeNormalize(vec3 v) {
 }
 
 void main() {
+    // Completely ignore any zero-normal geometry
+    if (in_norm == vec3(0.0f)) {
+        discard;
+    }
     // Using the g and b channels to store wind position
     vec2 subPixelPos = windToScreen(in_pos.xy);
     subPixelPos -= gl_FragCoord.xy - 0.5f;
-    out_color = vec4(k_inactiveVal, subPixelPos, 0.0f);
-    out_norm = vec4(safeNormalize(in_norm), 0.0f);
+    out_color = uvec4(k_geoBit, uvec2(round(subPixelPos * 255.0f)), 0);
+    out_norm = vec4(normalize(in_norm), 0.0f);
 
     // Side View
     if (k_debug) {
