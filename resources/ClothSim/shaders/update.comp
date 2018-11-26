@@ -1,0 +1,41 @@
+#version 450 core
+
+#ifndef WORK_GROUP_SIZE
+#define WORK_GROUP_SIZE 1024
+#endif
+
+layout (local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+// Types -----------------------------------------------------------------------
+
+struct Particle {
+    vec4 position;
+    vec4 normal;
+};
+
+// Constants -------------------------------------------------------------------
+
+const int k_workGroupSize = WORK_GROUP_SIZE;
+
+// Uniforms --------------------------------------------------------------------
+
+uniform ivec2 u_particleCounts;
+uniform ivec2 u_clothLOD;
+
+layout (binding = 0, std430) restrict buffer Particles {
+    Particle u_particles[];
+};
+
+// Shared ----------------------------------------------------------------------
+
+// Functions -------------------------------------------------------------------
+
+void main() {
+    const int workI = int(gl_LocalInvocationIndex);
+    const int k_particleCount = u_particleCounts.x * u_particleCounts.y;
+    for (int pI = workI; pI < k_particleCount; pI += k_workGroupSize) {
+
+        u_particles[pI].position.z += 0.001f;
+
+    }
+}

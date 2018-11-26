@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{c9420426-a5c6-40cd-bf4a-3ec266a6342d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{389e76c1-e5d6-421f-808d-7522fde3ac8f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources">
+      <UniqueIdentifier>{4f903dc7-1842-4dfb-af32-f8ce1b5cf2de}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\shaders">
+      <UniqueIdentifier>{abf146ff-00cb-48e7-b01d-97f8cbb515ab}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\ClothSim.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\ClothSim\shaders\render.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\render.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\update.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
+  </ItemGroup>
+</Project>

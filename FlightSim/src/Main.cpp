@@ -54,7 +54,7 @@ static constexpr float k_simDragC(1.0f);
 static constexpr float k_windframeWidth(14.5f);
 static constexpr float k_windframeDepth(22.0f);
 
-static constexpr float k_fov(glm::radians(75.0f));
+static constexpr float k_fov(glm::radians(90.0f));
 static constexpr float k_near(0.01f), k_far(1000.0f);
 static constexpr float k_gravity(0.0f);//9.8f);
 static const vec3 k_lightDir(glm::normalize(vec3(-1.0f, 0.25f, -1.0f)));
@@ -62,7 +62,7 @@ static const vec3 k_lightDir(glm::normalize(vec3(-1.0f, 0.25f, -1.0f)));
 static const vec3 k_initPos(0.0f, 80.0f, 0.0f);
 static const vec3 k_initDir(0.0f, 0.0f, -1.0f);
 static constexpr float k_initSpeed(60.0f);
-static constexpr float k_initCamDist(20.0f);
+static constexpr float k_minCamDist(5.0f), k_maxCamDist(50.0f);
 static constexpr float k_camSpeed(0.05f);
 
 static ivec2 s_windowSize(k_defWindowSize);
@@ -71,7 +71,7 @@ static unq<Model> s_model;
 static unq<SimObject> s_simObject;
 static unq<Shader> s_planeShader;
 static unq<SkyBox> s_skyBox;
-static ThirdPersonCamera s_camera;
+static ThirdPersonCamera s_camera(k_minCamDist, k_maxCamDist);
 
 static mat4 s_modelMat;
 static mat3 s_normalMat;
@@ -311,10 +311,10 @@ static bool setupObject() {
 
 static void detMatrices() {
     if (s_windowSize.y <= s_windowSize.x) {
-        s_camera.fov(vec2(k_fov * float(s_windowSize.x) / float(s_windowSize.y), k_fov));
+        s_camera.fov(vec2(k_fov, k_fov * float(s_windowSize.y) / float(s_windowSize.x)));
     }
     else {
-        s_camera.fov(vec2(k_fov, k_fov * float(s_windowSize.y) / float(s_windowSize.x)));
+        s_camera.fov(vec2(k_fov * float(s_windowSize.x) / float(s_windowSize.y), k_fov));
     }
 
     // Wind view view matrix
@@ -420,7 +420,7 @@ static bool setup() {
     s_text.color(vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
     // Setup camera
-    s_camera.distance(k_initCamDist);
+    s_camera.zoom(0.5f);
     s_camera.near(k_near);
     s_camera.far(k_far);
 

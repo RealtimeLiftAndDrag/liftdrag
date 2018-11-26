@@ -63,7 +63,7 @@ class ThirdPersonCamera : public Camera {
 
     public:
 
-    ThirdPersonCamera();
+    ThirdPersonCamera(float minDistance, float maxDistance);
 
     using Camera::position;
     virtual void position(const vec3 & position) override;
@@ -85,6 +85,12 @@ class ThirdPersonCamera : public Camera {
 
     void thetaPhi(float theta, float phi);
 
+    float minDistance() const { return m_minDistance; }
+    float maxDistance() const { return m_maxDistance; }
+
+    float zoom() const { return m_zoom; }
+    void zoom(float zoom);
+
     private:
 
     void updateUp();
@@ -96,5 +102,7 @@ class ThirdPersonCamera : public Camera {
     float m_distance;
     float m_theta; // angle about y axis
     float m_phi; // angle off y axis
+    float m_minDistance, m_maxDistance;
+    float m_zoom;
 
 };

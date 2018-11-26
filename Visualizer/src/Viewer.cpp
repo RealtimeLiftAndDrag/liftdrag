@@ -19,7 +19,7 @@ namespace Viewer {
     static const float k_camMaxDist(10.0f);
 
     static unq<Shader> s_objectShader, s_frameShader;
-    static ThirdPersonCamera s_camera;
+    static ThirdPersonCamera s_camera(k_camMinDist, k_camMaxDist);
     static shr<ViewerComponent> s_component;
     static uint s_frameVBO, s_frameIBO, s_frameVAO;
 
@@ -52,10 +52,10 @@ namespace Viewer {
 
     void ViewerComponent::pack() {
         if (size().y <= size().x) {
-            s_camera.fov(vec2(k_fov * float(size().x) / float(size().y), k_fov));
+            s_camera.fov(vec2(k_fov, k_fov * float(size().y) / float(size().x)));
         }
         else {
-            s_camera.fov(vec2(k_fov, k_fov * float(size().y) / float(size().x)));
+            s_camera.fov(vec2(k_fov * float(size().x) / float(size().y), k_fov));
         }
     }
 
@@ -69,11 +69,7 @@ namespace Viewer {
     }
 
     void ViewerComponent::scrollEvent(const ivec2 & delta) {
-        float distP((s_camera.distance() - k_camMinDist) / (k_camMaxDist - k_camMinDist));
-        float zoom(std::sqrt(distP));
-        zoom = glm::clamp(zoom - float(delta.y) * k_camZoomAmount, 0.0f, 1.0f);
-        distP = zoom * zoom;
-        s_camera.distance(k_camMinDist + distP * (k_camMaxDist - k_camMinDist));
+        s_camera.zoom(s_camera.zoom() - float(delta.y) * k_camZoomAmount);
     }
 
     bool setup() {

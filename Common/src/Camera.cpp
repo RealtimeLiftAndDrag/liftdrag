@@ -87,10 +87,13 @@ const mat4 & Camera::projMat() const {
 
 
 
-ThirdPersonCamera::ThirdPersonCamera() :
-    m_distance(1.0f),
+ThirdPersonCamera::ThirdPersonCamera(float minDistance, float maxDistance) :
+    m_distance(minDistance),
     m_theta(0.0f),
-    m_phi(glm::pi<float>() * 0.5f)
+    m_phi(glm::pi<float>() * 0.5f),
+    m_minDistance(minDistance),
+    m_maxDistance(maxDistance),
+    m_zoom(0.0f)
 {}
 
 void ThirdPersonCamera::position(const vec3 & position) {
@@ -109,7 +112,8 @@ void ThirdPersonCamera::orientMatrix(const mat3 & orientMatrix) {
 }
 
 void ThirdPersonCamera::distance(float distance) {
-    m_distance = glm::max(distance, 0.0f);
+    m_distance = glm::clamp(distance, m_minDistance, m_maxDistance);
+    m_zoom = std::sqrt((m_distance - m_minDistance) / (m_maxDistance - m_minDistance));
     updateUp();
 }
 
@@ -118,6 +122,12 @@ void ThirdPersonCamera::thetaPhi(float theta, float phi) {
     else if (theta < -glm::pi<float>()) theta = glm::pi<float>() - std::fmod(-theta, glm::pi<float>());
     m_theta = theta;
     m_phi = glm::clamp(phi, 0.0f, glm::pi<float>());
+    updateUp();
+}
+
+void ThirdPersonCamera::zoom(float zoom) {
+    m_zoom = glm::clamp(zoom, 0.0f, 1.0f);
+    m_distance = m_zoom * m_zoom * (m_maxDistance - m_minDistance) + m_minDistance;
     updateUp();
 }
 
@@ -132,12 +142,13 @@ void ThirdPersonCamera::updateUp() {
 
 void ThirdPersonCamera::updateDownPosition() {
     if (util::isZero(position())) {
-        m_distance = 0.0f;
+        m_distance = m_minDistance;
         m_theta = 0.0f;
         m_phi = glm::pi<float>() * 0.5f;
+        m_zoom = 0.0f;
     }
     else {
-        m_distance = glm::length(position());
+        m_distance = glm::clamp(glm::length(position()), m_minDistance, m_maxDistance);
         m_phi = std::acos(position().y / m_distance);
         vec2 xzP(position().z, position().x);
         if (util::isZero(xzP)) {
@@ -147,6 +158,7 @@ void ThirdPersonCamera::updateDownPosition() {
             xzP = glm::normalize(xzP);
             m_theta = std::atan2(xzP.y, xzP.x);
         }
+        m_zoom = std::sqrt((m_distance - m_minDistance) / (m_maxDistance - m_minDistance));
     }
     updateUp();
 }

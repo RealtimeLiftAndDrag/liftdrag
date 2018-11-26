@@ -138,10 +138,6 @@ namespace rld {
 
     static unq<Shader> s_shader, s_shaderDebug;
     static unq<Shader> s_foilShader, s_foilShaderDebug;
-    //static unq<Shader> s_prospectShader, s_prospectShaderDebug;
-    //static unq<Shader> s_outlineShader, s_outlineShaderDebug;
-    //static unq<Shader> s_moveShader, s_moveShaderDebug;
-    //static unq<Shader> s_drawShader, s_drawShaderDebug;
     static unq<Shader> s_prettyShader;
 
     static Constants s_constants;
