@@ -9,7 +9,7 @@
 class SkyBox {
 
     public:
-    
+
     // Six files in following order: +x, -x, +y, -y, +z, -z
     static unq<SkyBox> create(std::initializer_list<std::string_view> files);
 

@@ -676,7 +676,7 @@ void main() {
         u_results[u_slice].drag = vec4(0.0f);
         u_results[u_slice].torq = vec4(0.0f);
     }
-        
+
     // Prospect
     if (isThread2D) {
         for (ivec2 texCoord = ivec2(0, workI2D.y); texCoord.y < u_screenSize; texCoord.y += k_workGroupSize2D.y) {
