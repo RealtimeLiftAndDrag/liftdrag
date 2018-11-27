@@ -28,9 +28,13 @@ extern "C" {
 
 struct Particle {
     vec3 position;
-    float padding0;
+    float mass;
     vec3 normal;
+    float padding0;
+    vec3 force;
     float padding1;
+    vec3 prevPosition;
+    float padding2;
 };
 
 
@@ -40,13 +44,16 @@ static const std::string k_windowTitle("Cloth Simulation");
 static constexpr bool k_useAllCores(true); // Will utilize as many gpu cores as possible
 static constexpr int k_coresToUse(1024); // Otherwise, use this many
 static constexpr int k_warpSize(64); // Should correspond to target architecture
+static const ivec2 k_warpSize2D(8, 8); // The components multiplied must equal warp size
+static constexpr float k_targetFPS(60.0f);
+static constexpr float k_targetDT(1.0f / k_targetFPS);
 
-static const ivec2 k_particleCounts(100, 50);
+static const ivec2 k_particleCounts(80, 40);
 static const ivec2 k_clothLOD(k_particleCounts - 1);
 static const float k_clothSizeMajor(1.0f);
 static const float k_weaveSize(k_clothSizeMajor / glm::max(k_clothLOD.x, k_clothLOD.y));
 static const vec2 k_clothSize(vec2(k_clothLOD) * k_weaveSize);
-static constexpr float k_gravity(9.8f);
+static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
 
 
 
@@ -60,6 +67,7 @@ static const float k_camZoomAmount(0.1f);
 static GLFWwindow * s_window;
 static ivec2 s_windowSize(k_defWindowSize);
 static int s_workGroupSize;
+static ivec2 s_workGroupSize2D;
 
 static unq<Model> s_model;
 static unq<Shader> s_renderShader;
@@ -134,9 +142,18 @@ static bool setupMesh() {
         for (p.x = 0; p.x < k_particleCounts.x; ++p.x) {
             Particle & particle(particles[particleI++]);
             particle.position = vec3(corner + vec2(p) * factor, 0.0f);
+            particle.mass = 1.0f;
             particle.normal = vec3(0.0f, 0.0f, 1.0f);
+            particle.force = vec3(0.0f);
+            particle.prevPosition = particle.position;
         }
     }
+    for (int i(0); i < k_particleCounts.x; ++i) {
+        particles[k_clothLOD.y * k_particleCounts.x + i].mass = 0.0f;
+    }
+    //for (int i(0); i < k_particleCounts.y; ++i) {
+    //    particles[i * k_particleCounts.x].mass = 0.0f;
+    //}
 
     int indexCount(k_clothLOD.x * k_clothLOD.y * 2 * 3);
     unq<u32[]> indices(new u32[indexCount]);
@@ -225,6 +242,9 @@ static bool setup() {
     else coreCount = k_coresToUse;
     int warpCount(coreCount / k_warpSize);
     s_workGroupSize = warpCount * k_warpSize; // we want workgroups to be a warp multiple
+    s_workGroupSize2D.x = int(std::round(std::sqrt(float(warpCount))));
+    s_workGroupSize2D.y = warpCount / s_workGroupSize2D.x;
+    s_workGroupSize2D *= k_warpSize2D;
 
     // Setup RLD
     //if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC, s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC)) {
@@ -242,13 +262,22 @@ static bool setup() {
     s_renderShader->uniform("u_lightDir", k_lightDir);
     Shader::unbind();
     // Setup update shader
-    if (!(s_updateShader = Shader::load(shadersPath + "update.comp", { { "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) } }))) {
+    if (!(s_updateShader = Shader::load(
+        shadersPath + "update.comp",
+        {
+            { "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) },
+            { "WORK_GROUP_SIZE_2D", "ivec2(" + std::to_string(s_workGroupSize2D.x) + ", " + std::to_string(s_workGroupSize2D.y) + ")" },
+        }
+    ))) {
         std::cerr << "Failed to load update shader" << std::endl;
         return false;
     }
     s_updateShader->bind();
     s_updateShader->uniform("u_particleCounts", k_particleCounts);
     s_updateShader->uniform("u_clothLOD", k_clothLOD);
+    s_updateShader->uniform("u_weaveSize", k_weaveSize);
+    s_updateShader->uniform("u_dt", k_targetDT);
+    s_updateShader->uniform("u_gravity", k_gravity);
     Shader::unbind();
 
     // Setup mesh
@@ -271,17 +300,25 @@ static bool setup() {
     return true;
 }
 
-static void update(float dt) {
-    s_updateShader->bind();    
+static void update() {
+    static float s_time(0.0f);
+
+    s_time = glm::fract(s_time * 0.2f) * 5.0f;
+
+    s_updateShader->bind();
+    s_updateShader->uniform("u_time", s_time * 0.2f);
+
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_particleBuffer);
 
     glDispatchCompute(1, 1, 1);
     glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
 
     Shader::unbind();
+
+    s_time += k_targetDT;
 }
 
-static void render(float dt) {
+static void render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
@@ -320,16 +357,21 @@ int main(int argc, char ** argv) {
     }
 
     double then(glfwGetTime());
+    float accumDT(k_targetDT);
     while (!glfwWindowShouldClose(s_window)) {
         double now(glfwGetTime());
         float dt(float(now - then));
         then = now;
+        accumDT += dt;
 
         glfwPollEvents();
 
-        update(dt);
-        render(dt);
-        glfwSwapBuffers(s_window);
+        if (accumDT >= k_targetDT) {
+            update();
+            render();
+            glfwSwapBuffers(s_window);
+            do accumDT -= k_targetDT; while (accumDT >= k_targetDT);
+        }
     }
 
     return EXIT_SUCCESS;
