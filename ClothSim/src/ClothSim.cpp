@@ -12,6 +12,7 @@ extern "C" {
 
 
 #include <iostream>
+#include <vector>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
@@ -35,6 +36,15 @@ struct Particle {
     float padding1;
     vec3 prevPosition;
     float padding2;
+    vec3 temp;
+    float padding3;
+};
+
+struct Constraint {
+    u32 i; // index of first particle
+    u32 j; // index of second particle
+    float d; // rest distance between particles
+    float padding0;
 };
 
 
@@ -47,8 +57,9 @@ static constexpr int k_warpSize(64); // Should correspond to target architecture
 static const ivec2 k_warpSize2D(8, 8); // The components multiplied must equal warp size
 static constexpr float k_targetFPS(60.0f);
 static constexpr float k_targetDT(1.0f / k_targetFPS);
+static constexpr float k_updateDT(1.0f / 60.0f);
 
-static const ivec2 k_particleCounts(80, 40);
+static const ivec2 k_particleCounts(10, 5);
 static const ivec2 k_clothLOD(k_particleCounts - 1);
 static const float k_clothSizeMajor(1.0f);
 static const float k_weaveSize(k_clothSizeMajor / glm::max(k_clothLOD.x, k_clothLOD.y));
@@ -73,8 +84,12 @@ static unq<Model> s_model;
 static unq<Shader> s_renderShader;
 static unq<Shader> s_updateShader;
 static ThirdPersonCamera s_camera(k_minCamDist, k_maxCamDist);
+static int s_constraintCount;
 
-static u32 s_particleBuffer, s_ibo, s_vao;
+static u32 s_particleSSBO;
+static u32 s_constraintSSBO;
+static u32 s_ibo;
+static u32 s_vao;
 
 
 
@@ -132,6 +147,81 @@ static void framebufferSizeCallback(GLFWwindow * window, int width, int height) 
     }
 }
 
+// TODO: this could use a more efficient algorithm
+class ConstraintOrganizationHelper {
+
+    public:
+
+    ConstraintOrganizationHelper(int particleCount, const std::vector<Constraint> & constraints) :
+        m_particleCount(particleCount),
+        m_constraints(constraints),
+        m_used(new bool[particleCount]),
+        m_done(new bool(constraints.size())),
+        m_doneCount(0)
+    {
+        std::fill_n(m_used.get(), particleCount * sizeof(bool), false);
+        std::fill_n(m_done.get(), constraints.size() * sizeof(bool), false);
+    }
+
+    int next() {
+        for (int ci(0); ci < m_constraints.size(); ++ci) {
+            if (m_done[ci]) {
+                continue;
+            }
+            const Constraint & c(m_constraints[ci]);
+            if (m_used[c.i] || m_used[c.j]) {
+                continue;
+            }
+            m_used[c.i] = true;
+            m_used[c.j] = true;
+            m_done[ci] = true;
+            ++m_doneCount;
+        }
+        return -1;
+    }
+
+    bool done() {
+        return m_doneCount >= m_constraints.size();
+    }
+
+    void clearUsed() {
+        std::fill_n(m_used.get(), m_particleCount, false);
+    }
+
+    private:
+
+    int m_particleCount;
+    const std::vector<Constraint> & m_constraints;
+    unq<bool[]> m_used;
+    unq<bool[]> m_done;
+    int m_doneCount;
+
+};
+
+static std::vector<Constraint> reorganizeConstraints(int particleCount, const std::vector<Constraint> & constraints) {
+    std::vector<Constraint> newConstraints;
+    newConstraints.reserve((constraints.size() + s_workGroupSize - 1) / s_workGroupSize * s_workGroupSize); // round up to multiple of work group size
+    ConstraintOrganizationHelper helper(particleCount, constraints);
+
+    while (!helper.done()) {
+        int threadsRemaining(s_workGroupSize);
+        while (threadsRemaining) {
+            int ci(helper.next());
+            if (ci == -1) {
+                break;
+            }
+            newConstraints.push_back(constraints[ci]);
+            --threadsRemaining;
+        }
+        while (threadsRemaining) {
+            newConstraints.push_back({ u32(-1), u32(-1), 0.0f });
+            --threadsRemaining;
+        }
+    }
+
+    return newConstraints;
+}
+
 static bool setupMesh() {
     int particleCount(k_particleCounts.x * k_particleCounts.y);
     unq<Particle[]> particles(new Particle[particleCount]);
@@ -146,6 +236,7 @@ static bool setupMesh() {
             particle.normal = vec3(0.0f, 0.0f, 1.0f);
             particle.force = vec3(0.0f);
             particle.prevPosition = particle.position;
+            particle.temp = vec3(0.0f);
         }
     }
     for (int i(0); i < k_particleCounts.x; ++i) {
@@ -170,10 +261,66 @@ static bool setupMesh() {
             indices[ii++] = pi;
         }
     }
+
+    int c1Count(k_particleCounts.x * (k_particleCounts.y - 1) + k_particleCounts.y * (k_particleCounts.x - 1));
+    int c2Count((k_particleCounts.x - 1) * (k_particleCounts.y - 1) * 2);
+    int c3Count(k_particleCounts.x * (k_particleCounts.y - 2) + k_particleCounts.y * (k_particleCounts.x - 2));
+    int c4Count((k_particleCounts.x - 2) * (k_particleCounts.y - 2) * 2);
+    int constraintCount(c1Count + c2Count + c3Count + c4Count);
+    s_constraintCount = constraintCount;
+    float d1(k_weaveSize);
+    float d2(d1 * std::sqrt(2.0f));
+    float d3(d1 * 2.0f);
+    float d4(d2 * 2.0f);
+    unq<Constraint[]> constraints(new Constraint[constraintCount]);
+    int ci(0);
+    // C1
+    for (ivec2 p(0); p.y < k_particleCounts.y; ++p.y) {
+        for (p.x = 0; p.x < k_particleCounts.x - 1; ++p.x) {
+            u32 pi(p.y * k_particleCounts.x + p.x);
+            constraints[ci++] = { pi, pi + 1, d1 };
+        }
+    }
+    for (ivec2 p(0); p.y < k_particleCounts.y - 1; ++p.y) {
+        for (p.x = 0; p.x < k_particleCounts.x; ++p.x) {
+            u32 pi(p.y * k_particleCounts.x + p.x);
+            constraints[ci++] = { pi, pi + k_particleCounts.x, d1 };
+        }
+    }
+    // C2
+    for (ivec2 p(0); p.y < k_particleCounts.y - 1; ++p.y) {
+        for (p.x = 0; p.x < k_particleCounts.x - 1; ++p.x) {
+            u32 pi(p.y * k_particleCounts.x + p.x);
+            constraints[ci++] = { pi, pi + k_particleCounts.x + 1, d2 };
+            constraints[ci++] = { pi + 1, pi + k_particleCounts.x, d2 };
+        }
+    }
+    // C3
+    for (ivec2 p(0); p.y < k_particleCounts.y; ++p.y) {
+        for (p.x = 0; p.x < k_particleCounts.x - 2; ++p.x) {
+            u32 pi(p.y * k_particleCounts.x + p.x);
+            constraints[ci++] = { pi, pi + 2, d3 };
+        }
+    }
+    for (ivec2 p(0); p.y < k_particleCounts.y - 2; ++p.y) {
+        for (p.x = 0; p.x < k_particleCounts.x; ++p.x) {
+            u32 pi(p.y * k_particleCounts.x + p.x);
+            constraints[ci++] = { pi, pi + k_particleCounts.x * 2, d3 };
+        }
+    }
+    // C4
+    for (ivec2 p(0); p.y < k_particleCounts.y - 2; ++p.y) {
+        for (p.x = 0; p.x < k_particleCounts.x - 2; ++p.x) {
+            u32 pi(p.y * k_particleCounts.x + p.x);
+            constraints[ci++] = { pi, pi + k_particleCounts.x * 2 + 2, d4 };
+            constraints[ci++] = { pi + 2, pi + k_particleCounts.x * 2, d4 };
+        }
+    }
+
     
-    glGenBuffers(1, &s_particleBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_particleBuffer);
-    glBufferStorage(GL_SHADER_STORAGE_BUFFER, particleCount * sizeof(Particle), particles.get(), GL_DYNAMIC_STORAGE_BIT);
+    glGenBuffers(1, &s_particleSSBO);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_particleSSBO);
+    glBufferStorage(GL_SHADER_STORAGE_BUFFER, particleCount * sizeof(Particle), particles.get(), 0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     glGenBuffers(1, &s_ibo);
@@ -183,7 +330,7 @@ static bool setupMesh() {
 
     glGenVertexArrays(1, &s_vao);
     glBindVertexArray(s_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, s_particleBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, s_particleSSBO); // this works, thankfully
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_ibo);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Particle), nullptr);
@@ -192,6 +339,12 @@ static bool setupMesh() {
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    glGenBuffers(1, &s_constraintSSBO);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_constraintSSBO);
+    //s_constraintCount = c1Count;
+    glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_constraintCount * sizeof(Constraint), constraints.get(), 0);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     if (glGetError() != GL_NO_ERROR) {
         std::cerr << "OpenGL error setting up frame" << std::endl;
@@ -236,7 +389,7 @@ static bool setup() {
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
 
-    // Setup work group size
+    // Setup work group size, needs to happen as early as possible
     int coreCount(0);
     if (k_useAllCores) glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &coreCount);
     else coreCount = k_coresToUse;
@@ -260,6 +413,7 @@ static bool setup() {
     }
     s_renderShader->bind();
     s_renderShader->uniform("u_lightDir", k_lightDir);
+    s_renderShader->uniform("u_primitiveCount", k_clothLOD.x * k_clothLOD.y * 2);
     Shader::unbind();
     // Setup update shader
     if (!(s_updateShader = Shader::load(
@@ -276,7 +430,7 @@ static bool setup() {
     s_updateShader->uniform("u_particleCounts", k_particleCounts);
     s_updateShader->uniform("u_clothLOD", k_clothLOD);
     s_updateShader->uniform("u_weaveSize", k_weaveSize);
-    s_updateShader->uniform("u_dt", k_targetDT);
+    s_updateShader->uniform("u_dt", k_updateDT);
     s_updateShader->uniform("u_gravity", k_gravity);
     Shader::unbind();
 
@@ -307,8 +461,10 @@ static void update() {
 
     s_updateShader->bind();
     s_updateShader->uniform("u_time", s_time * 0.2f);
+    s_updateShader->uniform("u_constraintCount", s_constraintCount);
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_particleBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_particleSSBO);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_constraintSSBO);
 
     glDispatchCompute(1, 1, 1);
     glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
