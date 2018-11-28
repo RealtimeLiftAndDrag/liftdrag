@@ -67,6 +67,6 @@ void main() {
 
     float diffuse = dot(u_lightDir, norm) * (1.0f - k_ambience) + k_ambience;
 
-    out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1)));// * vec3(diffuse);
+    out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * vec3(diffuse);
     out_color.a = 1.0f;
 }

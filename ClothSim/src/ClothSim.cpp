@@ -37,7 +37,7 @@ struct Particle {
     vec3 prevPosition;
     float padding2;
     vec3 temp;
-    float padding3;
+    int tempCount;
 };
 
 struct Constraint {
@@ -59,7 +59,7 @@ static constexpr float k_targetFPS(60.0f);
 static constexpr float k_targetDT(1.0f / k_targetFPS);
 static constexpr float k_updateDT(1.0f / 60.0f);
 
-static const ivec2 k_particleCounts(10, 5);
+static const ivec2 k_particleCounts(80, 40);
 static const ivec2 k_clothLOD(k_particleCounts - 1);
 static const float k_clothSizeMajor(1.0f);
 static const float k_weaveSize(k_clothSizeMajor / glm::max(k_clothLOD.x, k_clothLOD.y));
@@ -237,6 +237,7 @@ static bool setupMesh() {
             particle.force = vec3(0.0f);
             particle.prevPosition = particle.position;
             particle.temp = vec3(0.0f);
+            particle.tempCount = 0;
         }
     }
     for (int i(0); i < k_particleCounts.x; ++i) {
