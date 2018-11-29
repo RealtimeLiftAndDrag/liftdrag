@@ -31,13 +31,11 @@ struct Particle {
     vec3 position;
     float mass;
     vec3 normal;
-    float padding0;
+    float _0;
     vec3 force;
-    float padding1;
+    float constraintFactor; // inverse of the number of constraints for this particle
     vec3 prevPosition;
-    float padding2;
-    vec3 temp;
-    int tempCount;
+    s32 _1;
 };
 
 struct Constraint {
@@ -148,7 +146,7 @@ static void framebufferSizeCallback(GLFWwindow * window, int width, int height) 
 }
 
 // TODO: this could use a more efficient algorithm
-class ConstraintOrganizationHelper {
+/*class ConstraintOrganizationHelper {
 
     public:
 
@@ -159,8 +157,8 @@ class ConstraintOrganizationHelper {
         m_done(new bool(constraints.size())),
         m_doneCount(0)
     {
-        std::fill_n(m_used.get(), particleCount * sizeof(bool), false);
-        std::fill_n(m_done.get(), constraints.size() * sizeof(bool), false);
+        std::fill_n(m_used.get(), particleCount, false);
+        std::fill_n(m_done.get(), constraints.size(), false);
     }
 
     int next() {
@@ -176,6 +174,7 @@ class ConstraintOrganizationHelper {
             m_used[c.j] = true;
             m_done[ci] = true;
             ++m_doneCount;
+            return ci;
         }
         return -1;
     }
@@ -217,27 +216,29 @@ static std::vector<Constraint> reorganizeConstraints(int particleCount, const st
             newConstraints.push_back({ u32(-1), u32(-1), 0.0f });
             --threadsRemaining;
         }
+        helper.clearUsed();
     }
 
     return newConstraints;
-}
+}*/
 
 static bool setupMesh() {
     int particleCount(k_particleCounts.x * k_particleCounts.y);
-    unq<Particle[]> particles(new Particle[particleCount]);
+    std::vector<Particle> particles;
+    particles.reserve(particleCount);
     vec2 corner(k_clothSize * -0.5f);
     vec2 factor(k_clothSize / vec2(k_clothLOD));
     int particleI(0);
     for (ivec2 p(0); p.y < k_particleCounts.y; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x; ++p.x) {
-            Particle & particle(particles[particleI++]);
+            Particle particle;
             particle.position = vec3(corner + vec2(p) * factor, 0.0f);
             particle.mass = 1.0f;
             particle.normal = vec3(0.0f, 0.0f, 1.0f);
+            particle.constraintFactor = 0.0f;
             particle.force = vec3(0.0f);
             particle.prevPosition = particle.position;
-            particle.temp = vec3(0.0f);
-            particle.tempCount = 0;
+            particles.push_back(particle);
         }
     }
     for (int i(0); i < k_particleCounts.x; ++i) {
@@ -267,61 +268,67 @@ static bool setupMesh() {
     int c2Count((k_particleCounts.x - 1) * (k_particleCounts.y - 1) * 2);
     int c3Count(k_particleCounts.x * (k_particleCounts.y - 2) + k_particleCounts.y * (k_particleCounts.x - 2));
     int c4Count((k_particleCounts.x - 2) * (k_particleCounts.y - 2) * 2);
-    int constraintCount(c1Count + c2Count + c3Count + c4Count);
-    s_constraintCount = constraintCount;
+    s_constraintCount = c1Count + c2Count + c3Count + c4Count;
     float d1(k_weaveSize);
     float d2(d1 * std::sqrt(2.0f));
     float d3(d1 * 2.0f);
     float d4(d2 * 2.0f);
-    unq<Constraint[]> constraints(new Constraint[constraintCount]);
-    int ci(0);
+    std::vector<Constraint> constraints;
+    constraints.reserve(s_constraintCount);
     // C1
     for (ivec2 p(0); p.y < k_particleCounts.y; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x - 1; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints[ci++] = { pi, pi + 1, d1 };
+            constraints.push_back({ pi, pi + 1, d1 });
         }
     }
     for (ivec2 p(0); p.y < k_particleCounts.y - 1; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints[ci++] = { pi, pi + k_particleCounts.x, d1 };
+            constraints.push_back({ pi, pi + k_particleCounts.x, d1 });
         }
     }
     // C2
     for (ivec2 p(0); p.y < k_particleCounts.y - 1; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x - 1; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints[ci++] = { pi, pi + k_particleCounts.x + 1, d2 };
-            constraints[ci++] = { pi + 1, pi + k_particleCounts.x, d2 };
+            constraints.push_back({ pi, pi + k_particleCounts.x + 1, d2 });
+            constraints.push_back({ pi + 1, pi + k_particleCounts.x, d2 });
         }
     }
     // C3
     for (ivec2 p(0); p.y < k_particleCounts.y; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x - 2; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints[ci++] = { pi, pi + 2, d3 };
+            constraints.push_back({ pi, pi + 2, d3 });
         }
     }
     for (ivec2 p(0); p.y < k_particleCounts.y - 2; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints[ci++] = { pi, pi + k_particleCounts.x * 2, d3 };
+            constraints.push_back({ pi, pi + k_particleCounts.x * 2, d3 });
         }
     }
     // C4
     for (ivec2 p(0); p.y < k_particleCounts.y - 2; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x - 2; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints[ci++] = { pi, pi + k_particleCounts.x * 2 + 2, d4 };
-            constraints[ci++] = { pi + 2, pi + k_particleCounts.x * 2, d4 };
+            constraints.push_back({ pi, pi + k_particleCounts.x * 2 + 2, d4 });
+            constraints.push_back({ pi + 2, pi + k_particleCounts.x * 2, d4 });
         }
+    }
+    for (const Constraint & c : constraints) {
+        ++particles[c.i].constraintFactor;
+        ++particles[c.j].constraintFactor;
+    }
+    for (Particle & p : particles) {
+        p.constraintFactor = p.mass > 0.0f ? 1.0f / p.constraintFactor : 0.0f;
     }
 
     
     glGenBuffers(1, &s_particleSSBO);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_particleSSBO);
-    glBufferStorage(GL_SHADER_STORAGE_BUFFER, particleCount * sizeof(Particle), particles.get(), 0);
+    glBufferStorage(GL_SHADER_STORAGE_BUFFER, particleCount * sizeof(Particle), particles.data(), 0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     glGenBuffers(1, &s_ibo);
@@ -343,8 +350,7 @@ static bool setupMesh() {
 
     glGenBuffers(1, &s_constraintSSBO);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_constraintSSBO);
-    //s_constraintCount = c1Count;
-    glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_constraintCount * sizeof(Constraint), constraints.get(), 0);
+    glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_constraintCount * sizeof(Constraint), constraints.data(), 0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     if (glGetError() != GL_NO_ERROR) {
@@ -514,6 +520,7 @@ int main(int argc, char ** argv) {
     }
 
     double then(glfwGetTime());
+    double prevRenderTime(then);
     float accumDT(k_targetDT);
     while (!glfwWindowShouldClose(s_window)) {
         double now(glfwGetTime());
@@ -524,6 +531,9 @@ int main(int argc, char ** argv) {
         glfwPollEvents();
 
         if (accumDT >= k_targetDT) {
+            float renderDT(now - prevRenderTime);
+            prevRenderTime = now;
+            //std::cout << (1.0f / renderDT) << std::endl;
             update();
             render();
             glfwSwapBuffers(s_window);

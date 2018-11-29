@@ -1,5 +1,7 @@
 #version 450 core
 
+#extension GL_NV_shader_atomic_float : enable
+
 #ifndef WORK_GROUP_SIZE
 #define WORK_GROUP_SIZE 1024
 #endif
@@ -16,13 +18,11 @@ struct Particle {
     vec3 position;
     float mass;
     vec3 normal;
-    float padding0;
+    float _0;
     vec3 force;
-    float padding1;
+    float constraintFactor;
     vec3 prevPosition;
-    float padding2;
-    vec3 temp;
-    int tempCount;
+    int _1;
 };
 
 struct Constraint {
@@ -102,27 +102,36 @@ void update(int pi) {
         vec3 acceleration = particle.force / particle.mass + u_gravity;
         particle.position += (pos - particle.prevPosition) * (1.0f - k_damping) + acceleration * u_dt * u_dt;
     }
+    particle.force = vec3(0.0f);
     particle.prevPosition = pos;
+    u_particles[pi] = particle;
+}
+
+void constrain(Constraint c) {
+    vec3 delta = u_particles[c.j].position - u_particles[c.i].position;
+    vec3 correction = 0.5f * delta * (1.0f - c.d / length(delta));
+    atomicAdd(u_particles[c.i].force.x, correction.x);
+    atomicAdd(u_particles[c.i].force.y, correction.y);
+    atomicAdd(u_particles[c.i].force.z, correction.z);
+    correction = -correction;
+    atomicAdd(u_particles[c.j].force.x, correction.x);
+    atomicAdd(u_particles[c.j].force.y, correction.y);
+    atomicAdd(u_particles[c.j].force.z, correction.z);
+}
+
+void finishConstrain(int pi) {
+    Particle particle = u_particles[pi];
+    particle.position += particle.force * particle.constraintFactor;
     particle.force = vec3(0.0f);
     u_particles[pi] = particle;
 }
 
-void constrain(int pi1, int pi2, float restDist) {
-    if (restDist > 0.0f) {
-        vec3 d = u_particles[pi2].position - u_particles[pi1].position;
-        float dist = length(d);
-        vec3 correction = 0.5f * d * (1.0f - restDist / dist);
-        u_particles[pi1].temp += correction;
-        u_particles[pi2].temp -= correction;
-        ++u_particles[pi1].tempCount;
-        ++u_particles[pi2].tempCount;
-        //if (u_particles[pi1].mass > 0.0f) u_particles[pi1].position += correction;
-        //if (u_particles[pi2].mass > 0.0f) u_particles[pi2].position -= correction;
+void finishConstrainAll(ivec2 workI2D) {
+    for (ivec2 p = ivec2(0, workI2D.y); p.y < u_particleCounts.y; p.y += k_workGroupSize2D.y) {
+        for (p.x = workI2D.x; p.x < u_particleCounts.x; p.x += k_workGroupSize2D.x) {
+            finishConstrain(p.y * u_particleCounts.x + p.x);
+        }
     }
-}
-
-void constrain(Constraint c) {
-    constrain(c.i, c.j, c.d);
 }
 
 void calcNormal(ivec2 p) {
@@ -135,17 +144,6 @@ void calcNormal(ivec2 p) {
     vec3 dnx = getPosition(ivec2(pbl.x, p.y)) - pos;
     vec3 dny = getPosition(ivec2(p.x, pbl.y)) - pos;
     u_particles[pi].normal = normalize(cross(dpx, dpy) + cross(dpy, dnx) + cross(dnx, dny) + cross(dny, dpx));
-}
-
-void addTemp(ivec2 workI2D) {
-    for (ivec2 p = ivec2(0, workI2D.y); p.y < u_particleCounts.y; p.y += k_workGroupSize2D.y) {
-        for (p.x = workI2D.x; p.x < u_particleCounts.x; p.x += k_workGroupSize2D.x) {
-            int pi = p.y * u_particleCounts.x + p.x;
-            if (u_particles[pi].mass > 0.0f) u_particles[pi].position += u_particles[pi].temp / u_particles[pi].tempCount;
-            u_particles[pi].temp = vec3(0.0f);
-            u_particles[pi].tempCount = 0;
-        }
-    }
 }
 
 void main() {
@@ -171,43 +169,108 @@ void main() {
             u_particles[pi].position.z = sin(u_time * 2.0f * k_pi + position.x * position.y * 100.0f) * 0.025f;
         }
     }
-
     barrier();
 
     // Update particles
     for (int pi = workI; pi < k_particleCount; pi += k_workGroupSize) {
         update(pi);
     }
-
     barrier();
 
     // Constrain
-    // TODO: make constaints pass independent
-    if (true)
     for (int pass = 0; pass < k_constrainPasses; ++pass) {
         for (int ci = workI; ci < u_constraintCount; ci += k_workGroupSize) {
             constrain(u_constraints[ci]);
             barrier();
         }
         for (int pi = workI; pi < k_particleCount; pi += k_workGroupSize) {
-            if (u_particles[pi].mass > 0.0f) u_particles[pi].position += u_particles[pi].temp / u_particles[pi].tempCount;
-            u_particles[pi].temp = vec3(0.0f);
-            u_particles[pi].tempCount = 0;
+            finishConstrain(pi);
         }
         barrier();
     }
 
-    if (false)
+    // Calculate normals
     if (isThread2D) {
         for (ivec2 p = ivec2(0, workI2D.y); p.y < u_particleCounts.y; p.y += k_workGroupSize2D.y) {
             for (p.x = workI2D.x; p.x < u_particleCounts.x; p.x += k_workGroupSize2D.x) {
-                int pi = p.y * u_particleCounts.x + p.x;
-                constrain(pi, 0, 1.0f);
+                calcNormal(p);
             }
         }
-        barrier();
-        addTemp(workI2D);
-        barrier();
+    }
+}
+
+
+
+/* Old constrain code just in case I need it
+
+
+
+    if (false)
+    if (isThread2D) {
+        float w0 = u_weaveSize;
+        float w1 = w0 * k_sqrt2;
+        float w2 = w0 * 2.0f;
+        float w3 = w2 * k_sqrt2;
+        for (int pass = 0; pass < k_constrainPasses; ++pass) {
+            // -
+            for (ivec2 p = ivec2(0, workI2D.y); p.y < u_particleCounts.y; p.y += k_workGroupSize2D.y) {
+                for (p.x = workI2D.x; p.x < u_particleCounts.x - 1; p.x += k_workGroupSize2D.x) {
+                    int pi = p.y * u_particleCounts.x + p.x;
+                    constrain(pi, pi + 1, w0);
+                }
+            }
+            barrier();
+
+            // |
+            for (ivec2 p = ivec2(0, workI2D.y); p.y < u_particleCounts.y - 1; p.y += k_workGroupSize2D.y) {
+                for (p.x = workI2D.x; p.x < u_particleCounts.x; p.x += k_workGroupSize2D.x) {
+                    int pi = p.y * u_particleCounts.x + p.x;
+                    constrain(pi, pi + u_particleCounts.x, w0);
+                }
+            }
+            barrier();
+            
+            // X
+            for (ivec2 p = ivec2(0, workI2D.y); p.y < u_particleCounts.y - 1; p.y += k_workGroupSize2D.y) {
+                for (p.x = workI2D.x; p.x < u_particleCounts.x - 1; p.x += k_workGroupSize2D.x) {
+                    int pi = p.y * u_particleCounts.x + p.x;
+                    constrain(pi, pi + u_particleCounts.x + 1, w1);
+                    constrain(pi + 1, pi + u_particleCounts.x, w1);
+                }
+            }
+            barrier();            
+            
+            // --
+            for (ivec2 p = ivec2(0, workI2D.y); p.y < u_particleCounts.y; p.y += k_workGroupSize2D.y) {
+                for (p.x = workI2D.x; p.x < u_particleCounts.x - 2; p.x += k_workGroupSize2D.x) {
+                    int pi = p.y * u_particleCounts.x + p.x;
+                    constrain(pi, pi + 2, w2);
+                }
+            }
+            barrier();
+
+            // ||
+            for (ivec2 p = ivec2(0, workI2D.y); p.y < u_particleCounts.y - 2; p.y += k_workGroupSize2D.y) {
+                for (p.x = workI2D.x; p.x < u_particleCounts.x; p.x += k_workGroupSize2D.x) {
+                    int pi = p.y * u_particleCounts.x + p.x;
+                    constrain(pi, pi + u_particleCounts.x * 2, w2);
+                }
+            }
+            barrier();
+            
+            // XX
+            for (ivec2 p = ivec2(0, workI2D.y); p.y < u_particleCounts.y - 2; p.y += k_workGroupSize2D.y) {
+                for (p.x = workI2D.x; p.x < u_particleCounts.x - 2; p.x += k_workGroupSize2D.x) {
+                    int pi = p.y * u_particleCounts.x + p.x;
+                    constrain(pi, pi + u_particleCounts.x * 2 + 2, w3);
+                    constrain(pi + 2, pi + u_particleCounts.x * 2, w3);
+                }
+            }
+            barrier();
+
+            finishConstrainAll(workI2D);
+            barrier();
+        }
     }
 
     if (false)
@@ -405,26 +468,9 @@ void main() {
             }
             barrier();
 
-            addTemp(workI2D);
+            finishConstrainAll(workI2D);
             barrier();
         }
     }
 
-    barrier();
-
-    // TODO: should do this?
-    //for (int pi = workI; pi < k_particleCount; pi += k_workGroupSize) {
-    //    u_particles[pi].prevPosition = u_particles[pi].position;
-    //}
-
-    barrier();
-
-    // Calculate normals
-    if (isThread2D) {
-        for (ivec2 p = ivec2(0, workI2D.y); p.y < u_particleCounts.y; p.y += k_workGroupSize2D.y) {
-            for (p.x = workI2D.x; p.x < u_particleCounts.x; p.x += k_workGroupSize2D.x) {
-                calcNormal(p);
-            }
-        }
-    }
-}
+*/
