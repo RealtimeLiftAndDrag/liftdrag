@@ -21,20 +21,13 @@ struct Particle {
     int _1;
 };
 
-struct Constraint {
-    int i;
-    int j;
-    float d;
-    float padding0;
-};
-
 // Constants -------------------------------------------------------------------
 
 const int k_workGroupSize = WORK_GROUP_SIZE;
 
 // Uniforms --------------------------------------------------------------------
 
-uniform int u_vertexCount;
+uniform int u_particleCount;
 uniform int u_indexCount;
 
 layout (binding = 0, std430) restrict buffer Particles {
@@ -74,7 +67,7 @@ void main() {
     int workI = int(gl_LocalInvocationIndex);
 
     // Zero normals
-    for (int pi = workI; pi < u_vertexCount; pi += k_workGroupSize) {
+    for (int pi = workI; pi < u_particleCount; pi += k_workGroupSize) {
         u_particles[pi].normal = vec3(0.0f);
     }
     barrier();
@@ -86,7 +79,7 @@ void main() {
     }
     barrier();
     // Normalize new normals
-    for (int pi = workI; pi < u_vertexCount; pi += k_workGroupSize) {
+    for (int pi = workI; pi < u_particleCount; pi += k_workGroupSize) {
         u_particles[pi].normal = safeNormalize(u_particles[pi].normal);
     }
 }

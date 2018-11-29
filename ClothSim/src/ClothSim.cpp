@@ -458,7 +458,7 @@ static bool setup() {
         return false;
     }
     s_normalShader->bind();
-    s_normalShader->uniform("u_vertexCount", k_particleCounts.x * k_particleCounts.y);
+    s_normalShader->uniform("u_particleCount", k_particleCounts.x * k_particleCounts.y);
     s_normalShader->uniform("u_indexCount", s_indexCount);
     Shader::unbind();
 
