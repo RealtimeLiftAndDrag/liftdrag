@@ -83,10 +83,11 @@ static unq<Shader> s_renderShader;
 static unq<Shader> s_updateShader;
 static ThirdPersonCamera s_camera(k_minCamDist, k_maxCamDist);
 static int s_constraintCount;
+static int s_indexCount;
 
 static u32 s_particleSSBO;
 static u32 s_constraintSSBO;
-static u32 s_ibo;
+static u32 s_indexBuffer;
 static u32 s_vao;
 
 
@@ -248,19 +249,18 @@ static bool setupMesh() {
     //    particles[i * k_particleCounts.x].mass = 0.0f;
     //}
 
-    int indexCount(k_clothLOD.x * k_clothLOD.y * 2 * 3);
-    unq<u32[]> indices(new u32[indexCount]);
-    int ii(0);
+    s_indexCount = k_clothLOD.x * k_clothLOD.y * 2 * 3;
+    std::vector<u32> indices;
     for (ivec2 p(0); p.y < k_clothLOD.y; ++p.y) {
         for (p.x = 0; p.x < k_clothLOD.x; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
             u32 pj(pi + k_particleCounts.x + 1);
-            indices[ii++] = pi;
-            indices[ii++] = pi + 1;
-            indices[ii++] = pj;
-            indices[ii++] = pj;
-            indices[ii++] = pj - 1;
-            indices[ii++] = pi;
+            indices.push_back(pi);
+            indices.push_back(pi + 1);
+            indices.push_back(pj);
+            indices.push_back(pj);
+            indices.push_back(pj - 1);
+            indices.push_back(pi);
         }
     }
 
@@ -275,7 +275,7 @@ static bool setupMesh() {
     float d4(d2 * 2.0f);
     std::vector<Constraint> constraints;
     constraints.reserve(s_constraintCount);
-    // C1
+    // C1 - small "+"
     for (ivec2 p(0); p.y < k_particleCounts.y; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x - 1; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
@@ -288,7 +288,7 @@ static bool setupMesh() {
             constraints.push_back({ pi, pi + k_particleCounts.x, d1 });
         }
     }
-    // C2
+    // C2 - small "x"
     for (ivec2 p(0); p.y < k_particleCounts.y - 1; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x - 1; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
@@ -296,7 +296,7 @@ static bool setupMesh() {
             constraints.push_back({ pi + 1, pi + k_particleCounts.x, d2 });
         }
     }
-    // C3
+    // C3 - large "+"
     for (ivec2 p(0); p.y < k_particleCounts.y; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x - 2; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
@@ -309,7 +309,7 @@ static bool setupMesh() {
             constraints.push_back({ pi, pi + k_particleCounts.x * 2, d3 });
         }
     }
-    // C4
+    // C4 - large "x"
     for (ivec2 p(0); p.y < k_particleCounts.y - 2; ++p.y) {
         for (p.x = 0; p.x < k_particleCounts.x - 2; ++p.x) {
             u32 pi(p.y * k_particleCounts.x + p.x);
@@ -331,15 +331,15 @@ static bool setupMesh() {
     glBufferStorage(GL_SHADER_STORAGE_BUFFER, particleCount * sizeof(Particle), particles.data(), 0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    glGenBuffers(1, &s_ibo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_ibo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexCount * sizeof(u32), indices.get(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glGenBuffers(1, &s_indexBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_indexBuffer);
+    glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_indexCount * sizeof(u32), indices.data(), 0);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     glGenVertexArrays(1, &s_vao);
     glBindVertexArray(s_vao);
     glBindBuffer(GL_ARRAY_BUFFER, s_particleSSBO); // this works, thankfully
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_ibo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_indexBuffer); // and so does this
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Particle), nullptr);
     glEnableVertexAttribArray(1);
@@ -469,9 +469,11 @@ static void update() {
     s_updateShader->bind();
     s_updateShader->uniform("u_time", s_time * 0.2f);
     s_updateShader->uniform("u_constraintCount", s_constraintCount);
+    s_updateShader->uniform("u_indexCount", s_indexCount);
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_particleSSBO);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_constraintSSBO);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_indexBuffer);
 
     glDispatchCompute(1, 1, 1);
     glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
@@ -531,7 +533,7 @@ int main(int argc, char ** argv) {
         glfwPollEvents();
 
         if (accumDT >= k_targetDT) {
-            float renderDT(now - prevRenderTime);
+            float renderDT(float(now - prevRenderTime));
             prevRenderTime = now;
             //std::cout << (1.0f / renderDT) << std::endl;
             update();

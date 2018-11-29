@@ -64,9 +64,12 @@ vec3 lch2luv(vec3 lch) {
 
 void main() {
     vec3 norm = normalize(in_norm);
+    if (!gl_FrontFacing) norm = -norm;
 
     float diffuse = dot(u_lightDir, norm) * (1.0f - k_ambience) + k_ambience;
 
     out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * vec3(diffuse);
+    //out_color.rgb = norm * 0.5f + 0.5f;
+    //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * norm.z;
     out_color.a = 1.0f;
 }
