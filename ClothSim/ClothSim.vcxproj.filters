@@ -32,6 +32,9 @@
     <None Include="..\resources\ClothSim\shaders\update.comp">
       <Filter>resources\shaders</Filter>
     </None>
+    <None Include="..\resources\ClothSim\shaders\normal.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ClothMesher.hpp">

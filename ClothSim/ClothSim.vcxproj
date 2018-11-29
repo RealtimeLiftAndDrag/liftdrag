@@ -153,6 +153,7 @@
     <ClCompile Include="src\ClothSim.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\resources\ClothSim\shaders\normal.comp" />
     <None Include="..\resources\ClothSim\shaders\update.comp" />
     <None Include="..\resources\ClothSim\shaders\render.frag" />
     <None Include="..\resources\ClothSim\shaders\render.vert" />

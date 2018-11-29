@@ -81,6 +81,7 @@ static ivec2 s_workGroupSize2D;
 static unq<Model> s_model;
 static unq<Shader> s_renderShader;
 static unq<Shader> s_updateShader;
+static unq<Shader> s_normalShader;
 static ThirdPersonCamera s_camera(k_minCamDist, k_maxCamDist);
 static int s_constraintCount;
 static int s_indexCount;
@@ -406,41 +407,6 @@ static bool setup() {
     s_workGroupSize2D.y = warpCount / s_workGroupSize2D.x;
     s_workGroupSize2D *= k_warpSize2D;
 
-    // Setup RLD
-    //if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC, s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC)) {
-    //    std::cerr << "Failed to setup RLD" << std::endl;
-    //    return false;
-    //}
-
-    // Setup render shader
-    std::string shadersPath(g_resourcesDir + "/ClothSim/shaders/");
-    if (!(s_renderShader = Shader::load(shadersPath + "render.vert", shadersPath + "render.frag"))) {
-        std::cerr << "Failed to load render shader" << std::endl;
-        return false;
-    }
-    s_renderShader->bind();
-    s_renderShader->uniform("u_lightDir", k_lightDir);
-    s_renderShader->uniform("u_primitiveCount", k_clothLOD.x * k_clothLOD.y * 2);
-    Shader::unbind();
-    // Setup update shader
-    if (!(s_updateShader = Shader::load(
-        shadersPath + "update.comp",
-        {
-            { "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) },
-            { "WORK_GROUP_SIZE_2D", "ivec2(" + std::to_string(s_workGroupSize2D.x) + ", " + std::to_string(s_workGroupSize2D.y) + ")" },
-        }
-    ))) {
-        std::cerr << "Failed to load update shader" << std::endl;
-        return false;
-    }
-    s_updateShader->bind();
-    s_updateShader->uniform("u_particleCounts", k_particleCounts);
-    s_updateShader->uniform("u_clothLOD", k_clothLOD);
-    s_updateShader->uniform("u_weaveSize", k_weaveSize);
-    s_updateShader->uniform("u_dt", k_updateDT);
-    s_updateShader->uniform("u_gravity", k_gravity);
-    Shader::unbind();
-
     // Setup mesh
     if (!setupMesh()) {
         std::cerr << "Failed to setup mesh" << std::endl;
@@ -458,6 +424,44 @@ static bool setup() {
         s_camera.fov(vec2(k_fov, k_fov * float(s_windowSize.y) / float(s_windowSize.x)));
     }
 
+    // Setup RLD
+    //if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC, s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC)) {
+    //    std::cerr << "Failed to setup RLD" << std::endl;
+    //    return false;
+    //}
+
+    // Setup render shader
+    std::string shadersPath(g_resourcesDir + "/ClothSim/shaders/");
+    if (!(s_renderShader = Shader::load(shadersPath + "render.vert", shadersPath + "render.frag"))) {
+        std::cerr << "Failed to load render shader" << std::endl;
+        return false;
+    }
+    s_renderShader->bind();
+    s_renderShader->uniform("u_lightDir", k_lightDir);
+    s_renderShader->uniform("u_primitiveCount", k_clothLOD.x * k_clothLOD.y * 2);
+    Shader::unbind();
+    // Setup update shader
+    if (!(s_updateShader = Shader::load(shadersPath + "update.comp", {{ "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) }}))) {
+        std::cerr << "Failed to load update shader" << std::endl;
+        return false;
+    }
+    s_updateShader->bind();
+    s_updateShader->uniform("u_particleCount", k_particleCounts.x * k_particleCounts.y);
+    s_updateShader->uniform("u_dt", k_updateDT);
+    s_updateShader->uniform("u_gravity", k_gravity);
+    s_updateShader->uniform("u_constraintCount", s_constraintCount);
+    s_updateShader->uniform("u_indexCount", s_indexCount);
+    Shader::unbind();
+    // Setup normal shader
+    if (!(s_normalShader = Shader::load(shadersPath + "normal.comp", {{ "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) }}))) {
+        std::cerr << "Failed to load normal shader" << std::endl;
+        return false;
+    }
+    s_normalShader->bind();
+    s_normalShader->uniform("u_vertexCount", k_particleCounts.x * k_particleCounts.y);
+    s_normalShader->uniform("u_indexCount", s_indexCount);
+    Shader::unbind();
+
     return true;
 }
 
@@ -466,15 +470,16 @@ static void update() {
 
     s_time = glm::fract(s_time * 0.2f) * 5.0f;
 
-    s_updateShader->bind();
-    s_updateShader->uniform("u_time", s_time * 0.2f);
-    s_updateShader->uniform("u_constraintCount", s_constraintCount);
-    s_updateShader->uniform("u_indexCount", s_indexCount);
-
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_particleSSBO);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_constraintSSBO);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_indexBuffer);
 
+    s_updateShader->bind();
+    s_updateShader->uniform("u_time", s_time * 0.2f);
+    glDispatchCompute(1, 1, 1);
+    glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
+
+    s_normalShader->bind();
     glDispatchCompute(1, 1, 1);
     glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
 

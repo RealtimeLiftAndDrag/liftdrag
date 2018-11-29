@@ -2,6 +2,7 @@
 
 layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec3 in_norm;
+layout (location = 2) in float in_blah;
 
 layout (location = 0) out vec4 out_color;
 
@@ -62,14 +63,32 @@ vec3 lch2luv(vec3 lch) {
     return luv2rgb(vec3(lch.x, lch.y * cos(lch.z), lch.y * sin(lch.z)));
 }
 
+vec3 safeNormalize(vec3 v) {
+    float d = dot(v, v);
+    return d > 0.0f ? v / sqrt(d) : vec3(0.0f);
+}
+
 void main() {
-    vec3 norm = normalize(in_norm);
+    vec3 norm = safeNormalize(in_norm);
     if (!gl_FrontFacing) norm = -norm;
 
     float diffuse = dot(u_lightDir, norm) * (1.0f - k_ambience) + k_ambience;
 
     out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * vec3(diffuse);
+    //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, (gl_PrimitiveID % 16) / 16.0f));
+    
+    //out_color.g = (gl_PrimitiveID * 3 / 32) % 2;
+    //out_color.b = 1.0f - out_color.g;
+    //out_color.rgb *= (gl_PrimitiveID * 3 % 32) / 32.0f;
+    //if (sign(diffuse) == 0.0f) out_color.rgb = mix(out_color.rgb, vec3(1.0f, 0.0f, 0.0f), 0.33f);
+
+    //out_color.rgb = vec3(sign(diffuse));
+    //int i = gl_PrimitiveID * 3;
+    //if ((i / 32) != ((i + 3) / 32)) out_color.rgb = mix(out_color.rgb, vec3(0.5f, 0.0f, 0.0f), 0.5f);
+
     //out_color.rgb = norm * 0.5f + 0.5f;
-    //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * norm.z;
+    //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, float(gl_PrimitiveID) / float(u_primitiveCount - 1))) * abs(norm.z);
+    //out_color.rgb = mix(vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), float(gl_PrimitiveID * 3 % 32) / 32.0f) * abs(norm.z);
+    //out_color.rgb = vec3(in_blah);
     out_color.a = 1.0f;
 }
