@@ -29,6 +29,7 @@
     <ClCompile Include="src\Model.cpp" />
     <ClCompile Include="src\Shader.cpp" />
     <ClCompile Include="src\SkyBox.cpp" />
+    <ClCompile Include="src\SoftModel.cpp" />
     <ClCompile Include="src\stb\stb_image.c" />
     <ClCompile Include="src\Text.cpp" />
     <ClCompile Include="src\tinyobjloader\tiny_obj_loader.cpp" />
@@ -43,6 +44,7 @@
     <ClInclude Include="include\Common\Model.hpp" />
     <ClInclude Include="include\Common\Shader.hpp" />
     <ClInclude Include="include\Common\SkyBox.hpp" />
+    <ClInclude Include="include\Common\SoftModel.hpp" />
     <ClInclude Include="include\Common\Text.hpp" />
     <ClInclude Include="include\Common\Util.hpp" />
     <ClInclude Include="src\xboxcontroller.h" />

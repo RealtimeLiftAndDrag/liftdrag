@@ -11,7 +11,7 @@ uniform vec3 u_camPos; // camera position in world space
 uniform int u_primitiveCount;
 
 const float k_pi = 3.14159265f;
-const float k_ambience = 0.2f;
+const float k_ambience = 0.25f;
 
 vec3 hsv2rgb(vec3 c) {
     vec4 K = vec4(1.0f, 2.0f / 3.0f, 1.0f / 3.0f, 3.0f);
@@ -72,9 +72,9 @@ void main() {
     vec3 norm = safeNormalize(in_norm);
     if (!gl_FrontFacing) norm = -norm;
 
-    float diffuse = dot(u_lightDir, norm) * (1.0f - k_ambience) + k_ambience;
+    float diffuse = max(dot(u_lightDir, norm), 0.0f) * (1.0f - k_ambience) + k_ambience;
 
-    out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * vec3(diffuse);
+    out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * diffuse;
     //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, (gl_PrimitiveID % 16) / 16.0f));
     
     //out_color.g = (gl_PrimitiveID * 3 / 32) % 2;

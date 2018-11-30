@@ -2,15 +2,11 @@
 
 #extension GL_NV_shader_atomic_float : enable
 
-#ifndef WORK_GROUP_SIZE
-#define WORK_GROUP_SIZE 1024
-#endif
-
 layout (local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
 
-struct Particle {
+struct Vertex {
     vec3 position;
     float mass;
     vec3 normal;
@@ -27,14 +23,14 @@ const int k_workGroupSize = WORK_GROUP_SIZE;
 
 // Uniforms --------------------------------------------------------------------
 
-uniform int u_particleCount;
+uniform int u_vertexCount;
 uniform int u_indexCount;
 
-layout (binding = 0, std430) restrict buffer Particles {
-    Particle u_particles[];
+layout (binding = 0, std430) restrict buffer Vertices {
+    Vertex u_vertices[];
 };
 
-layout (binding = 2, std430) restrict buffer Indices {
+layout (binding = 1, std430) restrict buffer Indices {
     uint u_indices[];
 };
 
@@ -48,27 +44,27 @@ vec3 safeNormalize(vec3 v) {
 }
 
 void calcNorm(uint pi1, uint pi2, uint pi3) {
-    vec3 pos1 = u_particles[pi1].position;
-    vec3 pos2 = u_particles[pi2].position;
-    vec3 pos3 = u_particles[pi3].position;
+    vec3 pos1 = u_vertices[pi1].position;
+    vec3 pos2 = u_vertices[pi2].position;
+    vec3 pos3 = u_vertices[pi3].position;
     vec3 norm = cross(pos2 - pos1, pos3 - pos1); // normalization comes later
-    atomicAdd(u_particles[pi1].normal.x, norm.x);
-    atomicAdd(u_particles[pi1].normal.y, norm.y);
-    atomicAdd(u_particles[pi1].normal.z, norm.z);
-    atomicAdd(u_particles[pi2].normal.x, norm.x);
-    atomicAdd(u_particles[pi2].normal.y, norm.y);
-    atomicAdd(u_particles[pi2].normal.z, norm.z);
-    atomicAdd(u_particles[pi3].normal.x, norm.x);
-    atomicAdd(u_particles[pi3].normal.y, norm.y);
-    atomicAdd(u_particles[pi3].normal.z, norm.z);
+    atomicAdd(u_vertices[pi1].normal.x, norm.x);
+    atomicAdd(u_vertices[pi1].normal.y, norm.y);
+    atomicAdd(u_vertices[pi1].normal.z, norm.z);
+    atomicAdd(u_vertices[pi2].normal.x, norm.x);
+    atomicAdd(u_vertices[pi2].normal.y, norm.y);
+    atomicAdd(u_vertices[pi2].normal.z, norm.z);
+    atomicAdd(u_vertices[pi3].normal.x, norm.x);
+    atomicAdd(u_vertices[pi3].normal.y, norm.y);
+    atomicAdd(u_vertices[pi3].normal.z, norm.z);
 }
 
 void main() {
     int workI = int(gl_LocalInvocationIndex);
 
     // Zero normals
-    for (int pi = workI; pi < u_particleCount; pi += k_workGroupSize) {
-        u_particles[pi].normal = vec3(0.0f);
+    for (int pi = workI; pi < u_vertexCount; pi += k_workGroupSize) {
+        u_vertices[pi].normal = vec3(0.0f);
     }
     barrier();
     // Calculate new normals
@@ -79,7 +75,7 @@ void main() {
     }
     barrier();
     // Normalize new normals
-    for (int pi = workI; pi < u_particleCount; pi += k_workGroupSize) {
-        u_particles[pi].normal = safeNormalize(u_particles[pi].normal);
+    for (int pi = workI; pi < u_vertexCount; pi += k_workGroupSize) {
+        u_vertices[pi].normal = safeNormalize(u_vertices[pi].normal);
     }
 }

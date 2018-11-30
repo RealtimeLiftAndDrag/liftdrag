@@ -35,6 +35,15 @@
     <None Include="..\resources\ClothSim\shaders\normal.comp">
       <Filter>resources\shaders</Filter>
     </None>
+    <None Include="..\resources\ClothSim\shaders\constraint.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\constraint.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\constraint.geom">
+      <Filter>resources\shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ClothMesher.hpp">

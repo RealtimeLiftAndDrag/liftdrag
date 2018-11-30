@@ -32,13 +32,13 @@ class Mesh {
 
     void draw() const;
 
-    u32 vertexCount() const { return u32(m_locations.size()); }
+    int vertexCount() const { return int(m_locations.size()); }
 
     const std::vector<vec3> & locations() const { return m_locations; }
 
     const std::vector<vec3> & normals() const { return m_normals; }
 
-    u32 indexCount() const { return u32(m_indices.size()); }
+    int indexCount() const { return int(m_indices.size()); }
 
     const std::vector<u32> & indices() const { return m_indices; }
 

@@ -20,30 +20,12 @@ extern "C" {
 #include "glm/gtc/constants.hpp"
 
 #include "Common/Global.hpp"
-#include "Common/Model.hpp"
+#include "Common/SoftModel.hpp"
 #include "Common/Shader.hpp"
 #include "Common/Camera.hpp"
 #include "RLD/Simulation.hpp"
 
-
-
-struct Particle {
-    vec3 position;
-    float mass;
-    vec3 normal;
-    float _0;
-    vec3 force;
-    float constraintFactor; // inverse of the number of constraints for this particle
-    vec3 prevPosition;
-    s32 _1;
-};
-
-struct Constraint {
-    u32 i; // index of first particle
-    u32 j; // index of second particle
-    float d; // rest distance between particles
-    float padding0;
-};
+#include "ClothMesher.hpp"
 
 
 
@@ -57,14 +39,14 @@ static constexpr float k_targetFPS(60.0f);
 static constexpr float k_targetDT(1.0f / k_targetFPS);
 static constexpr float k_updateDT(1.0f / 60.0f);
 
-static const ivec2 k_particleCounts(80, 40);
-static const ivec2 k_clothLOD(k_particleCounts - 1);
+static constexpr bool k_doTri(false);
+static const ivec2 k_clothLOD(40, 20);
 static const float k_clothSizeMajor(1.0f);
 static const float k_weaveSize(k_clothSizeMajor / glm::max(k_clothLOD.x, k_clothLOD.y));
-static const vec2 k_clothSize(vec2(k_clothLOD) * k_weaveSize);
+static const int k_triLOD(3);
+static const float k_triWeaveSize(1.0f / k_triLOD);
 static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
-
-
+static constexpr int k_constraintPasses(16);
 
 static constexpr float k_fov(glm::radians(90.0f));
 static constexpr float k_near(0.01f), k_far(100.0f);
@@ -78,18 +60,13 @@ static ivec2 s_windowSize(k_defWindowSize);
 static int s_workGroupSize;
 static ivec2 s_workGroupSize2D;
 
-static unq<Model> s_model;
+static unq<SoftModel> s_model;
 static unq<Shader> s_renderShader;
 static unq<Shader> s_updateShader;
 static unq<Shader> s_normalShader;
+static unq<Shader> s_constraintShader;
 static ThirdPersonCamera s_camera(k_minCamDist, k_maxCamDist);
-static int s_constraintCount;
-static int s_indexCount;
-
-static u32 s_particleSSBO;
-static u32 s_constraintSSBO;
-static u32 s_indexBuffer;
-static u32 s_vao;
+static u32 s_constraintVAO;
 
 
 
@@ -147,221 +124,6 @@ static void framebufferSizeCallback(GLFWwindow * window, int width, int height) 
     }
 }
 
-// TODO: this could use a more efficient algorithm
-/*class ConstraintOrganizationHelper {
-
-    public:
-
-    ConstraintOrganizationHelper(int particleCount, const std::vector<Constraint> & constraints) :
-        m_particleCount(particleCount),
-        m_constraints(constraints),
-        m_used(new bool[particleCount]),
-        m_done(new bool(constraints.size())),
-        m_doneCount(0)
-    {
-        std::fill_n(m_used.get(), particleCount, false);
-        std::fill_n(m_done.get(), constraints.size(), false);
-    }
-
-    int next() {
-        for (int ci(0); ci < m_constraints.size(); ++ci) {
-            if (m_done[ci]) {
-                continue;
-            }
-            const Constraint & c(m_constraints[ci]);
-            if (m_used[c.i] || m_used[c.j]) {
-                continue;
-            }
-            m_used[c.i] = true;
-            m_used[c.j] = true;
-            m_done[ci] = true;
-            ++m_doneCount;
-            return ci;
-        }
-        return -1;
-    }
-
-    bool done() {
-        return m_doneCount >= m_constraints.size();
-    }
-
-    void clearUsed() {
-        std::fill_n(m_used.get(), m_particleCount, false);
-    }
-
-    private:
-
-    int m_particleCount;
-    const std::vector<Constraint> & m_constraints;
-    unq<bool[]> m_used;
-    unq<bool[]> m_done;
-    int m_doneCount;
-
-};
-
-static std::vector<Constraint> reorganizeConstraints(int particleCount, const std::vector<Constraint> & constraints) {
-    std::vector<Constraint> newConstraints;
-    newConstraints.reserve((constraints.size() + s_workGroupSize - 1) / s_workGroupSize * s_workGroupSize); // round up to multiple of work group size
-    ConstraintOrganizationHelper helper(particleCount, constraints);
-
-    while (!helper.done()) {
-        int threadsRemaining(s_workGroupSize);
-        while (threadsRemaining) {
-            int ci(helper.next());
-            if (ci == -1) {
-                break;
-            }
-            newConstraints.push_back(constraints[ci]);
-            --threadsRemaining;
-        }
-        while (threadsRemaining) {
-            newConstraints.push_back({ u32(-1), u32(-1), 0.0f });
-            --threadsRemaining;
-        }
-        helper.clearUsed();
-    }
-
-    return newConstraints;
-}*/
-
-static bool setupMesh() {
-    int particleCount(k_particleCounts.x * k_particleCounts.y);
-    std::vector<Particle> particles;
-    particles.reserve(particleCount);
-    vec2 corner(k_clothSize * -0.5f);
-    vec2 factor(k_clothSize / vec2(k_clothLOD));
-    int particleI(0);
-    for (ivec2 p(0); p.y < k_particleCounts.y; ++p.y) {
-        for (p.x = 0; p.x < k_particleCounts.x; ++p.x) {
-            Particle particle;
-            particle.position = vec3(corner + vec2(p) * factor, 0.0f);
-            particle.mass = 1.0f;
-            particle.normal = vec3(0.0f, 0.0f, 1.0f);
-            particle.constraintFactor = 0.0f;
-            particle.force = vec3(0.0f);
-            particle.prevPosition = particle.position;
-            particles.push_back(particle);
-        }
-    }
-    for (int i(0); i < k_particleCounts.x; ++i) {
-        particles[k_clothLOD.y * k_particleCounts.x + i].mass = 0.0f;
-    }
-    //for (int i(0); i < k_particleCounts.y; ++i) {
-    //    particles[i * k_particleCounts.x].mass = 0.0f;
-    //}
-
-    s_indexCount = k_clothLOD.x * k_clothLOD.y * 2 * 3;
-    std::vector<u32> indices;
-    for (ivec2 p(0); p.y < k_clothLOD.y; ++p.y) {
-        for (p.x = 0; p.x < k_clothLOD.x; ++p.x) {
-            u32 pi(p.y * k_particleCounts.x + p.x);
-            u32 pj(pi + k_particleCounts.x + 1);
-            indices.push_back(pi);
-            indices.push_back(pi + 1);
-            indices.push_back(pj);
-            indices.push_back(pj);
-            indices.push_back(pj - 1);
-            indices.push_back(pi);
-        }
-    }
-
-    int c1Count(k_particleCounts.x * (k_particleCounts.y - 1) + k_particleCounts.y * (k_particleCounts.x - 1));
-    int c2Count((k_particleCounts.x - 1) * (k_particleCounts.y - 1) * 2);
-    int c3Count(k_particleCounts.x * (k_particleCounts.y - 2) + k_particleCounts.y * (k_particleCounts.x - 2));
-    int c4Count((k_particleCounts.x - 2) * (k_particleCounts.y - 2) * 2);
-    s_constraintCount = c1Count + c2Count + c3Count + c4Count;
-    float d1(k_weaveSize);
-    float d2(d1 * std::sqrt(2.0f));
-    float d3(d1 * 2.0f);
-    float d4(d2 * 2.0f);
-    std::vector<Constraint> constraints;
-    constraints.reserve(s_constraintCount);
-    // C1 - small "+"
-    for (ivec2 p(0); p.y < k_particleCounts.y; ++p.y) {
-        for (p.x = 0; p.x < k_particleCounts.x - 1; ++p.x) {
-            u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints.push_back({ pi, pi + 1, d1 });
-        }
-    }
-    for (ivec2 p(0); p.y < k_particleCounts.y - 1; ++p.y) {
-        for (p.x = 0; p.x < k_particleCounts.x; ++p.x) {
-            u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints.push_back({ pi, pi + k_particleCounts.x, d1 });
-        }
-    }
-    // C2 - small "x"
-    for (ivec2 p(0); p.y < k_particleCounts.y - 1; ++p.y) {
-        for (p.x = 0; p.x < k_particleCounts.x - 1; ++p.x) {
-            u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints.push_back({ pi, pi + k_particleCounts.x + 1, d2 });
-            constraints.push_back({ pi + 1, pi + k_particleCounts.x, d2 });
-        }
-    }
-    // C3 - large "+"
-    for (ivec2 p(0); p.y < k_particleCounts.y; ++p.y) {
-        for (p.x = 0; p.x < k_particleCounts.x - 2; ++p.x) {
-            u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints.push_back({ pi, pi + 2, d3 });
-        }
-    }
-    for (ivec2 p(0); p.y < k_particleCounts.y - 2; ++p.y) {
-        for (p.x = 0; p.x < k_particleCounts.x; ++p.x) {
-            u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints.push_back({ pi, pi + k_particleCounts.x * 2, d3 });
-        }
-    }
-    // C4 - large "x"
-    for (ivec2 p(0); p.y < k_particleCounts.y - 2; ++p.y) {
-        for (p.x = 0; p.x < k_particleCounts.x - 2; ++p.x) {
-            u32 pi(p.y * k_particleCounts.x + p.x);
-            constraints.push_back({ pi, pi + k_particleCounts.x * 2 + 2, d4 });
-            constraints.push_back({ pi + 2, pi + k_particleCounts.x * 2, d4 });
-        }
-    }
-    for (const Constraint & c : constraints) {
-        ++particles[c.i].constraintFactor;
-        ++particles[c.j].constraintFactor;
-    }
-    for (Particle & p : particles) {
-        p.constraintFactor = p.mass > 0.0f ? 1.0f / p.constraintFactor : 0.0f;
-    }
-
-    
-    glGenBuffers(1, &s_particleSSBO);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_particleSSBO);
-    glBufferStorage(GL_SHADER_STORAGE_BUFFER, particleCount * sizeof(Particle), particles.data(), 0);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-    glGenBuffers(1, &s_indexBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_indexBuffer);
-    glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_indexCount * sizeof(u32), indices.data(), 0);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-    glGenVertexArrays(1, &s_vao);
-    glBindVertexArray(s_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, s_particleSSBO); // this works, thankfully
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_indexBuffer); // and so does this
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Particle), nullptr);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(Particle), reinterpret_cast<const void *>(sizeof(vec4)));
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    glGenBuffers(1, &s_constraintSSBO);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_constraintSSBO);
-    glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_constraintCount * sizeof(Constraint), constraints.data(), 0);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-    if (glGetError() != GL_NO_ERROR) {
-        std::cerr << "OpenGL error setting up frame" << std::endl;
-        return false;
-    }
-
-    return true;
-}
-
 static bool setup() {
     // Setup window
     glfwSetErrorCallback(errorCallback);
@@ -408,8 +170,14 @@ static bool setup() {
     s_workGroupSize2D *= k_warpSize2D;
 
     // Setup mesh
-    if (!setupMesh()) {
-        std::cerr << "Failed to setup mesh" << std::endl;
+    if (k_doTri) {
+        s_model = createClothTriangle(k_triLOD, k_triWeaveSize);
+    }
+    else {
+        s_model = createClothRectangle(k_clothLOD, k_weaveSize);
+    }
+    if (!s_model->load()) {
+        std::cerr << "Failed to load soft mesh" << std::endl;
         return false;
     }
 
@@ -441,16 +209,18 @@ static bool setup() {
     s_renderShader->uniform("u_primitiveCount", k_clothLOD.x * k_clothLOD.y * 2);
     Shader::unbind();
     // Setup update shader
-    if (!(s_updateShader = Shader::load(shadersPath + "update.comp", {{ "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) }}))) {
+    if (!(s_updateShader = Shader::load(shadersPath + "update.comp", {
+        { "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) },
+        { "CONSTRAINT_PASSES", std::to_string(k_constraintPasses) }
+    }))) {
         std::cerr << "Failed to load update shader" << std::endl;
         return false;
     }
     s_updateShader->bind();
-    s_updateShader->uniform("u_particleCount", k_particleCounts.x * k_particleCounts.y);
+    s_updateShader->uniform("u_vertexCount", s_model->mesh().vertexCount());
+    s_updateShader->uniform("u_constraintCount", s_model->mesh().constraintCount());
     s_updateShader->uniform("u_dt", k_updateDT);
     s_updateShader->uniform("u_gravity", k_gravity);
-    s_updateShader->uniform("u_constraintCount", s_constraintCount);
-    s_updateShader->uniform("u_indexCount", s_indexCount);
     Shader::unbind();
     // Setup normal shader
     if (!(s_normalShader = Shader::load(shadersPath + "normal.comp", {{ "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) }}))) {
@@ -458,9 +228,16 @@ static bool setup() {
         return false;
     }
     s_normalShader->bind();
-    s_normalShader->uniform("u_particleCount", k_particleCounts.x * k_particleCounts.y);
-    s_normalShader->uniform("u_indexCount", s_indexCount);
+    s_normalShader->uniform("u_vertexCount", s_model->mesh().vertexCount());
+    s_normalShader->uniform("u_indexCount", s_model->mesh().indexCount());
     Shader::unbind();
+    // Setup constraint shader
+    if (!(s_constraintShader = Shader::load(shadersPath + "constraint.vert", shadersPath + "constraint.geom", shadersPath + "constraint.frag"))) {
+        std::cerr << "Failed to load constraint shader" << std::endl;
+        return false;
+    }
+
+    glGenVertexArrays(1, &s_constraintVAO);
 
     return true;
 }
@@ -470,9 +247,9 @@ static void update() {
 
     s_time = glm::fract(s_time * 0.2f) * 5.0f;
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_particleSSBO);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_constraintSSBO);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_indexBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_model->mesh().vertexBuffer());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_model->mesh().indexBuffer());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
 
     s_updateShader->bind();
     s_updateShader->uniform("u_time", s_time * 0.2f);
@@ -503,15 +280,25 @@ static void render() {
 
     glViewport(0, 0, s_windowSize.x, s_windowSize.y);
 
-    s_renderShader->bind();
-    s_renderShader->uniform("u_modelMat", mat4());
-    s_renderShader->uniform("u_normalMat", mat3());
-    s_renderShader->uniform("u_viewMat", s_camera.viewMat());
-    s_renderShader->uniform("u_projMat", s_camera.projMat());
-    s_renderShader->uniform("u_camPos", s_camera.position());
-    glBindVertexArray(s_vao);
-    glDrawElements(GL_TRIANGLES, k_clothLOD.x * k_clothLOD.y * 2 * 3, GL_UNSIGNED_INT, nullptr);
+    //s_renderShader->bind();
+    //s_renderShader->uniform("u_modelMat", mat4());
+    //s_renderShader->uniform("u_normalMat", mat3());
+    //s_renderShader->uniform("u_viewMat", s_camera.viewMat());
+    //s_renderShader->uniform("u_projMat", s_camera.projMat());
+    //s_renderShader->uniform("u_camPos", s_camera.position());
+    //s_model->draw();
+
+    s_constraintShader->bind();
+    s_constraintShader->uniform("u_modelMat", mat4());
+    s_constraintShader->uniform("u_normalMat", mat3());
+    s_constraintShader->uniform("u_viewMat", s_camera.viewMat());
+    s_constraintShader->uniform("u_projMat", s_camera.projMat());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_model->mesh().vertexBuffer());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
+    glBindVertexArray(s_constraintVAO);
+    glDrawArrays(GL_POINTS, 0, s_model->mesh().constraintCount());
     glBindVertexArray(0);
+
     Shader::unbind();
 
     glDisable(GL_DEPTH_TEST);
@@ -541,7 +328,7 @@ int main(int argc, char ** argv) {
             float renderDT(float(now - prevRenderTime));
             prevRenderTime = now;
             //std::cout << (1.0f / renderDT) << std::endl;
-            update();
+            if (!k_doTri) update();
             render();
             glfwSwapBuffers(s_window);
             do accumDT -= k_targetDT; while (accumDT >= k_targetDT);
