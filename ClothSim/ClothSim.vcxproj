@@ -149,19 +149,21 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\ClothCPU.cpp" />
     <ClCompile Include="src\ClothMesher.cpp" />
     <ClCompile Include="src\ClothSim.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\resources\ClothSim\shaders\constraint.frag" />
-    <None Include="..\resources\ClothSim\shaders\constraint.geom" />
-    <None Include="..\resources\ClothSim\shaders\constraint.vert" />
+    <None Include="..\resources\ClothSim\shaders\cloth.comp" />
+    <None Include="..\resources\ClothSim\shaders\constraints.frag" />
+    <None Include="..\resources\ClothSim\shaders\constraints.geom" />
+    <None Include="..\resources\ClothSim\shaders\constraints.vert" />
     <None Include="..\resources\ClothSim\shaders\normal.comp" />
-    <None Include="..\resources\ClothSim\shaders\update.comp" />
     <None Include="..\resources\ClothSim\shaders\render.frag" />
     <None Include="..\resources\ClothSim\shaders\render.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\ClothCPU.hpp" />
     <ClInclude Include="src\ClothMesher.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

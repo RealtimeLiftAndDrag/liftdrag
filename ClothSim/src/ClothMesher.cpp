@@ -21,6 +21,8 @@ unq<SoftModel> createClothRectangle(ivec2 lod, float weaveSize) {
             vertices.push_back(vertex);
         }
     }
+    //vertices[lod.y * vertSize.x].mass = 0.0f;
+    //vertices[lod.y * vertSize.x + lod.x].mass = 0.0f;
     for (int i(0); i < vertSize.x; ++i) {
         vertices[lod.y * vertSize.x + i].mass = 0.0f;
     }
@@ -107,18 +109,14 @@ unq<SoftModel> createClothRectangle(ivec2 lod, float weaveSize) {
     return unq<SoftModel>(new SoftModel(SoftMesh(move(vertices), move(indices), move(constraints))));
 }
 
+constexpr float k_h(0.866025404f); // height of an equilateral triangle
+
 vec2 triToCart(vec2 p) {
-    constexpr float h(0.866025404f);
-    return vec2(p.y * 0.5f + p.x, p.y * h);
+    return vec2(p.y - p.x * 0.5f, p.x * k_h);
 }
 
-int triToI(ivec2 p, int edgeVerts) {
-    // TODO: optimize
-    int topEdgeVerts(edgeVerts - p.y);
-    int topVertCount((topEdgeVerts + 1) * topEdgeVerts / 2);
-    int vertCount((edgeVerts + 1) * edgeVerts / 2);
-    int startI(vertCount - topVertCount);
-    return startI + p.x;
+u32 triI(ivec2 p) {
+    return (p.y + 1) * p.y / 2 + p.x;
 }
 
 unq<SoftModel> createClothTriangle(int lod, float weaveSize) {
@@ -127,15 +125,12 @@ unq<SoftModel> createClothTriangle(int lod, float weaveSize) {
     float edgeLength(lod * weaveSize);
     std::vector<SoftVertex> vertices;
     vertices.reserve(vertCount);
+    vec2 origin(edgeLength * -0.5f, edgeLength * k_h * -0.5f);
     for (ivec2 p(0); p.y < edgeVerts; ++p.y) {
-        int rowVerts(edgeVerts - p.y);
-        for (p.x = 0; p.x < rowVerts; ++p.x) {
+        for (p.x = 0; p.x <= p.y; ++p.x) {
             SoftVertex vertex;
-            vertex.position = vec3(triToCart(vec2(p)) * weaveSize, 0.0f);
-            vertex.position.x -= edgeLength * 0.5f;
-            vertex.position.x = -vertex.position.x;
-            vertex.position.y = -vertex.position.y;
-            vertex.position.y += edgeLength * 0.866025404f * 0.5f;
+            vertex.position = vec3(origin + triToCart(vec2(p)) * weaveSize, 0.0f);
+            vertex.position = vec3(vertex.position.y + edgeLength * k_h * 0.5f, -vertex.position.x, vertex.position.z);
             vertex.mass = 1.0f;
             vertex.normal = vec3(0.0f, 0.0f, 1.0f);
             vertex.constraintFactor = 0.0f;
@@ -145,82 +140,71 @@ unq<SoftModel> createClothTriangle(int lod, float weaveSize) {
         }
     }
     for (int i(0); i < edgeVerts; ++i) {
-        vertices[i].mass = 0.0f;
+        vertices[triI(ivec2(0, i))].mass = 0.0f;
     }
+    //vertices[triI(ivec2(0, 0))].mass = 0.0f;
+    //vertices[triI(ivec2(0, lod))].mass = 0.0f;
 
     int indexCount = lod * lod * 3;
     std::vector<u32> indices;
     indices.reserve(indexCount);
-    int i(0);
     for (ivec2 p(0); p.y < lod; ++p.y) {
-        int rowVerts(edgeVerts - p.y);
-        for (p.x = 0; p.x < rowVerts - 1; ++p.x) {
+        for (p.x = 0; p.x <= p.y; ++p.x) {
+            u32 i(triI(p));
+            u32 j(i + p.y + 1);
             indices.push_back(i);
-            indices.push_back(i + 1);
-            indices.push_back(i + rowVerts);
-
-            if (p.x < rowVerts - 2) {
-                indices.push_back(i + rowVerts + 1);
-                indices.push_back(i + rowVerts);
+            indices.push_back(j);
+            indices.push_back(j + 1);
+            if (p.x < p.y) {
+                indices.push_back(j + 1);
                 indices.push_back(i + 1);
+                indices.push_back(i);
             }
-
-            ++i;
         }
-        ++i;
     }
 
-    /*int c1Count(vertSize.x * (vertSize.y - 1) + vertSize.y * (vertSize.x - 1));
-    int c2Count((vertSize.x - 1) * (vertSize.y - 1) * 2);
-    int c3Count(vertSize.x * (vertSize.y - 2) + vertSize.y * (vertSize.x - 2));
-    int c4Count((vertSize.x - 2) * (vertSize.y - 2) * 2);
-    int constraintCount = c1Count + c2Count + c3Count + c4Count;
     float d1(weaveSize);
-    float d2(d1 * std::sqrt(2.0f));
-    float d3(d1 * 2.0f);
-    float d4(d2 * 2.0f);
+    float d2(weaveSize * k_h * 2.0f);
     std::vector<Constraint> constraints;
-    constraints.reserve(constraintCount);
-    // C1 - small "+"
-    for (ivec2 p(0); p.y < vertSize.y; ++p.y) {
-        for (p.x = 0; p.x < vertSize.x - 1; ++p.x) {
-            u32 pi(p.y * vertSize.x + p.x);
-            constraints.push_back({ pi, pi + 1, d1 });
+    for (ivec2 p(0, 1); p.y <= lod; ++p.y) {
+        for (p.x = 0; p.x < p.y; ++p.x) {
+            ivec2 q(p);
+            constraints.push_back({ triI(q), triI(q + ivec2(1, 0)), d1 });
         }
     }
-    for (ivec2 p(0); p.y < vertSize.y - 1; ++p.y) {
-        for (p.x = 0; p.x < vertSize.x; ++p.x) {
-            u32 pi(p.y * vertSize.x + p.x);
-            constraints.push_back({ pi, pi + vertSize.x, d1 });
+    // Out from B corner
+    for (ivec2 p(0, 1); p.y <= lod; ++p.y) {
+        for (p.x = 0; p.x < p.y; ++p.x) {
+            ivec2 q(p.y - p.x, lod - p.x);
+            constraints.push_back({ triI(q), triI(q + ivec2(-1, -1)), d1 });
         }
     }
-    // C2 - small "x"
-    for (ivec2 p(0); p.y < vertSize.y - 1; ++p.y) {
-        for (p.x = 0; p.x < vertSize.x - 1; ++p.x) {
-            u32 pi(p.y * vertSize.x + p.x);
-            constraints.push_back({ pi, pi + vertSize.x + 1, d2 });
-            constraints.push_back({ pi + 1, pi + vertSize.x, d2 });
+    // Out from C corner
+    for (ivec2 p(0, 1); p.y <= lod; ++p.y) {
+        for (p.x = 0; p.x < p.y; ++p.x) {
+            ivec2 q(lod - p.y, lod + p.x - p.y);
+            constraints.push_back({ triI(q), triI(q + ivec2(0, 1)), d1 });
         }
     }
-    // C3 - large "+"
-    for (ivec2 p(0); p.y < vertSize.y; ++p.y) {
-        for (p.x = 0; p.x < vertSize.x - 2; ++p.x) {
-            u32 pi(p.y * vertSize.x + p.x);
-            constraints.push_back({ pi, pi + 2, d3 });
+    // Out from A corner
+    for (ivec2 p(0, 0); p.y < lod - 1; ++p.y) {
+        for (p.x = 0; p.x <= p.y; ++p.x) {
+            ivec2 q(p);
+            constraints.push_back({ triI(q), triI(q + ivec2(1, 2)), d2 });
         }
     }
-    for (ivec2 p(0); p.y < vertSize.y - 2; ++p.y) {
-        for (p.x = 0; p.x < vertSize.x; ++p.x) {
-            u32 pi(p.y * vertSize.x + p.x);
-            constraints.push_back({ pi, pi + vertSize.x * 2, d3 });
+    // Out from B corner
+    for (ivec2 p(0, 0); p.y < lod - 1; ++p.y) {
+        for (p.x = 0; p.x <= p.y; ++p.x) {
+            ivec2 q(p.y - p.x, lod - p.x);
+            constraints.push_back({ triI(q), triI(q + ivec2(1, -1)), d2 });
         }
     }
-    // C4 - large "x"
-    for (ivec2 p(0); p.y < vertSize.y - 2; ++p.y) {
-        for (p.x = 0; p.x < vertSize.x - 2; ++p.x) {
-            u32 pi(p.y * vertSize.x + p.x);
-            constraints.push_back({ pi, pi + vertSize.x * 2 + 2, d4 });
-            constraints.push_back({ pi + 2, pi + vertSize.x * 2, d4 });
+    // Out from C corner
+    for (ivec2 p(0, 0); p.y < lod - 1; ++p.y) {
+        for (p.x = 0; p.x <= p.y; ++p.x) {
+            ivec2 q(lod - p.y, lod + p.x - p.y);
+            constraints.push_back({ triI(q), triI(q + ivec2(-2, -1)), d2 });
         }
     }
     for (const Constraint & c : constraints) {
@@ -229,9 +213,8 @@ unq<SoftModel> createClothTriangle(int lod, float weaveSize) {
     }
     for (SoftVertex & p : vertices) {
         p.constraintFactor = p.mass > 0.0f ? 1.0f / p.constraintFactor : 0.0f;
-    }*/
+    }
 
-    std::vector<Constraint> constraints{{ 0, 0, 0.0f }};
     return unq<SoftModel>(new SoftModel(SoftMesh(move(vertices), move(indices), move(constraints))));
 
 }

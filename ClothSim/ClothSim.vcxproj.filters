@@ -21,6 +21,9 @@
     <ClCompile Include="src\ClothMesher.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\ClothCPU.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\resources\ClothSim\shaders\render.frag">
@@ -29,24 +32,27 @@
     <None Include="..\resources\ClothSim\shaders\render.vert">
       <Filter>resources\shaders</Filter>
     </None>
-    <None Include="..\resources\ClothSim\shaders\update.comp">
-      <Filter>resources\shaders</Filter>
-    </None>
     <None Include="..\resources\ClothSim\shaders\normal.comp">
       <Filter>resources\shaders</Filter>
     </None>
-    <None Include="..\resources\ClothSim\shaders\constraint.frag">
+    <None Include="..\resources\ClothSim\shaders\cloth.comp">
       <Filter>resources\shaders</Filter>
     </None>
-    <None Include="..\resources\ClothSim\shaders\constraint.vert">
+    <None Include="..\resources\ClothSim\shaders\constraints.frag">
       <Filter>resources\shaders</Filter>
     </None>
-    <None Include="..\resources\ClothSim\shaders\constraint.geom">
+    <None Include="..\resources\ClothSim\shaders\constraints.geom">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\constraints.vert">
       <Filter>resources\shaders</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ClothMesher.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ClothCPU.hpp">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

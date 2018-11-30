@@ -26,6 +26,7 @@ extern "C" {
 #include "RLD/Simulation.hpp"
 
 #include "ClothMesher.hpp"
+#include "ClothCPU.hpp"
 
 
 
@@ -39,14 +40,17 @@ static constexpr float k_targetFPS(60.0f);
 static constexpr float k_targetDT(1.0f / k_targetFPS);
 static constexpr float k_updateDT(1.0f / 60.0f);
 
-static constexpr bool k_doTri(false);
+static constexpr bool k_doTri(true);
+static constexpr bool k_viewConstraints(false);
+static constexpr bool k_doCPU(false);
 static const ivec2 k_clothLOD(40, 20);
 static const float k_clothSizeMajor(1.0f);
 static const float k_weaveSize(k_clothSizeMajor / glm::max(k_clothLOD.x, k_clothLOD.y));
-static const int k_triLOD(3);
+static const int k_triLOD(40);
 static const float k_triWeaveSize(1.0f / k_triLOD);
 static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
 static constexpr int k_constraintPasses(16);
+static constexpr bool k_doJitter(true);
 
 static constexpr float k_fov(glm::radians(90.0f));
 static constexpr float k_near(0.01f), k_far(100.0f);
@@ -62,9 +66,9 @@ static ivec2 s_workGroupSize2D;
 
 static unq<SoftModel> s_model;
 static unq<Shader> s_renderShader;
-static unq<Shader> s_updateShader;
+static unq<Shader> s_clothShader;
 static unq<Shader> s_normalShader;
-static unq<Shader> s_constraintShader;
+static unq<Shader> s_constraintsShader;
 static ThirdPersonCamera s_camera(k_minCamDist, k_maxCamDist);
 static u32 s_constraintVAO;
 
@@ -206,21 +210,21 @@ static bool setup() {
     }
     s_renderShader->bind();
     s_renderShader->uniform("u_lightDir", k_lightDir);
-    s_renderShader->uniform("u_primitiveCount", k_clothLOD.x * k_clothLOD.y * 2);
+    s_renderShader->uniform("u_primitiveCount", s_model->mesh().indexCount() / 3);
     Shader::unbind();
-    // Setup update shader
-    if (!(s_updateShader = Shader::load(shadersPath + "update.comp", {
+    // Setup cloth shader
+    if (!(s_clothShader = Shader::load(shadersPath + "cloth.comp", {
         { "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) },
         { "CONSTRAINT_PASSES", std::to_string(k_constraintPasses) }
     }))) {
-        std::cerr << "Failed to load update shader" << std::endl;
+        std::cerr << "Failed to load cloth shader" << std::endl;
         return false;
     }
-    s_updateShader->bind();
-    s_updateShader->uniform("u_vertexCount", s_model->mesh().vertexCount());
-    s_updateShader->uniform("u_constraintCount", s_model->mesh().constraintCount());
-    s_updateShader->uniform("u_dt", k_updateDT);
-    s_updateShader->uniform("u_gravity", k_gravity);
+    s_clothShader->bind();
+    s_clothShader->uniform("u_vertexCount", s_model->mesh().vertexCount());
+    s_clothShader->uniform("u_constraintCount", s_model->mesh().constraintCount());
+    s_clothShader->uniform("u_dt", k_updateDT);
+    s_clothShader->uniform("u_gravity", k_gravity);
     Shader::unbind();
     // Setup normal shader
     if (!(s_normalShader = Shader::load(shadersPath + "normal.comp", {{ "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) }}))) {
@@ -231,9 +235,9 @@ static bool setup() {
     s_normalShader->uniform("u_vertexCount", s_model->mesh().vertexCount());
     s_normalShader->uniform("u_indexCount", s_model->mesh().indexCount());
     Shader::unbind();
-    // Setup constraint shader
-    if (!(s_constraintShader = Shader::load(shadersPath + "constraint.vert", shadersPath + "constraint.geom", shadersPath + "constraint.frag"))) {
-        std::cerr << "Failed to load constraint shader" << std::endl;
+    // Setup constraints shader
+    if (!(s_constraintsShader = Shader::load(shadersPath + "constraints.vert", shadersPath + "constraints.geom", shadersPath + "constraints.frag"))) {
+        std::cerr << "Failed to load constraints shader" << std::endl;
         return false;
     }
 
@@ -247,20 +251,25 @@ static void update() {
 
     s_time = glm::fract(s_time * 0.2f) * 5.0f;
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_model->mesh().vertexBuffer());
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_model->mesh().indexBuffer());
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
+    if (k_doCPU) {
+        doCPU(*s_model, s_time, k_updateDT);
+    }
+    else {
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_model->mesh().vertexBuffer());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_model->mesh().indexBuffer());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
 
-    s_updateShader->bind();
-    s_updateShader->uniform("u_time", s_time * 0.2f);
-    glDispatchCompute(1, 1, 1);
-    glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
+        s_clothShader->bind();
+        s_clothShader->uniform("u_time", s_time * 0.2f);
+        glDispatchCompute(1, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
 
-    s_normalShader->bind();
-    glDispatchCompute(1, 1, 1);
-    glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
+        s_normalShader->bind();
+        glDispatchCompute(1, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
 
-    Shader::unbind();
+        Shader::unbind();
+    }
 
     s_time += k_targetDT;
 }
@@ -280,24 +289,27 @@ static void render() {
 
     glViewport(0, 0, s_windowSize.x, s_windowSize.y);
 
-    //s_renderShader->bind();
-    //s_renderShader->uniform("u_modelMat", mat4());
-    //s_renderShader->uniform("u_normalMat", mat3());
-    //s_renderShader->uniform("u_viewMat", s_camera.viewMat());
-    //s_renderShader->uniform("u_projMat", s_camera.projMat());
-    //s_renderShader->uniform("u_camPos", s_camera.position());
-    //s_model->draw();
-
-    s_constraintShader->bind();
-    s_constraintShader->uniform("u_modelMat", mat4());
-    s_constraintShader->uniform("u_normalMat", mat3());
-    s_constraintShader->uniform("u_viewMat", s_camera.viewMat());
-    s_constraintShader->uniform("u_projMat", s_camera.projMat());
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_model->mesh().vertexBuffer());
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
-    glBindVertexArray(s_constraintVAO);
-    glDrawArrays(GL_POINTS, 0, s_model->mesh().constraintCount());
-    glBindVertexArray(0);
+    if (k_viewConstraints) {
+        s_constraintsShader->bind();
+        s_constraintsShader->uniform("u_modelMat", mat4());
+        s_constraintsShader->uniform("u_normalMat", mat3());
+        s_constraintsShader->uniform("u_viewMat", s_camera.viewMat());
+        s_constraintsShader->uniform("u_projMat", s_camera.projMat());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_model->mesh().vertexBuffer());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
+        glBindVertexArray(s_constraintVAO);
+        glDrawArrays(GL_POINTS, 0, s_model->mesh().constraintCount());
+        glBindVertexArray(0);
+    }
+    else {
+        s_renderShader->bind();
+        s_renderShader->uniform("u_modelMat", mat4());
+        s_renderShader->uniform("u_normalMat", mat3());
+        s_renderShader->uniform("u_viewMat", s_camera.viewMat());
+        s_renderShader->uniform("u_projMat", s_camera.projMat());
+        s_renderShader->uniform("u_camPos", s_camera.position());
+        s_model->draw();
+    }
 
     Shader::unbind();
 
@@ -328,7 +340,7 @@ int main(int argc, char ** argv) {
             float renderDT(float(now - prevRenderTime));
             prevRenderTime = now;
             //std::cout << (1.0f / renderDT) << std::endl;
-            if (!k_doTri) update();
+            update();
             render();
             glfwSwapBuffers(s_window);
             do accumDT -= k_targetDT; while (accumDT >= k_targetDT);

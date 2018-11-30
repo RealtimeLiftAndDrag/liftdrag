@@ -35,7 +35,7 @@ SoftMesh::SoftMesh(SoftMesh && other) :
 bool SoftMesh::load() {
     glGenBuffers(1, &m_vertexBuffer);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_vertexBuffer);
-    glBufferStorage(GL_SHADER_STORAGE_BUFFER, m_vertices.size() * sizeof(SoftVertex), m_vertices.data(), 0);
+    glBufferStorage(GL_SHADER_STORAGE_BUFFER, m_vertices.size() * sizeof(SoftVertex), m_vertices.data(), GL_DYNAMIC_STORAGE_BIT); // TODO: can remove dynamic if not using cpu physics
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     glGenBuffers(1, &m_indexBuffer);
@@ -66,6 +66,12 @@ bool SoftMesh::load() {
     }
 
     return true;
+}
+
+void SoftMesh::upload() {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_vertexBuffer);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, m_vertices.size() * sizeof(SoftVertex), m_vertices.data());
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
 void SoftMesh::draw() const {

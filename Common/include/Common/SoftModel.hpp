@@ -35,18 +35,29 @@ class SoftMesh {
 
     bool load();
 
+    void upload();
+
     void draw() const;
 
     int vertexCount() const { return int(m_vertices.size()); }
+
     int indexCount() const { return int(m_indices.size()); }
+
     int constraintCount() const { return int(m_constraints.size()); }
 
+    std::vector<SoftVertex> & vertices() { return m_vertices; }
     const std::vector<SoftVertex> & vertices() const { return m_vertices; }
+
+    std::vector<u32> & indices() { return m_indices; }
     const std::vector<u32> & indices() const { return m_indices; }
+
+    std::vector<Constraint> & constraints() { return m_constraints; }
     const std::vector<Constraint> & constraints() const { return m_constraints; }
 
     u32 vertexBuffer() const { return m_vertexBuffer; }
+
     u32 indexBuffer() const { return m_indexBuffer; }
+
     u32 constraintBuffer() const { return m_constraintBuffer; }
 
     private:
@@ -75,6 +86,7 @@ class SoftModel {
 
     void draw() const;
 
+    SoftMesh & mesh() { return m_mesh; }
     const SoftMesh & mesh() const { return m_mesh; }
 
 };

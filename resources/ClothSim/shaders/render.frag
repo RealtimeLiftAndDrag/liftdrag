@@ -73,6 +73,7 @@ void main() {
     if (!gl_FrontFacing) norm = -norm;
 
     float diffuse = max(dot(u_lightDir, norm), 0.0f) * (1.0f - k_ambience) + k_ambience;
+    //out_color.rgb = vec3(1.0f, 0.25f, 0.0f) * diffuse;
 
     out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * diffuse;
     //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, (gl_PrimitiveID % 16) / 16.0f));

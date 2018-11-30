@@ -32,12 +32,14 @@ const int k_constraintPasses = CONSTRAINT_PASSES;
 const float k_pi = 3.14159265f;
 const float k_sqrt2 = 1.41421356f;
 const float k_damping = 0.01f;
-const bool k_doSphere = true;
-const bool k_doSin = false;
+const bool k_doGravity = true;
+const bool k_doSphere = false;
+const bool k_doWind = false;
 const float k_sphereRadius = 0.4f;
 const float k_sphereRadius2 = k_sphereRadius * k_sphereRadius;
 const vec3 k_sphereStartP = vec3(0.0f, -0.25f, 1.0f);
 const vec3 k_sphereEndP = vec3(0.0f, -0.25f, -1.0f);
+const vec3 k_wind = vec3(0.0f, 0.0f, -30.0f);
 
 // Uniforms --------------------------------------------------------------------
 
@@ -59,16 +61,17 @@ layout (binding = 2, std430) restrict buffer Constraints {
 
 // Functions -------------------------------------------------------------------
 
-void update(int pi) {
-    Vertex vertex = u_vertices[pi];
+void update(int vi) {
+    Vertex vertex = u_vertices[vi];
     vec3 pos = vertex.position;
     if (vertex.mass > 0.0f) {
-        vec3 acceleration = vertex.force / vertex.mass + u_gravity;
+        vec3 acceleration = vertex.force / vertex.mass;
+        if (k_doGravity) acceleration += u_gravity;
         vertex.position += (pos - vertex.prevPosition) * (1.0f - k_damping) + acceleration * u_dt * u_dt;
     }
     vertex.force = vec3(0.0f);
     vertex.prevPosition = pos;
-    u_vertices[pi] = vertex;
+    u_vertices[vi] = vertex;
 }
 
 void constrain(Constraint c) {
@@ -89,11 +92,11 @@ void constrain(Constraint c) {
     }
 }
 
-void finishConstrain(int pi) {
-    Vertex vertex = u_vertices[pi];
+void finishConstrain(int vi) {
+    Vertex vertex = u_vertices[vi];
     vertex.position += vertex.force * vertex.constraintFactor;
     vertex.force = vec3(0.0f);
-    u_vertices[pi] = vertex;
+    u_vertices[vi] = vertex;
 }
 
 void main() {
@@ -101,42 +104,41 @@ void main() {
 
     if (k_doSphere) {
         vec3 sphereOrigin = mix(k_sphereStartP, k_sphereEndP, u_time);
-        for (int pi = workI; pi < u_vertexCount; pi += k_workGroupSize) {
-            vec3 pos = u_vertices[pi].position;
+        for (int vi = workI; vi < u_vertexCount; vi += k_workGroupSize) {
+            vec3 pos = u_vertices[vi].position;
             vec3 d = pos - sphereOrigin;
             float dist2 = dot(d, d);
             if (dist2 < k_sphereRadius2) {
-                u_vertices[pi].position = sphereOrigin + d / sqrt(dist2) * k_sphereRadius;
+                u_vertices[vi].position = sphereOrigin + d / sqrt(dist2) * k_sphereRadius;
             }
         }
     }
-    else if (k_doSin) {
-        for (int pi = workI; pi < u_vertexCount; pi += k_workGroupSize) {
-            vec3 position = u_vertices[pi].position.xyz;
-            u_vertices[pi].position.z = sin(u_time * 2.0f * k_pi + position.x * position.y * 100.0f) * 0.025f;
+    else if (k_doWind) {
+        for (int vi = workI; vi < u_vertexCount; vi += k_workGroupSize) {
+            vec3 norm = u_vertices[vi].normal;
+            norm.z = abs(norm.z);
+            u_vertices[vi].force += norm * dot(norm, k_wind);
         }
     }
     barrier();
 
     // Update vertices
     if (true)
-    for (int pi = workI; pi < u_vertexCount; pi += k_workGroupSize) {
-        update(pi);
+    for (int vi = workI; vi < u_vertexCount; vi += k_workGroupSize) {
+        update(vi);
     }
     barrier();
 
     // Constrain
     if (true)
     for (int pass = 0; pass < k_constraintPasses; ++pass) {
-        if (workI % 32 == 0) {
-            for (int ci = workI / 32; ci < u_constraintCount; ci += k_workGroupSize / 32) {
-                constrain(u_constraints[ci]);
-                barrier();
-            }
+        for (int ci = workI; ci < u_constraintCount; ci += k_workGroupSize) {
+            constrain(u_constraints[ci]);
+            barrier();
         }
         barrier();
-        for (int pi = workI; pi < u_vertexCount; pi += k_workGroupSize) {
-            finishConstrain(pi);
+        for (int vi = workI; vi < u_vertexCount; vi += k_workGroupSize) {
+            finishConstrain(vi);
         }
         barrier();
     }
@@ -157,7 +159,7 @@ void main() {
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x - 1; p.x += k_workGroupSize2D.x) {
                     int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + 1, w0);
+                    constrain(vi, vi + 1, w0);
                 }
             }
             barrier();
@@ -165,8 +167,8 @@ void main() {
             // |
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y - 1; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x; p.x += k_workGroupSize2D.x) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x, w0);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x, w0);
                 }
             }
             barrier();
@@ -174,9 +176,9 @@ void main() {
             // X
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y - 1; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x - 1; p.x += k_workGroupSize2D.x) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x + 1, w1);
-                    constrain(pi + 1, pi + u_vertexCounts.x, w1);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x + 1, w1);
+                    constrain(vi + 1, vi + u_vertexCounts.x, w1);
                 }
             }
             barrier();            
@@ -184,8 +186,8 @@ void main() {
             // --
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + 2, w2);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + 2, w2);
                 }
             }
             barrier();
@@ -193,8 +195,8 @@ void main() {
             // ||
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x; p.x += k_workGroupSize2D.x) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2, w2);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2, w2);
                 }
             }
             barrier();
@@ -202,9 +204,9 @@ void main() {
             // XX
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2 + 2, w3);
-                    constrain(pi + 2, pi + u_vertexCounts.x * 2, w3);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2 + 2, w3);
+                    constrain(vi + 2, vi + u_vertexCounts.x * 2, w3);
                 }
             }
             barrier();
@@ -224,15 +226,15 @@ void main() {
             // -
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x * 2; p.x < u_vertexCounts.x - 1; p.x += k_workGroupSize2D.x * 2) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + 1, w0);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + 1, w0);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x * 2 + 1; p.x < u_vertexCounts.x - 1; p.x += k_workGroupSize2D.x * 2) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + 1, w0);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + 1, w0);
                 }
             }
             barrier();
@@ -240,15 +242,15 @@ void main() {
             // |
             for (ivec2 p = ivec2(0, workI2D.y * 2); p.y < u_vertexCounts.y - 1; p.y += k_workGroupSize2D.y * 2) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x; p.x += k_workGroupSize2D.x) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x, w0);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x, w0);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 2 + 1); p.y < u_vertexCounts.y - 1; p.y += k_workGroupSize2D.y * 2) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x; p.x += k_workGroupSize2D.x) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x, w0);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x, w0);
                 }
             }
             barrier();
@@ -256,33 +258,33 @@ void main() {
             // X
             for (ivec2 p = ivec2(0, workI2D.y * 2); p.y < u_vertexCounts.y - 1; p.y += k_workGroupSize2D.y * 2) {
                 for (p.x = workI2D.x * 2; p.x < u_vertexCounts.x - 1; p.x += k_workGroupSize2D.x * 2) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x + 1, w1);
-                    constrain(pi + 1, pi + u_vertexCounts.x, w1);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x + 1, w1);
+                    constrain(vi + 1, vi + u_vertexCounts.x, w1);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 2); p.y < u_vertexCounts.y - 1; p.y += k_workGroupSize2D.y * 2) {
                 for (p.x = workI2D.x * 2 + 1; p.x < u_vertexCounts.x - 1; p.x += k_workGroupSize2D.x * 2) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x + 1, w1);
-                    constrain(pi + 1, pi + u_vertexCounts.x, w1);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x + 1, w1);
+                    constrain(vi + 1, vi + u_vertexCounts.x, w1);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 2 + 1); p.y < u_vertexCounts.y - 1; p.y += k_workGroupSize2D.y * 2) {
                 for (p.x = workI2D.x * 2; p.x < u_vertexCounts.x - 1; p.x += k_workGroupSize2D.x * 2) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x + 1, w1);
-                    constrain(pi + 1, pi + u_vertexCounts.x, w1);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x + 1, w1);
+                    constrain(vi + 1, vi + u_vertexCounts.x, w1);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 2 + 1); p.y < u_vertexCounts.y - 1; p.y += k_workGroupSize2D.y * 2) {
                 for (p.x = workI2D.x * 2 + 1; p.x < u_vertexCounts.x - 1; p.x += k_workGroupSize2D.x * 2) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x + 1, w1);
-                    constrain(pi + 1, pi + u_vertexCounts.x, w1);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x + 1, w1);
+                    constrain(vi + 1, vi + u_vertexCounts.x, w1);
                 }
             }
             barrier();
@@ -292,22 +294,22 @@ void main() {
             // --
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x * 3; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + 2, w2);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + 2, w2);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x * 3 + 1; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + 2, w2);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + 2, w2);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y); p.y < u_vertexCounts.y; p.y += k_workGroupSize2D.y) {
                 for (p.x = workI2D.x * 3 + 2; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + 2, w2);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + 2, w2);
                 }
             }
             barrier();
@@ -315,22 +317,22 @@ void main() {
             // ||
             for (ivec2 p = ivec2(0, workI2D.y * 3); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x; p.x += k_workGroupSize2D.x) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2, w2);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2, w2);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 3 + 1); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x; p.x += k_workGroupSize2D.x) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2, w2);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2, w2);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 3 + 2); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x; p.x < u_vertexCounts.x; p.x += k_workGroupSize2D.x) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2, w2);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2, w2);
                 }
             }
             barrier();
@@ -338,73 +340,73 @@ void main() {
             // XX
             for (ivec2 p = ivec2(0, workI2D.y * 3); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x * 3; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2 + 2, w3);
-                    constrain(pi + 2, pi + u_vertexCounts.x * 2, w3);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2 + 2, w3);
+                    constrain(vi + 2, vi + u_vertexCounts.x * 2, w3);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 3); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x * 3 + 1; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2 + 2, w3);
-                    constrain(pi + 2, pi + u_vertexCounts.x * 2, w3);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2 + 2, w3);
+                    constrain(vi + 2, vi + u_vertexCounts.x * 2, w3);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 3); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x * 3 + 2; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2 + 2, w3);
-                    constrain(pi + 2, pi + u_vertexCounts.x * 2, w3);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2 + 2, w3);
+                    constrain(vi + 2, vi + u_vertexCounts.x * 2, w3);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 3 + 1); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x * 3; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2 + 2, w3);
-                    constrain(pi + 2, pi + u_vertexCounts.x * 2, w3);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2 + 2, w3);
+                    constrain(vi + 2, vi + u_vertexCounts.x * 2, w3);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 3 + 1); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x * 3 + 1; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2 + 2, w3);
-                    constrain(pi + 2, pi + u_vertexCounts.x * 2, w3);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2 + 2, w3);
+                    constrain(vi + 2, vi + u_vertexCounts.x * 2, w3);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 3 + 1); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x * 3 + 2; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2 + 2, w3);
-                    constrain(pi + 2, pi + u_vertexCounts.x * 2, w3);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2 + 2, w3);
+                    constrain(vi + 2, vi + u_vertexCounts.x * 2, w3);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 3 + 2); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x * 3; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2 + 2, w3);
-                    constrain(pi + 2, pi + u_vertexCounts.x * 2, w3);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2 + 2, w3);
+                    constrain(vi + 2, vi + u_vertexCounts.x * 2, w3);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 3 + 2); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x * 3 + 1; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2 + 2, w3);
-                    constrain(pi + 2, pi + u_vertexCounts.x * 2, w3);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2 + 2, w3);
+                    constrain(vi + 2, vi + u_vertexCounts.x * 2, w3);
                 }
             }
             barrier();
             for (ivec2 p = ivec2(0, workI2D.y * 3 + 2); p.y < u_vertexCounts.y - 2; p.y += k_workGroupSize2D.y * 3) {
                 for (p.x = workI2D.x * 3 + 2; p.x < u_vertexCounts.x - 2; p.x += k_workGroupSize2D.x * 3) {
-                    int pi = p.y * u_vertexCounts.x + p.x;
-                    constrain(pi, pi + u_vertexCounts.x * 2 + 2, w3);
-                    constrain(pi + 2, pi + u_vertexCounts.x * 2, w3);
+                    int vi = p.y * u_vertexCounts.x + p.x;
+                    constrain(vi, vi + u_vertexCounts.x * 2 + 2, w3);
+                    constrain(vi + 2, vi + u_vertexCounts.x * 2, w3);
                 }
             }
             barrier();
