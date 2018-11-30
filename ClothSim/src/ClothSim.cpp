@@ -41,7 +41,7 @@ static constexpr float k_targetDT(1.0f / k_targetFPS);
 static constexpr float k_updateDT(1.0f / 60.0f);
 
 static constexpr bool k_doTri(true);
-static constexpr bool k_viewConstraints(false);
+static constexpr bool k_viewConstraints(true);
 static constexpr bool k_doCPU(false);
 static const ivec2 k_clothLOD(40, 20);
 static const float k_clothSizeMajor(1.0f);
@@ -50,11 +50,11 @@ static const int k_triLOD(40);
 static const float k_triWeaveSize(1.0f / k_triLOD);
 static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
 static constexpr int k_constraintPasses(16);
-static constexpr bool k_doJitter(true);
+static constexpr bool k_doTouch(true);
 
 static constexpr float k_fov(glm::radians(90.0f));
 static constexpr float k_near(0.01f), k_far(100.0f);
-static const vec3 k_lightDir(glm::normalize(vec3(1.0f)));
+static const vec3 k_lightDir(glm::normalize(vec3(0.0f, 1.0f, 1.0f)));
 static constexpr float k_minCamDist(0.5f), k_maxCamDist(3.0f);
 static constexpr float k_camPanAngle(0.01f);
 static const float k_camZoomAmount(0.1f);
@@ -145,7 +145,7 @@ static bool setup() {
     }
     glfwMakeContextCurrent(s_window);
     glfwSwapInterval(0); // VSync on or off
-    glfwSetInputMode(s_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    //glfwSetInputMode(s_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetKeyCallback(s_window, keyCallback);
     glfwSetCursorPosCallback(s_window, cursorPosCallback);
     glfwSetCursorEnterCallback(s_window, cursorEnterCallback);
@@ -261,6 +261,22 @@ static void update() {
 
         s_clothShader->bind();
         s_clothShader->uniform("u_time", s_time * 0.2f);
+        if (k_doTouch) {
+            double mx, my;
+            glfwGetCursorPos(s_window, &mx, &my);
+            vec2 mp(mx, my);
+            mp /= s_windowSize;
+            mp.y = 1.0f - mp.y;
+            mp = mp * 2.0f - 1.0f;
+            vec2 aspect(1.0f);
+            if (s_windowSize.x > s_windowSize.y) aspect.x *= float(s_windowSize.x) / float(s_windowSize.y);
+            else aspect.y *= float(s_windowSize.y) / float(s_windowSize.x);
+            s_clothShader->uniform("u_touchMat", s_camera.projMat() * s_camera.viewMat());
+            s_clothShader->uniform("u_touchPos", mp);
+            s_clothShader->uniform("u_touchDir", -s_camera.w());
+            s_clothShader->uniform("u_isTouch", bool(glfwGetMouseButton(s_window, 1)));
+            s_clothShader->uniform("u_aspect", aspect);
+        }
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
 

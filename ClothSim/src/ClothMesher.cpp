@@ -130,7 +130,8 @@ unq<SoftModel> createClothTriangle(int lod, float weaveSize) {
         for (p.x = 0; p.x <= p.y; ++p.x) {
             SoftVertex vertex;
             vertex.position = vec3(origin + triToCart(vec2(p)) * weaveSize, 0.0f);
-            vertex.position = vec3(vertex.position.y + edgeLength * k_h * 0.5f, -vertex.position.x, vertex.position.z);
+            vertex.position = -vertex.position;
+            //vertex.position = vec3(vertex.position.y + edgeLength * k_h * 0.5f, -vertex.position.x, vertex.position.z);
             vertex.mass = 1.0f;
             vertex.normal = vec3(0.0f, 0.0f, 1.0f);
             vertex.constraintFactor = 0.0f;

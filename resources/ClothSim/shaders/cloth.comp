@@ -35,11 +35,14 @@ const float k_damping = 0.01f;
 const bool k_doGravity = true;
 const bool k_doSphere = false;
 const bool k_doWind = false;
+const bool k_doTouch = true;
 const float k_sphereRadius = 0.4f;
 const float k_sphereRadius2 = k_sphereRadius * k_sphereRadius;
 const vec3 k_sphereStartP = vec3(0.0f, -0.25f, 1.0f);
 const vec3 k_sphereEndP = vec3(0.0f, -0.25f, -1.0f);
 const vec3 k_wind = vec3(0.0f, 0.0f, -30.0f);
+const float k_touchMag = 50.0f;
+const float k_touchRad = 0.1f;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -48,6 +51,11 @@ uniform int u_constraintCount;
 uniform float u_dt;
 uniform vec3 u_gravity;
 uniform float u_time;
+uniform mat4 u_touchMat;
+uniform vec2 u_touchPos;
+uniform vec3 u_touchDir;
+uniform bool u_isTouch;
+uniform vec2 u_aspect;
 
 layout (binding = 0, std430) restrict buffer Vertices {
     Vertex u_vertices[];
@@ -119,6 +127,16 @@ void main() {
             norm.z = abs(norm.z);
             u_vertices[vi].force += norm * dot(norm, k_wind);
         }
+    }
+    if (k_doTouch && u_isTouch) {
+        for (int vi = workI; vi < u_vertexCount; vi += k_workGroupSize) {
+            vec2 pos = (u_touchMat * vec4(u_vertices[vi].position, 1.0f)).xy;
+            pos *= u_aspect;
+            vec2 delta = pos - u_touchPos;
+            float dist2 = dot(delta, delta);
+            float strength = max(1.0f - dist2 / (k_touchRad * k_touchRad), 0.0f) * k_touchMag;
+            u_vertices[vi].force += u_touchDir * strength;
+        }        
     }
     barrier();
 
