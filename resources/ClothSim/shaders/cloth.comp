@@ -56,6 +56,7 @@ uniform vec2 u_touchPos;
 uniform vec3 u_touchDir;
 uniform bool u_isTouch;
 uniform vec2 u_aspect;
+uniform float u_weaveSize;
 
 layout (binding = 0, std430) restrict buffer Vertices {
     Vertex u_vertices[];
@@ -98,8 +99,34 @@ void constrain(Constraint c) {
     if (m2 > 0.0f) u_vertices[c.j].position += c2;
 }
 
+float maxDist2;
+
+void collide(int vi1, Vertex v2) {
+    if (u_vertices[vi1].mass < 0.0f) {
+        return;
+    }
+    vec3 delta = u_vertices[vi1].position - v2.position;
+    float dist2 = dot(delta, delta);
+    if (dist2 < maxDist2) {
+        u_vertices[vi1].position = v2.position + delta / sqrt(dist2) * u_weaveSize;
+    }
+}
+
+void collideAll(int workI) {
+    for (int vi2 = 0; vi2 < u_vertexCount - 1; ++vi2) {
+        Vertex v = u_vertices[vi2];
+        for (int vi1 = vi2 + 1 + workI; vi1 < u_vertexCount; vi1 += k_workGroupSize) {
+            collide(vi1, v);
+        }
+        barrier();
+    }
+}
+
 void main() {
     const int workI = int(gl_LocalInvocationIndex);
+
+    maxDist2 = u_weaveSize * 0.5f;
+    maxDist2 *= maxDist2;
 
     if (k_doSphere) {
         vec3 sphereOrigin = mix(k_sphereStartP, k_sphereEndP, u_time);
@@ -144,5 +171,6 @@ void main() {
             barrier();
         }
         barrier();
+        //collideAll(workI);
     }
 }

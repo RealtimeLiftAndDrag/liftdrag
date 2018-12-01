@@ -223,6 +223,7 @@ static bool setup() {
     s_clothShader->uniform("u_constraintCount", s_model->mesh().constraintCount());
     s_clothShader->uniform("u_dt", k_updateDT);
     s_clothShader->uniform("u_gravity", k_gravity);
+    s_clothShader->uniform("u_weaveSize", k_weaveSize);
     Shader::unbind();
     // Setup normal shader
     if (!(s_normalShader = Shader::load(shadersPath + "normal.comp", {{ "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) }}))) {
