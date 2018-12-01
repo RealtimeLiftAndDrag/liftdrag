@@ -14,9 +14,9 @@ struct SoftVertex {
     vec3 normal;
     float _0;
     vec3 force;
-    float constraintFactor; // inverse of the number of constraints for this vertex
+    float _1;
     vec3 prevPosition;
-    s32 _1;
+    float _2;
 };
 
 struct Constraint {

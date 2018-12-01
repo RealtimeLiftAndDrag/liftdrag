@@ -26,7 +26,6 @@ extern "C" {
 #include "RLD/Simulation.hpp"
 
 #include "ClothMesher.hpp"
-#include "ClothCPU.hpp"
 
 
 
@@ -40,10 +39,9 @@ static constexpr float k_targetFPS(60.0f);
 static constexpr float k_targetDT(1.0f / k_targetFPS);
 static constexpr float k_updateDT(1.0f / 60.0f);
 
-static constexpr bool k_doTri(true);
-static constexpr bool k_viewConstraints(true);
-static constexpr bool k_doCPU(false);
-static const ivec2 k_clothLOD(40, 20);
+static constexpr bool k_doTri(false);
+static constexpr bool k_viewConstraints(false);
+static const ivec2 k_clothLOD(40, 40);
 static const float k_clothSizeMajor(1.0f);
 static const float k_weaveSize(k_clothSizeMajor / glm::max(k_clothLOD.x, k_clothLOD.y));
 static const int k_triLOD(40);
@@ -175,10 +173,10 @@ static bool setup() {
 
     // Setup mesh
     if (k_doTri) {
-        s_model = createClothTriangle(k_triLOD, k_triWeaveSize);
+        s_model = createClothTriangle(k_triLOD, k_triWeaveSize, s_workGroupSize);
     }
     else {
-        s_model = createClothRectangle(k_clothLOD, k_weaveSize);
+        s_model = createClothRectangle(k_clothLOD, k_weaveSize, s_workGroupSize);
     }
     if (!s_model->load()) {
         std::cerr << "Failed to load soft mesh" << std::endl;
@@ -251,41 +249,36 @@ static void update() {
 
     s_time = glm::fract(s_time * 0.2f) * 5.0f;
 
-    if (k_doCPU) {
-        doCPU(*s_model, s_time, k_updateDT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_model->mesh().vertexBuffer());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_model->mesh().indexBuffer());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
+
+    s_clothShader->bind();
+    s_clothShader->uniform("u_time", s_time * 0.2f);
+    if (k_doTouch) {
+        double mx, my;
+        glfwGetCursorPos(s_window, &mx, &my);
+        vec2 mp(mx, my);
+        mp /= s_windowSize;
+        mp.y = 1.0f - mp.y;
+        mp = mp * 2.0f - 1.0f;
+        vec2 aspect(1.0f);
+        if (s_windowSize.x > s_windowSize.y) aspect.x *= float(s_windowSize.x) / float(s_windowSize.y);
+        else aspect.y *= float(s_windowSize.y) / float(s_windowSize.x);
+        s_clothShader->uniform("u_touchMat", s_camera.projMat() * s_camera.viewMat());
+        s_clothShader->uniform("u_touchPos", mp);
+        s_clothShader->uniform("u_touchDir", -s_camera.w());
+        s_clothShader->uniform("u_isTouch", bool(glfwGetMouseButton(s_window, 1)));
+        s_clothShader->uniform("u_aspect", aspect);
     }
-    else {
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_model->mesh().vertexBuffer());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_model->mesh().indexBuffer());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
+    glDispatchCompute(1, 1, 1);
+    glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
 
-        s_clothShader->bind();
-        s_clothShader->uniform("u_time", s_time * 0.2f);
-        if (k_doTouch) {
-            double mx, my;
-            glfwGetCursorPos(s_window, &mx, &my);
-            vec2 mp(mx, my);
-            mp /= s_windowSize;
-            mp.y = 1.0f - mp.y;
-            mp = mp * 2.0f - 1.0f;
-            vec2 aspect(1.0f);
-            if (s_windowSize.x > s_windowSize.y) aspect.x *= float(s_windowSize.x) / float(s_windowSize.y);
-            else aspect.y *= float(s_windowSize.y) / float(s_windowSize.x);
-            s_clothShader->uniform("u_touchMat", s_camera.projMat() * s_camera.viewMat());
-            s_clothShader->uniform("u_touchPos", mp);
-            s_clothShader->uniform("u_touchDir", -s_camera.w());
-            s_clothShader->uniform("u_isTouch", bool(glfwGetMouseButton(s_window, 1)));
-            s_clothShader->uniform("u_aspect", aspect);
-        }
-        glDispatchCompute(1, 1, 1);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
+    s_normalShader->bind();
+    glDispatchCompute(1, 1, 1);
+    glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
 
-        s_normalShader->bind();
-        glDispatchCompute(1, 1, 1);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
-
-        Shader::unbind();
-    }
+    Shader::unbind();
 
     s_time += k_targetDT;
 }

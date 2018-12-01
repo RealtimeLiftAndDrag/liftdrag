@@ -149,7 +149,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\ClothCPU.cpp" />
     <ClCompile Include="src\ClothMesher.cpp" />
     <ClCompile Include="src\ClothSim.cpp" />
   </ItemGroup>
@@ -163,7 +162,6 @@
     <None Include="..\resources\ClothSim\shaders\render.vert" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\ClothCPU.hpp" />
     <ClInclude Include="src\ClothMesher.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

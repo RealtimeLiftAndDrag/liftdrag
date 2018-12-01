@@ -1,8 +1,39 @@
 #include "ClothMesher.hpp"
 
+#include <list>
 
 
-unq<SoftModel> createClothRectangle(ivec2 lod, float weaveSize) {
+
+static void decouple(const std::vector<SoftVertex> & vertices, std::vector<Constraint> & constraints, int groupSize) {
+    std::list<Constraint> cList(constraints.cbegin(), constraints.cend());
+    constraints.clear();
+    unq<bool[]> vertHeld(new bool[vertices.size()]);
+
+    while (!cList.empty()) {
+        std::fill_n(vertHeld.get(), vertices.size(), false);
+
+        int n(0);
+        auto it(cList.begin());
+        while (n < groupSize && it != cList.end()) {
+            const Constraint & c(*it);
+            if (!vertHeld[c.i] && !vertHeld[c.j]) {
+                constraints.push_back(c);
+                vertHeld[c.i] = true;
+                vertHeld[c.j] = true;
+                it = cList.erase(it);
+                ++n;
+            }
+            else {
+                ++it;
+            }
+        }
+        constraints.insert(constraints.end(), groupSize - n, {});
+    }
+}
+
+
+
+unq<SoftModel> createClothRectangle(ivec2 lod, float weaveSize, int groupSize) {
     ivec2 vertSize(lod + 1);
     int vertCount(vertSize.x * vertSize.y);
     std::vector<SoftVertex> vertices;
@@ -15,17 +46,16 @@ unq<SoftModel> createClothRectangle(ivec2 lod, float weaveSize) {
             vertex.position = vec3(corner + vec2(p) * weaveSize, 0.0f);
             vertex.mass = 1.0f;
             vertex.normal = vec3(0.0f, 0.0f, 1.0f);
-            vertex.constraintFactor = 0.0f;
             vertex.force = vec3(0.0f);
             vertex.prevPosition = vertex.position;
             vertices.push_back(vertex);
         }
     }
     //vertices[lod.y * vertSize.x].mass = 0.0f;
-    //vertices[lod.y * vertSize.x + lod.x].mass = 0.0f;
-    for (int i(0); i < vertSize.x; ++i) {
-        vertices[lod.y * vertSize.x + i].mass = 0.0f;
-    }
+    vertices[lod.y * vertSize.x + lod.x].mass = 0.0f;
+    //for (int i(0); i < vertSize.x; ++i) {
+    //    vertices[lod.y * vertSize.x + i].mass = 0.0f;
+    //}
     //for (int i(0); i < vertSize.y; ++i) {
     //    vertices[i * vertSize.x].mass = 0.0f;
     //}
@@ -98,13 +128,8 @@ unq<SoftModel> createClothRectangle(ivec2 lod, float weaveSize) {
             constraints.push_back({ pi + 2, pi + vertSize.x * 2, d4 });
         }
     }
-    for (const Constraint & c : constraints) {
-        ++vertices[c.i].constraintFactor;
-        ++vertices[c.j].constraintFactor;
-    }
-    for (SoftVertex & p : vertices) {
-        p.constraintFactor = p.mass > 0.0f ? 1.0f / p.constraintFactor : 0.0f;
-    }
+
+    if (groupSize) decouple(vertices, constraints, groupSize);
 
     return unq<SoftModel>(new SoftModel(SoftMesh(move(vertices), move(indices), move(constraints))));
 }
@@ -119,7 +144,7 @@ u32 triI(ivec2 p) {
     return (p.y + 1) * p.y / 2 + p.x;
 }
 
-unq<SoftModel> createClothTriangle(int lod, float weaveSize) {
+unq<SoftModel> createClothTriangle(int lod, float weaveSize, int groupSize) {
     int edgeVerts(lod + 1);
     int vertCount((edgeVerts + 1) * edgeVerts / 2);
     float edgeLength(lod * weaveSize);
@@ -134,17 +159,16 @@ unq<SoftModel> createClothTriangle(int lod, float weaveSize) {
             //vertex.position = vec3(vertex.position.y + edgeLength * k_h * 0.5f, -vertex.position.x, vertex.position.z);
             vertex.mass = 1.0f;
             vertex.normal = vec3(0.0f, 0.0f, 1.0f);
-            vertex.constraintFactor = 0.0f;
             vertex.force = vec3(0.0f);
             vertex.prevPosition = vertex.position;
             vertices.push_back(vertex);
         }
     }
-    for (int i(0); i < edgeVerts; ++i) {
-        vertices[triI(ivec2(0, i))].mass = 0.0f;
-    }
-    //vertices[triI(ivec2(0, 0))].mass = 0.0f;
-    //vertices[triI(ivec2(0, lod))].mass = 0.0f;
+    //for (int i(0); i < edgeVerts; ++i) {
+    //    vertices[triI(ivec2(0, i))].mass = 0.0f;
+    //}
+    vertices[triI(ivec2(0, 0))].mass = 0.0f;
+    vertices[triI(ivec2(0, lod))].mass = 0.0f;
 
     int indexCount = lod * lod * 3;
     std::vector<u32> indices;
@@ -208,13 +232,8 @@ unq<SoftModel> createClothTriangle(int lod, float weaveSize) {
             constraints.push_back({ triI(q), triI(q + ivec2(-2, -1)), d2 });
         }
     }
-    for (const Constraint & c : constraints) {
-        ++vertices[c.i].constraintFactor;
-        ++vertices[c.j].constraintFactor;
-    }
-    for (SoftVertex & p : vertices) {
-        p.constraintFactor = p.mass > 0.0f ? 1.0f / p.constraintFactor : 0.0f;
-    }
+
+    if (groupSize) decouple(vertices, constraints, groupSize);
 
     return unq<SoftModel>(new SoftModel(SoftMesh(move(vertices), move(indices), move(constraints))));
 

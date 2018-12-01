@@ -48,6 +48,10 @@ layout (binding = 2, std430) restrict buffer Constraints {
 
 void main() {
     Constraint c = u_constraints[gl_PrimitiveIDIn];
+    if (c.i == c.j) {
+        return;
+    }
+
     vec3 p1 = u_vertices[c.i].position;
     vec3 p2 = u_vertices[c.j].position;
     float dist = distance(p1, p2);

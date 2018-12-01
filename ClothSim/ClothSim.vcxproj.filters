@@ -21,9 +21,6 @@
     <ClCompile Include="src\ClothMesher.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\ClothCPU.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\resources\ClothSim\shaders\render.frag">
@@ -50,9 +47,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ClothMesher.hpp">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ClothCPU.hpp">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
