@@ -560,10 +560,11 @@ namespace rld {
         if (k_useAllCores) glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &coreCount);
         else coreCount = k_coresToUse;
         int warpCount(coreCount / k_warpSize);
-        s_workGroupSize = warpCount * k_warpSize; // we want workgroups to be a warp multiple
+        //s_workGroupSize = warpCount * k_warpSize; // we want workgroups to be a warp multiple
         s_workGroupSize2D.x = int(std::round(std::sqrt(float(warpCount))));
         s_workGroupSize2D.y = warpCount / s_workGroupSize2D.x;
         s_workGroupSize2D *= k_warpSize2D;
+        s_workGroupSize = s_workGroupSize2D.x * s_workGroupSize2D.y; // match 1d group size to 2d so can use interchangeably in shaders
 
         s_texSize = texSize;
         s_maxGeoPixels = s_texSize * s_texSize / k_maxPixelsDivisor;

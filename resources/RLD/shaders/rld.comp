@@ -132,6 +132,7 @@ layout (binding = 4, std430) restrict buffer Results {
 // Shared ----------------------------------------------------------------------
 
 shared vec3 s_accumulationArray[k_workGroupSize];
+//shared int s_geoCounts[k_workGroupSize];
 
 // Functions -------------------------------------------------------------------
 
@@ -649,7 +650,6 @@ void move(int airI) {
 void main() {
     const int workI = int(gl_LocalInvocationIndex);
     const ivec2 workI2D = ivec2(workI % k_workGroupSize2D.x, workI / k_workGroupSize2D.x);
-    const bool isThread2D = all(lessThan(workI2D, k_workGroupSize2D)); // 2D workgroup area may be slightly smaller than the 1D workgroup size
     s_accumulationArray[workI] = vec3(0.0f);
 
     // Zero results
@@ -660,22 +660,18 @@ void main() {
     }
 
     // Prospect
-    if (isThread2D) {
-        for (ivec2 texCoord = ivec2(0, workI2D.y); texCoord.y < u_screenSize; texCoord.y += k_workGroupSize2D.y) {
-            for (texCoord.x = workI2D.x; texCoord.x < u_screenSize; texCoord.x += k_workGroupSize2D.x) {
-                prospect(texCoord);
-            }
+    for (ivec2 texCoord = ivec2(0, workI2D.y); texCoord.y < u_screenSize; texCoord.y += k_workGroupSize2D.y) {
+        for (texCoord.x = workI2D.x; texCoord.x < u_screenSize; texCoord.x += k_workGroupSize2D.x) {
+            prospect(texCoord);
         }
     }
 
     barrier();
 
     // Copy turbulence textue to previous turbulence texture
-    if (isThread2D) {
-        for (ivec2 texCoord = ivec2(0, workI2D.y); texCoord.y < u_screenSize / 4; texCoord.y += k_workGroupSize2D.y) {
-            for (texCoord.x = workI2D.x; texCoord.x < u_screenSize / 4; texCoord.x += k_workGroupSize2D.x) {
-                imageStore(u_prevTurbImg, texCoord, imageLoad(u_turbImg, texCoord));
-            }
+    for (ivec2 texCoord = ivec2(0, workI2D.y); texCoord.y < u_screenSize / 4; texCoord.y += k_workGroupSize2D.y) {
+        for (texCoord.x = workI2D.x; texCoord.x < u_screenSize / 4; texCoord.x += k_workGroupSize2D.x) {
+            imageStore(u_prevTurbImg, texCoord, imageLoad(u_turbImg, texCoord));
         }
     }
 
