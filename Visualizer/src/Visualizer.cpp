@@ -59,7 +59,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::f18);
+static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
@@ -232,6 +232,10 @@ static void setSimulation(float angleOfAttack, bool debug) {
 }
 
 static void submitResults(float angleOfAttack) {
+    if (!rld::lifts()) {
+        return;
+    }
+
     results::submitAngle(angleOfAttack, { rld::lift(), rld::drag(), rld::torq() });
     const vec3 * lifts(rld::lifts());
     const vec3 * drags(rld::drags());
@@ -248,20 +252,17 @@ static void doFastSweep(float angleOfAttack) {
 
     glDisable(GL_BLEND); // Can't have blending for simulation
 
-    double then(glfwGetTime());
     rld::sweep();
-    double dt(glfwGetTime() - then);
 
     glEnable(GL_BLEND);
 
     submitResults(angleOfAttack);
-
-    std::cout << "Angle: " << angleOfAttack << ", Lift: " << rld::lift().y << ", Drag: " << glm::length(rld::drag()) << ", Torque: " << rld::torq().x << ", SPS: " << (1.0 / dt) << std::endl;
 }
 
 static void doAllAngles() {
     results::clearSlices();
 
+    glFinish();
     double then(glfwGetTime());
 
     int count(0);
@@ -271,6 +272,7 @@ static void doAllAngles() {
         count += 2;
     }
 
+    glFinish();
     double dt(glfwGetTime() - then);
     std::cout << "Average SPS: " << (double(count) / dt) << std::endl;
 }

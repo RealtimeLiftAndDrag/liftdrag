@@ -723,7 +723,7 @@ namespace rld {
 
         // Was last slice
         if (s_currentSlice >= s_sliceCount) {
-            downloadResults();
+            //downloadResults();
 
             s_currentSlice = 0;
             return true;
