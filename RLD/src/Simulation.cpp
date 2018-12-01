@@ -45,12 +45,6 @@ namespace rld {
     };
 
     // Mirrors GPU struct
-    struct AirGeoMapElement {
-        s32 geoCount;
-        s32 geoIndices[k_maxGeoPerAir];
-    };
-
-    // Mirrors GPU struct
     struct Constants {
         s32 maxGeoPixels;
         s32 maxAirPixels;
@@ -620,7 +614,7 @@ namespace rld {
         // Setup air geo map SSBO
         glGenBuffers(1, &s_airGeoMapSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airGeoMapSSBO);
-        glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_maxAirPixels * sizeof(AirGeoMapElement), nullptr, GL_DYNAMIC_STORAGE_BIT);
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_maxAirPixels * sizeof(int), nullptr, 0);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup flag texture

@@ -8,8 +8,6 @@
 #define WORK_GROUP_SIZE_2D ivec2(32, 32)
 #endif
 
-#define MAX_GEO_PER_AIR 3
-
 #ifndef DEBUG
 #define DEBUG false
 #endif
@@ -47,11 +45,6 @@ struct AirPixel {
     vec2 velocity;
     vec2 backforce;
     vec2 turbulence; // x component is turbulence
-};
-
-struct AirGeoMapElement {
-    int geoCount;
-    int geoIndices[MAX_GEO_PER_AIR];
 };
 
 // Constants -------------------------------------------------------------------
@@ -129,7 +122,7 @@ layout (binding = 2, std430) restrict buffer PrevAirPixels {
 };
 
 layout (binding = 3, std430) restrict buffer AirGeoMap {
-    coherent AirGeoMapElement u_airGeoMap[];
+    int u_airGeoMap[];
 };
 
 layout (binding = 4, std430) restrict buffer Results {
@@ -340,7 +333,7 @@ void draw(int prevAirI) {
         return;
     }
     u_airPixels[airI] = air;
-    u_airGeoMap[airI].geoCount = 0; // This air pixel is not yet associated with any geometry
+    u_airGeoMap[airI] = 0; // This air pixel is not yet associated with any geometry
 
     // Store air index
     imageStore(u_flagImg, airTexCoord, ivec4(airI + 1, 0, 0, 0));
@@ -385,10 +378,7 @@ void outline(int geoI) {
 
                 shouldSpawn = false;
 
-                int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
-                if (mapI < MAX_GEO_PER_AIR) {
-                    u_airGeoMap[airI].geoIndices[mapI] = geoI;
-                }
+                u_airGeoMap[airI] = geoI + 1;
             }
         }
 
@@ -449,11 +439,7 @@ void outline(int geoI) {
                         break;
                     }
 
-                    int mapI = atomicAdd(u_airGeoMap[airI].geoCount, 1);
-                    if (mapI >= MAX_GEO_PER_AIR) {
-                        break;
-                    }
-                    u_airGeoMap[airI].geoIndices[mapI] = geoI;
+                    u_airGeoMap[airI] = geoI + 1;
 
                     shouldSpawn = false;
                     break;
@@ -472,8 +458,7 @@ void outline(int geoI) {
             return;
         }
 
-        u_airGeoMap[airI].geoCount = 1;
-        u_airGeoMap[airI].geoIndices[0] = geoI;
+        u_airGeoMap[airI] = geoI + 1;
 
         vec2 airWindPos = geoWindPos;
         vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
@@ -507,10 +492,12 @@ void move(int airI) {
     vec2 airWindPos = u_airPixels[airI].windPos;
     vec2 airVelocity = u_airPixels[airI].velocity;
     float airTurbulence = u_airPixels[airI].turbulence.x;
-    int geoCount = u_airGeoMap[airI].geoCount;
+    int geoI = u_airGeoMap[airI];
+    bool isGeo = false;
+    if (geoI > 0) { --geoI; isGeo = true; }
     vec2 airScreenPos = windToScreen(airWindPos);
 
-    bool shouldSearch = geoCount == 0;
+    bool shouldSearch = !isGeo;
 
     // Check if air pixel is within turbulence
     if (k_doTurbulence && isScreenTurbulent(airScreenPos)) {
@@ -572,13 +559,12 @@ void move(int airI) {
                 //}
 
                 if ((color.r & k_geoBit) != 0) { // we found a geo pixel
-                    int geoI = imageLoad(u_flagImg, searchPixel).x;
-                    if (geoI != 0) { // TODO: this should not be necessary, just here for sanity
+                    geoI = imageLoad(u_flagImg, searchPixel).x;
+                    if (geoI > 0) { // TODO: this should not be necessary, just here for sanity
                         --geoI;
+                        isGeo = true;
 
-                        ++geoCount;
-                        ++u_airGeoMap[airI].geoCount;
-                        u_airGeoMap[airI].geoIndices[0] = geoI;
+                        u_airGeoMap[airI] = geoI + 1;
 
                         if (k_doTurbulence && totalDist > u_turbulenceDist) {
                             // Set air pixel to be turbulent
@@ -602,8 +588,7 @@ void move(int airI) {
     vec3 torq = vec3(0.0f);
 
     // For each associated geo pixel, update backforce, lift, and drag
-    for (int mapI = 0; mapI < geoCount; ++mapI) {
-        int geoI = u_airGeoMap[airI].geoIndices[mapI];
+    if (isGeo) {
         vec2 geoWindPos = u_geoPixels[geoI].windPos;
         vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
         float dist = distance(airWindPos, geoWindPos);
@@ -620,24 +605,17 @@ void move(int airI) {
         liftFactor *= dist / u_turbulenceDist;
         liftFactor *= u_liftC;
         if (airTurbulence > 0.0f) liftFactor = 0.0f;
-        vec3 thisLift = geoNormal * liftFactor;
+        vec3 lift = geoNormal * liftFactor;
 
         // Calculate torque
-        vec3 thisTorq = cross(vec3(geoWindPos, u_sliceZ), thisLift);
+        vec3 torq = cross(vec3(geoWindPos, u_sliceZ), lift);
 
-        lift += thisLift;
-        torq += thisTorq;
+        totalLift += lift;
+        totalTorq += torq;
     }
-    // Average
-    if (geoCount > 0) {
-        backforce /= geoCount;
-    }
-    // Add to total
-    totalLift += lift;
-    totalTorq += torq;
 
     // Color active air pixels more brightly
-    if (k_debug && k_distinguishActivePixels && geoCount > 0) {
+    if (k_debug && k_distinguishActivePixels && isGeo) {
         ivec2 texCoord = ivec2(windToScreen(airWindPos));
         uvec4 color = imageLoad(u_frontImg, texCoord);
         color.r |= k_airBit | k_activeBit;
