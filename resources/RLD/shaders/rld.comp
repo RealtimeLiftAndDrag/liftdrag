@@ -216,6 +216,7 @@ void applySoftForce(ivec2 texCoord, vec3 force) {
     if (ii == 0) {
         return;
     }
+    --ii;
     force *= (1.0f / 3.0f);
     uint i0 = u_indices[ii + 0];
     uint i1 = u_indices[ii + 1];
