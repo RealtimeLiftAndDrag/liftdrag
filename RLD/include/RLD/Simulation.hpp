@@ -21,7 +21,21 @@ namespace rld {
         float _2;
     };
 
-    bool setup(int texSize, int sliceCount, float liftC, float dragC, float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC);
+    bool setup(
+        int texSize,
+        int sliceCount,
+        float liftC,
+        float dragC,
+        float turbulenceDist,
+        float maxSearchDist,
+        float windShadDist,
+        float backforceC,
+        float flowback,
+        float initVelC,
+        bool doSide,
+        bool twoSided,
+        bool doSoft
+    );
 
     // Sets the following variables. Must be called at the start of a sweep and after setup
     void setVariables(float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC);

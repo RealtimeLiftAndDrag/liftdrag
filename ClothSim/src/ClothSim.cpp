@@ -54,6 +54,7 @@ static const float k_triClothSize(k_clothLength * 2.0f / std::sqrt(3.0f));
 static const float k_triWeaveSize(k_triClothSize / k_triLOD);
 static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
 static const int k_constraintPasses(16);
+static const float k_clothMass(1.0f);
 
 static constexpr bool k_doRLD(true);
 static const int k_rldTexSize(1024);
@@ -63,11 +64,11 @@ static const float k_rldDragK(1.0f);
 static const float k_windframeWidth(2.0f * k_clothLength * 1.125f);
 static const float k_windframeDepth(k_clothLength * 1.125f);
 static const float k_windSpeed(10.0f);
-static const float k_turbulenceDist(0.045f);
+static const float k_turbulenceDist(0.5f);
 static const float k_windShadDist(0.1f);
-static const float k_backforceC(1000000.0f);
+static const float k_backforceC(10000.0f);
 static const float k_flowback(0.01f);
-static const float k_initVelC(0.5f);
+static const float k_initVelC(1.0f);
 
 static const int k_minCompSize(128);
 
@@ -82,14 +83,65 @@ static unq<Shader> s_normalShader;
 static shr<ClothViewerComponent> s_viewerComp;
 static shr<ui::TexViewer> s_frontTexComp;
 
+static bool s_isStepping(false);
+static bool s_doStep(false);
+static bool s_autoStep(false);
 
+
+
+class RootComp : public ui::HorizontalGroup {    
+
+    public:
+
+    virtual void keyEvent(int key, int action, int mods) override {
+        if (key == GLFW_KEY_SPACE && action == GLFW_PRESS && mods == GLFW_MOD_SHIFT) {
+            if (!s_isStepping) {
+                s_isStepping = true;
+                s_doStep = false;
+                s_autoStep = true;
+            }
+            else if (s_autoStep) {
+                s_isStepping = false;
+                s_doStep = false;
+                s_autoStep = false;
+            }
+            else {
+                s_doStep = false;
+                s_autoStep = true;
+            }
+        }
+        else if (key == GLFW_KEY_SPACE && action != GLFW_RELEASE && !mods) {
+            if (!s_isStepping) {
+                s_isStepping = true;
+                s_doStep = false;
+                s_autoStep = false;
+            }
+            else if (s_autoStep) {
+                s_doStep = false;
+                s_autoStep = false;
+            }
+            else {
+                s_doStep = true;
+            }
+        }
+    }
+
+};
 
 static bool setupModel() {
     if (k_doTri) {
-        s_model = Clothier::createTriangle(k_triLOD, k_triWeaveSize, s_workGroupSize);
+        mat4 transform(glm::rotate(glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)));
+        transform = glm::translate(vec3(k_triClothSize * 0.5f, 0.0f, 0.0f)) * transform;
+        //transform = glm::rotate(glm::pi<float>() / 3.0f, vec3(1.0f, 0.0f, 0.0f)) * transform;
+        transform = glm::translate(vec3(0.0f, 0.0f, k_clothLength * 0.5f)) * transform;
+        s_model = Clothier::createTriangle(k_triLOD, k_triWeaveSize, k_clothMass, s_workGroupSize, transform);
     }
     else {
-        s_model = Clothier::createRectangle(k_clothLOD, k_weaveSize, s_workGroupSize);
+        mat4 transform(glm::rotate(glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)));
+        transform = glm::translate(vec3(k_clothSize.x * 0.5f, 0.0f, 0.0f)) * transform;
+        //transform = glm::rotate(glm::pi<float>() / 3.0f, vec3(1.0f, 0.0f, 0.0f)) * transform;
+        transform = glm::translate(vec3(0.0f, 0.0f, k_clothLength * 0.5f)) * transform;
+        s_model = Clothier::createRectangle(k_clothLOD, k_weaveSize, k_clothMass, s_workGroupSize, transform);
     }
     if (!s_model) {
         return false;
@@ -133,11 +185,11 @@ static void setupUI() {
     s_viewerComp.reset(new ClothViewerComponent(*s_model, k_clothLength, ivec2(k_minCompSize)));
     s_frontTexComp.reset(new ui::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(k_minCompSize)));
 
-    shr<ui::HorizontalGroup> groupComp(new ui::HorizontalGroup());
-    groupComp->add(s_frontTexComp);
-    groupComp->add(s_viewerComp);
+    shr<RootComp> rootComp(new RootComp());
+    rootComp->add(s_frontTexComp);
+    rootComp->add(s_viewerComp);
 
-    ui::setRootComponent(groupComp);
+    ui::setRootComponent(rootComp);
 }
 
 static bool setup() {
@@ -175,23 +227,33 @@ static bool setup() {
     }
 
     // Setup RLD
-    if (!rld::setup(k_rldTexSize, k_rldSliceCount, k_rldLiftK, k_rldDragK, k_turbulenceDist, 2.0f * k_turbulenceDist, k_windShadDist, k_backforceC, k_flowback, k_initVelC)) {
+    if (!rld::setup(
+        k_rldTexSize,
+        k_rldSliceCount,
+        k_rldLiftK,
+        k_rldDragK,
+        k_turbulenceDist,
+        2.0f * k_turbulenceDist,
+        k_windShadDist,
+        k_backforceC,
+        k_flowback,
+        k_initVelC,
+        false,
+        true,
+        true
+    )) {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
+    rld::set(*s_model, mat4(), mat3(), k_windframeWidth, k_windframeDepth, k_windSpeed, true);
 
     setupUI();
 
     return true;
 }
 
-static void update() {
+static void updateCloth() {
     static float s_time(0.0f);
-    
-    // Do RLD
-    //rld::set(*s_model, mat4(), mat3(), k_windframeWidth, k_windframeDepth, k_windSpeed, true);
-    //rld::sweep();
-
     s_time = glm::fract(s_time * 0.2f) * 5.0f;
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_mesh->vertexBuffer());
@@ -226,6 +288,43 @@ static void update() {
     Shader::unbind();
 
     s_time += k_targetDT;
+}
+
+static void update() {    
+    // Do RLD
+    if (s_isStepping) {
+        if (s_doStep || s_autoStep) {
+            glEnable(GL_DEPTH_TEST);
+            glDisable(GL_BLEND);
+
+            bool done(rld::step());
+
+            glDisable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            s_doStep = false;
+
+            if (done) updateCloth();
+        }
+
+        return;
+    }
+    else {
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+
+        // Finish if mid-sweep
+        if (rld::slice()) {
+            while (!rld::step());
+        }
+        else {
+            rld::sweep();
+        }
+
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+
+        updateCloth();
+    }
 }
 
 

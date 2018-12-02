@@ -59,13 +59,13 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::f18);
+static constexpr SimModel k_simModel(SimModel::sphere);
 
-static constexpr int k_simTexSize = 1024;
-static constexpr int k_simSliceCount = 100;
-static constexpr float k_simLiftC = 1.0f;
-static constexpr float k_simDragC = 1.0f;
-static constexpr float k_defWindSpeed = 100.0f;
+static constexpr int k_simTexSize(1024);
+static constexpr int k_simSliceCount(100);
+static constexpr float k_simLiftC(1.0f);
+static constexpr float k_simDragC(1.0f);
+static constexpr float k_defWindSpeed(100.0f);
 
 static const ivec2 k_defWindowSize(1280, 720);
 
@@ -645,7 +645,20 @@ static bool setup() {
     }
 
     // Setup simulation
-    if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC, s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC)) {
+    if (!rld::setup(
+        k_simTexSize,
+        k_simSliceCount,
+        k_simLiftC,
+        k_simDragC,
+        s_turbulenceDist,
+        s_maxSearchDist,
+        s_windShadDist,
+        s_backforceC,
+        s_flowback,
+        s_initVelC,
+        true,
+        false
+    )) {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }

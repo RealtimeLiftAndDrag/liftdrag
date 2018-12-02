@@ -25,8 +25,6 @@ namespace rld {
     static constexpr bool k_doTurbulence(false);
     static constexpr bool k_doWindShadow(true);
 
-    static constexpr bool k_persistentMapping(false); // Should use persistent mapping for mutables ssbo // TODO: test performance
-
 
 
     // Mirrors GPU struct
@@ -109,6 +107,9 @@ namespace rld {
     static float s_windSpeed;
     static float s_dt; // The time it would take to travel `s_sliceSize` at `s_windSpeed`
     static bool s_debug; // Whether to enable non essentials like side view or active pixel highlighting
+    static bool s_doSide;
+    static bool s_twoSided;
+    static bool s_doSoft;
 
     static int s_currentSlice(0); // slice index [0, k_nSlices)
     static float s_angleOfAttack(0.0f); // IN DEGREES
@@ -124,7 +125,7 @@ namespace rld {
 
     static unq<Shader> s_shader, s_shaderDebug;
     static unq<Shader> s_foilShader, s_foilShaderDebug;
-    static unq<Shader> s_prettyShader;
+    static unq<Shader> s_prettyShader, s_sideShader;
 
     static Constants s_constants;
 
@@ -143,6 +144,7 @@ namespace rld {
     static u32 s_fboNormTex; // The handle for the normal texture (RGBA16_SNORM)
     static u32 s_flagTex; // The handle for the flag texture (R32UI)
     static u32 s_sideTex; // The handle for the side texture (RGBA8)
+    static u32 s_indexTex; // The handle for the index texture (R32UI);
 
     static Result * s_resultsMappedPtr; // used for persistent mapping
 
@@ -158,7 +160,9 @@ namespace rld {
             { "DEBUG", "false" },
             { "DISTINGUISH_ACTIVE_PIXELS", k_distinguishActivePixels ? "true" : "false" },
             { "DO_TURBULENCE", k_doTurbulence ? "true" : "false" },
-            { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" }
+            { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" },
+            { "TWO_SIDED", s_twoSided ? "true" : "false" },
+            { "DO_SOFT", s_doSoft ? "true" : "false" }
         };
         std::initializer_list<duo<std::string_view>> debugDefines{
             { "WORK_GROUP_SIZE", workGroupSizeStr },
@@ -166,7 +170,9 @@ namespace rld {
             { "DEBUG", "true" },
             { "DISTINGUISH_ACTIVE_PIXELS", k_distinguishActivePixels ? "true" : "false" },
             { "DO_TURBULENCE", k_doTurbulence ? "true" : "false" },
-            { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" }
+            { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" },
+            { "TWO_SIDED", s_twoSided ? "true" : "false" },
+            { "DO_SOFT", s_doSoft ? "true" : "false" }
         };
 
         // Foil Shader
@@ -231,11 +237,20 @@ namespace rld {
         }
         */
 
-        // Pretty Compute Shader
+        // Pretty Shader
         if (!(s_prettyShader = Shader::load(shadersPath + "pretty.comp", defines))) {
             std::cerr << "Failed to load pretty shader" << std::endl;
             return false;
         }
+
+        // Side Shader
+        if (!(s_sideShader = Shader::load(shadersPath + "side.comp"))) {
+            std::cerr << "Failed to load side shader" << std::endl;
+            return false;
+        }
+        s_sideShader->bind();
+        s_sideShader->uniform("u_texSize", s_texSize);
+        Shader::unbind();
 
         return true;
     }
@@ -244,18 +259,18 @@ namespace rld {
         float emptyColor[4]{};
 
         // Color texture
-        glGenTextures(1, &s_frontTex_uint);
-        glBindTexture(GL_TEXTURE_2D, s_frontTex_uint);
+        glGenTextures(1, &s_frontTex_unorm);
+        glBindTexture(GL_TEXTURE_2D, s_frontTex_unorm);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8UI, s_texSize, s_texSize);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, s_texSize, s_texSize);
         glBindTexture(GL_TEXTURE_2D, 0);
         // Color texture view
-        glGenTextures(1, &s_frontTex_unorm);
-        glTextureView(s_frontTex_unorm, GL_TEXTURE_2D, s_frontTex_uint, GL_RGBA8, 0, 1, 0, 1);
+        glGenTextures(1, &s_frontTex_uint);
+        glTextureView(s_frontTex_uint, GL_TEXTURE_2D, s_frontTex_unorm, GL_RGBA8UI, 0, 1, 0, 1);
 
         // Turbulence texture
         glGenTextures(1, &s_turbTex);
@@ -311,6 +326,16 @@ namespace rld {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16_SNORM, s_texSize, s_texSize);
 
+        // Index texture
+        if (s_doSoft) {
+            glGenTextures(1, &s_indexTex);
+            glBindTexture(GL_TEXTURE_2D, s_indexTex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+            glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
+            glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, s_texSize, s_texSize);
+        }
+
         // Depth render buffer
         u32 fboDepthRB(0);
         glGenRenderbuffers(1, &fboDepthRB);
@@ -324,8 +349,15 @@ namespace rld {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_frontTex_uint, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, s_fboNormTex, 0);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fboDepthRB);
-        u32 drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-        glDrawBuffers(2, drawBuffers);
+        if (s_doSoft) {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, s_indexTex, 0);
+            u32 drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+            glDrawBuffers(3, drawBuffers);
+        }
+        else {
+            u32 drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+            glDrawBuffers(2, drawBuffers);
+        }
 
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
             std::cerr << "Framebuffer is incomplete" << std::endl;
@@ -387,9 +419,19 @@ namespace rld {
 
     static void computePretty() {
         s_prettyShader->bind();
-
-        glDispatchCompute(1, 1, 1); // Must also tweak in shader
+        int n((s_texSize + 7) / 8);
+        glDispatchCompute(n, n, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+    }
+
+    static void computeSide() {
+        glBindImageTexture(0, s_frontTex_unorm, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+        s_sideShader->bind();
+        int sideX(int((-s_constants.sliceZ / s_windframeWidth + 0.5f) * float(s_texSize)));
+        s_sideShader->uniform("u_sideX", sideX);
+        glDispatchCompute(1, (s_texSize + 7) / 8, 1); // Must match shader
+        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+        glBindImageTexture(0, s_frontTex_uint, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8UI);
     }
 
     static void renderGeometry() {
@@ -496,7 +538,7 @@ namespace rld {
 
     static void clearFlagTex() {
         s32 clearVal(0);
-        glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearVal);
+        glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearVal);
     }
 
     static void clearSideTex() {
@@ -507,10 +549,15 @@ namespace rld {
     static void setBindings() {
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, s_constantsUBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_geoPixelsSSBO);
-        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO[s_swap]);       // done in step
-        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);   // done in step
+        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_airPixelsSSBO[s_swap]);       // done in step()
+        //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);   // done in step()
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
+        if (s_doSoft) {
+            const SoftMesh & softMesh(static_cast<const SoftMesh &>(s_model->subModels().front().mesh()));
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, softMesh.vertexBuffer());
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, softMesh.indexBuffer());
+        }
 
         glBindImageTexture(0,  s_frontTex_uint, 0, GL_FALSE, 0, GL_READ_WRITE,      GL_RGBA8UI);
         glBindImageTexture(1,     s_fboNormTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16_SNORM);
@@ -518,6 +565,9 @@ namespace rld {
         glBindImageTexture(3,        s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
         glBindImageTexture(4,    s_prevTurbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
         glBindImageTexture(5,        s_shadTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
+        if (s_doSoft) {
+            glBindImageTexture(6,       s_indexTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_R32UI);
+        }
         glBindImageTexture(7,        s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
 
         glActiveTexture(GL_TEXTURE0);
@@ -530,7 +580,21 @@ namespace rld {
 
 
 
-    bool setup(const int texSize, int sliceCount, float liftC, float dragC, float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC) {
+    bool setup(
+        const int texSize,
+        int sliceCount,
+        float liftC,
+        float dragC,
+        float turbulenceDist,
+        float maxSearchDist,
+        float windShadDist,
+        float backforceC,
+        float flowback,
+        float initVelC,
+        bool doSide,
+        bool twoSided,
+        bool doSoft
+    ) {
         int coreCount(0);
         if (k_useAllCores) glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &coreCount);
         else coreCount = k_coresToUse;
@@ -547,7 +611,17 @@ namespace rld {
         s_sliceCount = sliceCount;
         s_liftC = liftC;
         s_dragC = dragC;
-        setVariables(turbulenceDist, maxSearchDist, windShadDist, backforceC, flowback, initVelC);
+        setVariables(
+            turbulenceDist,
+            maxSearchDist,
+            windShadDist,
+            backforceC,
+            flowback,
+            initVelC
+        );
+        s_doSide = doSide;
+        s_twoSided = twoSided;
+        s_doSoft = doSoft;
 
         s_results.resize(s_sliceCount);
 
@@ -566,13 +640,7 @@ namespace rld {
         // Setup results SSBO
         glGenBuffers(1, &s_resultsSSBO);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
-        if (k_persistentMapping) {
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-            s_resultsMappedPtr = reinterpret_cast<Result *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, s_sliceCount * sizeof(Result), GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT));
-        }
-        else {
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT);
-        }
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_sliceCount * sizeof(Result), nullptr, GL_MAP_READ_BIT);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         // Setup geometry pixels SSBO
@@ -595,16 +663,17 @@ namespace rld {
         glBufferStorage(GL_SHADER_STORAGE_BUFFER, s_maxAirPixels * sizeof(int), nullptr, 0);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
+        float emptyColor[4]{};
+        u32 clearVal(0);
+
         // Setup flag texture
         glGenTextures(1, &s_flagTex);
         glBindTexture(GL_TEXTURE_2D, s_flagTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, emptyColor);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, s_texSize, s_texSize);
-        u32 clearcolor = 0;
-        glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_INT, &clearcolor);
+        glClearTexImage(s_flagTex, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, &clearVal);
 
         if (glGetError() != GL_NO_ERROR) {
             std::cerr << "OpenGL error" << std::endl;
@@ -630,10 +699,6 @@ namespace rld {
     }
 
     void cleanup() {
-        if (k_persistentMapping) {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
-            glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-        }
         // TODO
     }
 
@@ -664,7 +729,7 @@ namespace rld {
             resetCounters(true);
             clearTurbTex();
             clearShadTex();
-            if (s_debug) clearSideTex();
+            if (s_debug && s_doSide) clearSideTex();
             s_lift = vec3();
             s_drag = vec3();
             s_torq = vec3();
@@ -690,12 +755,14 @@ namespace rld {
         //computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         //computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
         if (s_debug) computePretty(); // transforms the contents of the fbo, turb, and shad textures into a comprehensible front and side view
+        if (s_debug && s_doSide) computeSide();
+        Shader::unbind();
 
         ++s_currentSlice;
 
         // Was last slice
         if (s_currentSlice >= s_sliceCount) {
-            downloadResults();
+            //downloadResults();
 
             s_currentSlice = 0;
             return true;

@@ -40,21 +40,18 @@ namespace Clothier {
 
 
 
-    unq<Model> createRectangle(ivec2 lod, float weaveSize, int groupSize) {
+    unq<Model> createRectangle(ivec2 lod, float weaveSize, float totalMass, int groupSize, const mat4 & transform) {
         ivec2 vertSize(lod + 1);
         int vertCount(vertSize.x * vertSize.y);
         std::vector<Vertex> vertices;
         vertices.reserve(vertCount);
         vec2 clothSize(vec2(lod) * weaveSize);
-        float startX(clothSize.x * 0.5f);
-        float z(clothSize.y * 0.5f);
+        float vertMass(totalMass / vertCount);
         for (ivec2 p(0); p.y < vertSize.y; ++p.y) {
             for (p.x = 0; p.x < vertSize.x; ++p.x) {
                 Vertex vertex;
-                vertex.position.x = startX - p.x * weaveSize;
-                vertex.position.y = -(p.y * weaveSize);
-                vertex.position.z = z;
-                vertex.mass = 1.0f;
+                vertex.position = vec3(transform * vec4(p.x * weaveSize, p.y * weaveSize, 0.0f, 1.0f));
+                vertex.mass = vertMass;
                 vertex.normal = vec3(0.0f, 0.0f, 1.0f);
                 vertex.force = vec3(0.0f);
                 vertex.prevPosition = vertex.position;
@@ -158,20 +155,19 @@ namespace Clothier {
         return (p.y + 1) * p.y / 2 + p.x;
     }
 
-    unq<Model> createTriangle(int lod, float weaveSize, int groupSize) {
+    unq<Model> createTriangle(int lod, float weaveSize, float totalMass, int groupSize, const mat4 & transform) {
         int edgeVerts(lod + 1);
         int vertCount((edgeVerts + 1) * edgeVerts / 2);
         float edgeLength(lod * weaveSize);
         float height(edgeLength * k_h);
         std::vector<Vertex> vertices;
         vertices.reserve(vertCount);
-        vec2 origin(edgeLength * 0.5f, 0.0f);
-        float z(height * 0.5f);
+        float vertMass(totalMass / vertCount);
         for (ivec2 p(0); p.y < edgeVerts; ++p.y) {
             for (p.x = 0; p.x <= p.y; ++p.x) {
                 Vertex vertex;
-                vertex.position = vec3(origin - triToCart(vec2(p)) * weaveSize, z);
-                vertex.mass = 1.0f;
+                vertex.position = transform * vec4(triToCart(vec2(p)) * weaveSize, 0.0f, 1.0f);
+                vertex.mass = vertMass;
                 vertex.normal = vec3(0.0f, 0.0f, 1.0f);
                 vertex.force = vec3(0.0f);
                 vertex.prevPosition = vertex.position;
