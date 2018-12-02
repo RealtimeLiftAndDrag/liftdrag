@@ -1,29 +1,5 @@
 #version 450 core
 
-#ifndef WORK_GROUP_SIZE
-#define WORK_GROUP_SIZE 1024
-#endif
-
-#ifndef WORK_GROUP_SIZE_2D
-#define WORK_GROUP_SIZE_2D ivec2(32, 32)
-#endif
-
-#ifndef DEBUG
-#define DEBUG false
-#endif
-
-#ifndef DO_WIND_SHADOW
-#define DO_WIND_SHADOW false
-#endif
-
-#ifndef DO_TURBULENCE
-#define DO_TURBULENCE false
-#endif
-
-#ifndef DISTINGUISH_ACTIVE_PIXELS
-#define DISTINGUISH_ACTIVE_PIXELS false
-#endif
-
 layout (local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
 // Types -----------------------------------------------------------------------
@@ -49,18 +25,20 @@ struct AirPixel {
 
 // Constants -------------------------------------------------------------------
 
-const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4; // Must also change in other shaders
+// External defines
 const int k_workGroupSize = WORK_GROUP_SIZE;
 const ivec2 k_workGroupSize2D = WORK_GROUP_SIZE_2D;
 const bool k_debug = DEBUG;
-const float k_airDensity = 1.0f;
 const bool k_doWindShadow = DO_WIND_SHADOW;
 const bool k_distinguishActivePixels = DISTINGUISH_ACTIVE_PIXELS; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
+const bool k_doTurbulence = DO_TURBULENCE;
+
+const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4; // Must also change in other shaders
+const float k_airDensity = 1.0f;
 const float k_inactiveVal = k_distinguishActivePixels && k_debug ? 1.0f / 3.0f : 1.0f;
 const int k_maxEdgeSeekSteps = 64; // Necessary in pathological cases where normals form a loop
 const float k_minNormalZ = 1.0f / 1000000.0f;
 const float k_maxNormalZ = 1.0f - k_minNormalZ;
-const bool k_doTurbulence = DO_TURBULENCE;
 
 // Uniforms --------------------------------------------------------------------
 
@@ -132,7 +110,13 @@ layout (binding = 4, std430) restrict buffer Results {
 // Shared ----------------------------------------------------------------------
 
 shared vec3 s_accumulationArray[k_workGroupSize];
-//shared int s_geoCounts[k_workGroupSize];
+shared int s_geoCounts[k_workGroupSize];
+
+// Invocation variables --------------------------------------------------------
+
+vec3 totalLift = vec3(0.0f);
+vec3 totalDrag = vec3(0.0f);
+vec3 totalTorq = vec3(0.0f);
 
 // Functions -------------------------------------------------------------------
 
@@ -211,12 +195,6 @@ void accumulate() {
         if (workI < n) s_accumulationArray[workI] += s_accumulationArray[workI + n];
     }
 }
-
-// Globals (per instance) ------------------------------------------------------
-
-vec3 totalLift = vec3(0.0f);
-vec3 totalDrag = vec3(0.0f);
-vec3 totalTorq = vec3(0.0f);
 
 // Prospect --------------------------------------------------------------------
 
@@ -648,8 +626,8 @@ void move(int airI) {
 // Main ------------------------------------------------------------------------
 
 void main() {
-    const int workI = int(gl_LocalInvocationIndex);
-    const ivec2 workI2D = ivec2(workI % k_workGroupSize2D.x, workI / k_workGroupSize2D.x);
+    int workI = int(gl_LocalInvocationIndex);
+    ivec2 workI2D = ivec2(workI % k_workGroupSize2D.x, workI / k_workGroupSize2D.x);
     s_accumulationArray[workI] = vec3(0.0f);
 
     // Zero results
