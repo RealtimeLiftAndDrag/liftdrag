@@ -41,11 +41,14 @@ namespace Clothier {
         std::vector<SoftVertex> vertices;
         vertices.reserve(vertCount);
         vec2 clothSize(vec2(lod) * weaveSize);
-        vec2 corner(clothSize.x * -0.5f, -clothSize.y);
+        float startX(clothSize.x * 0.5f);
+        float z(clothSize.y * 0.5f);
         for (ivec2 p(0); p.y < vertSize.y; ++p.y) {
             for (p.x = 0; p.x < vertSize.x; ++p.x) {
                 SoftVertex vertex;
-                vertex.position = vec3(corner + vec2(p) * weaveSize, 0.0f);
+                vertex.position.x = startX - p.x * weaveSize;
+                vertex.position.y = -(p.y * weaveSize);
+                vertex.position.z = z;
                 vertex.mass = 1.0f;
                 vertex.normal = vec3(0.0f, 0.0f, 1.0f);
                 vertex.force = vec3(0.0f);
@@ -56,7 +59,7 @@ namespace Clothier {
         //vertices[lod.y * vertSize.x].mass = 0.0f;
         //vertices[lod.y * vertSize.x + lod.x].mass = 0.0f;
         for (int i(0); i < vertSize.x; ++i) {
-            vertices[lod.y * vertSize.x + i].mass = 0.0f;
+            vertices[i].mass = 0.0f;
         }
         //for (int i(0); i < vertSize.y; ++i) {
         //    vertices[i * vertSize.x].mass = 0.0f;
@@ -150,15 +153,15 @@ namespace Clothier {
         int edgeVerts(lod + 1);
         int vertCount((edgeVerts + 1) * edgeVerts / 2);
         float edgeLength(lod * weaveSize);
+        float height(edgeLength * k_h);
         std::vector<SoftVertex> vertices;
         vertices.reserve(vertCount);
-        vec2 origin(edgeLength * -0.5f, edgeLength * k_h * -0.5f);
+        vec2 origin(edgeLength * 0.5f, 0.0f);
+        float z(height * 0.5f);
         for (ivec2 p(0); p.y < edgeVerts; ++p.y) {
             for (p.x = 0; p.x <= p.y; ++p.x) {
                 SoftVertex vertex;
-                vertex.position = vec3(origin + triToCart(vec2(p)) * weaveSize, 0.0f);
-                vertex.position = -vertex.position;
-                //vertex.position = vec3(vertex.position.y + edgeLength * k_h * 0.5f, -vertex.position.x, vertex.position.z);
+                vertex.position = vec3(origin - triToCart(vec2(p)) * weaveSize, z);
                 vertex.mass = 1.0f;
                 vertex.normal = vec3(0.0f, 0.0f, 1.0f);
                 vertex.force = vec3(0.0f);

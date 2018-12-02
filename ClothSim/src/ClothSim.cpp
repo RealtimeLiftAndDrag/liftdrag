@@ -43,13 +43,15 @@ static const float k_targetFPS(60.0f);
 static const float k_targetDT(1.0f / k_targetFPS);
 static const float k_updateDT(1.0f / 60.0f);
 
-static constexpr bool k_doTri(false);
+static constexpr bool k_doTri(true);
 static constexpr bool k_doTouch(true);
 static const ivec2 k_clothLOD(40, 40);
-static const float k_clothSizeMajor(1.0f);
-static const float k_weaveSize(k_clothSizeMajor / glm::max(k_clothLOD.x, k_clothLOD.y));
+static const float k_clothLength(1.0f);
+static const float k_weaveSize(k_clothLength / k_clothLOD.y);
+static const vec2 k_clothSize(vec2(k_clothLOD) * k_weaveSize);
 static const int k_triLOD(40);
-static const float k_triWeaveSize(1.0f / k_triLOD);
+static const float k_triClothSize(k_clothLength * 2.0f / std::sqrt(3.0f));
+static const float k_triWeaveSize(k_triClothSize / k_triLOD);
 static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
 static const int k_constraintPasses(16);
 
@@ -58,8 +60,13 @@ static const int k_rldTexSize(1024);
 static const int k_rldSliceCount(100);
 static const float k_rldLiftK(1.0f);
 static const float k_rldDragK(1.0f);
-static const float k_windframeWidth(2.0f * k_clothSizeMajor * 1.25f);
-static const float k_windframeDepth(k_clothSizeMajor * 1.25f);
+static const float k_windframeWidth(2.0f * k_clothLength * 1.125f);
+static const float k_windframeDepth(k_clothLength * 1.125f);
+static const float k_turbulenceDist(0.045f);
+static const float k_windShadDist(0.1f);
+static const float k_backforceC(1000000.0f);
+static const float k_flowback(0.01f);
+static const float k_initVelC(0.5f);
 
 static const int k_minCompSize(128);
 
@@ -121,7 +128,7 @@ static bool setupShaders() {
 }
 
 static void setupUI() {
-    s_viewerComp.reset(new ClothViewerComponent(*s_model, k_clothSizeMajor, ivec2(k_minCompSize)));
+    s_viewerComp.reset(new ClothViewerComponent(*s_model, k_clothLength, ivec2(k_minCompSize)));
     s_frontTexComp.reset(new ui::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(k_minCompSize)));
 
     shr<ui::HorizontalGroup> groupComp(new ui::HorizontalGroup());
@@ -166,10 +173,10 @@ static bool setup() {
     }
 
     // Setup RLD
-    //if (!rld::setup(k_rldTexSize, k_rldSliceCount, k_rldLiftK, k_rldDragK, s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC)) {
-    //    std::cerr << "Failed to setup RLD" << std::endl;
-    //    return false;
-    //}
+    if (!rld::setup(k_rldTexSize, k_rldSliceCount, k_rldLiftK, k_rldDragK, k_turbulenceDist, 2.0f * k_turbulenceDist, k_windShadDist, k_backforceC, k_flowback, k_initVelC)) {
+        std::cerr << "Failed to setup RLD" << std::endl;
+        return false;
+    }
 
     setupUI();
 
@@ -178,6 +185,9 @@ static bool setup() {
 
 static void update() {
     static float s_time(0.0f);
+    
+    // Do RLD
+    //rld::set(*s_model, mat4(), mat3(), k_windframeWidth, k_windframeDepth, k_windSpeed, true);
 
     s_time = glm::fract(s_time * 0.2f) * 5.0f;
 
@@ -185,6 +195,7 @@ static void update() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_model->mesh().indexBuffer());
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
 
+    // Do cloth physics
     s_clothShader->bind();
     s_clothShader->uniform("u_time", s_time * 0.2f);
     if (k_doTouch) {
@@ -204,6 +215,7 @@ static void update() {
     glDispatchCompute(1, 1, 1);
     glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
 
+    // Calculate normals
     s_normalShader->bind();
     glDispatchCompute(1, 1, 1);
     glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
