@@ -33,6 +33,8 @@ extern "C" {
 
 
 
+enum class State { free, sweeping, autoStepping, stepping };
+
 static const ivec2 k_defWindowSize(1280, 720);
 static const std::string k_windowTitle("Cloth Simulation");
 static constexpr bool k_useAllCores(true); // Will utilize as many gpu cores as possible
@@ -45,16 +47,18 @@ static const float k_updateDT(1.0f / 60.0f);
 
 static constexpr bool k_doTri(false);
 static constexpr bool k_doTouch(true);
-static const ivec2 k_clothLOD(40, 40);
+static const int k_lod(40);
+static const ivec2 k_clothLOD(k_lod, k_lod);
 static const float k_clothLength(1.0f);
 static const float k_weaveSize(k_clothLength / k_clothLOD.y);
 static const vec2 k_clothSize(vec2(k_clothLOD) * k_weaveSize);
-static const int k_triLOD(40);
+static const int k_triLOD(k_lod);
 static const float k_triClothSize(k_clothLength * 2.0f / std::sqrt(3.0f));
 static const float k_triWeaveSize(k_triClothSize / k_triLOD);
 static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
 static const int k_constraintPasses(16);
 static const float k_clothMass(1.0f);
+static const float k_touchForce(50.0f * k_clothMass / (k_lod * k_lod));
 
 static constexpr bool k_doRLD(true);
 static const int k_rldTexSize(1024);
@@ -83,9 +87,8 @@ static unq<Shader> s_normalShader;
 static shr<ClothViewerComponent> s_viewerComp;
 static shr<ui::TexViewer> s_frontTexComp;
 
-static bool s_isStepping(false);
+static State s_state(State::free);
 static bool s_doStep(false);
-static bool s_autoStep(false);
 
 
 
@@ -94,34 +97,25 @@ class RootComp : public ui::HorizontalGroup {
     public:
 
     virtual void keyEvent(int key, int action, int mods) override {
-        if (key == GLFW_KEY_SPACE && action == GLFW_PRESS && mods == GLFW_MOD_SHIFT) {
-            if (!s_isStepping) {
-                s_isStepping = true;
-                s_doStep = false;
-                s_autoStep = true;
-            }
-            else if (s_autoStep) {
-                s_isStepping = false;
-                s_doStep = false;
-                s_autoStep = false;
-            }
-            else {
-                s_doStep = false;
-                s_autoStep = true;
-            }
+        if (key == GLFW_KEY_Z && action == GLFW_RELEASE && !mods) {
+            s_state = State::free;
         }
-        else if (key == GLFW_KEY_SPACE && action != GLFW_RELEASE && !mods) {
-            if (!s_isStepping) {
-                s_isStepping = true;
-                s_doStep = false;
-                s_autoStep = false;
-            }
-            else if (s_autoStep) {
-                s_doStep = false;
-                s_autoStep = false;
+        else if (key == GLFW_KEY_X && action == GLFW_RELEASE && !mods) {
+            s_state = State::sweeping;
+        }
+        else if (key == GLFW_KEY_C && action == GLFW_RELEASE && !mods) {
+            s_state = State::autoStepping;
+        }
+        else if (key == GLFW_KEY_SPACE && !mods) {
+            if (s_state == State::stepping) {
+                if (action != GLFW_RELEASE) {
+                    s_doStep = true;
+                }
             }
             else {
-                s_doStep = true;
+                if (action == GLFW_RELEASE) {
+                    s_state = State::stepping;
+                }
             }
         }
     }
@@ -269,7 +263,7 @@ static void updateCloth() {
             const ThirdPersonCamera & camera(s_viewerComp->camera());
             s_clothShader->uniform("u_isTouch", true);
             s_clothShader->uniform("u_touchPos", s_viewerComp->touchPoint());
-            s_clothShader->uniform("u_touchDir", -camera.w());
+            s_clothShader->uniform("u_touchForce", -camera.w() * k_touchForce);
             s_clothShader->uniform("u_touchMat", camera.projMat() * camera.viewMat());
             s_clothShader->uniform("u_aspect", aspect);
         }
@@ -291,24 +285,21 @@ static void updateCloth() {
 }
 
 static void update() {    
-    // Do RLD
-    if (s_isStepping) {
-        if (s_doStep || s_autoStep) {
+    if (s_state == State::free) {
+        // Finish if mid-sweep
+        if (rld::slice()) {
             glEnable(GL_DEPTH_TEST);
             glDisable(GL_BLEND);
 
-            bool done(rld::step());
+            while (!rld::step());
 
             glDisable(GL_DEPTH_TEST);
             glEnable(GL_BLEND);
-            s_doStep = false;
-
-            if (done) updateCloth();
         }
 
-        return;
+        updateCloth();
     }
-    else {
+    else if (s_state == State::sweeping) {
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
 
@@ -324,6 +315,19 @@ static void update() {
         glEnable(GL_BLEND);
 
         updateCloth();
+
+    }
+    else if (s_state == State::autoStepping || s_state == State::stepping && s_doStep) {
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+
+        bool done(rld::step());
+
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        s_doStep = false;
+
+        if (done) updateCloth();
     }
 }
 
