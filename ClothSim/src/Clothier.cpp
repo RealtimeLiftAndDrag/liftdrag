@@ -6,7 +6,12 @@
 
 namespace Clothier {
 
-    static void decouple(const std::vector<SoftVertex> & vertices, std::vector<Constraint> & constraints, int groupSize) {
+    using Vertex = SoftMesh::Vertex;
+    using Constraint = SoftMesh::Constraint;
+
+
+
+    static void decouple(const std::vector<Vertex> & vertices, std::vector<Constraint> & constraints, int groupSize) {
         std::list<Constraint> cList(constraints.cbegin(), constraints.cend());
         constraints.clear();
         unq<bool[]> vertHeld(new bool[vertices.size()]);
@@ -35,17 +40,17 @@ namespace Clothier {
 
 
 
-    unq<SoftModel> createRectangle(ivec2 lod, float weaveSize, int groupSize) {
+    unq<Model> createRectangle(ivec2 lod, float weaveSize, int groupSize) {
         ivec2 vertSize(lod + 1);
         int vertCount(vertSize.x * vertSize.y);
-        std::vector<SoftVertex> vertices;
+        std::vector<Vertex> vertices;
         vertices.reserve(vertCount);
         vec2 clothSize(vec2(lod) * weaveSize);
         float startX(clothSize.x * 0.5f);
         float z(clothSize.y * 0.5f);
         for (ivec2 p(0); p.y < vertSize.y; ++p.y) {
             for (p.x = 0; p.x < vertSize.x; ++p.x) {
-                SoftVertex vertex;
+                Vertex vertex;
                 vertex.position.x = startX - p.x * weaveSize;
                 vertex.position.y = -(p.y * weaveSize);
                 vertex.position.z = z;
@@ -136,7 +141,11 @@ namespace Clothier {
 
         if (groupSize) decouple(vertices, constraints, groupSize);
 
-        return unq<SoftModel>(new SoftModel(SoftMesh(move(vertices), move(indices), move(constraints))));
+        unq<Mesh> mesh(new SoftMesh(move(vertices), move(indices), move(constraints)));      
+        if (!mesh->load()) {
+            return {};
+        }  
+        return unq<Model>(new Model(SubModel("ClothRectangle", move(mesh))));
     }
 
     constexpr float k_h(0.866025404f); // height of an equilateral triangle
@@ -149,18 +158,18 @@ namespace Clothier {
         return (p.y + 1) * p.y / 2 + p.x;
     }
 
-    unq<SoftModel> createTriangle(int lod, float weaveSize, int groupSize) {
+    unq<Model> createTriangle(int lod, float weaveSize, int groupSize) {
         int edgeVerts(lod + 1);
         int vertCount((edgeVerts + 1) * edgeVerts / 2);
         float edgeLength(lod * weaveSize);
         float height(edgeLength * k_h);
-        std::vector<SoftVertex> vertices;
+        std::vector<Vertex> vertices;
         vertices.reserve(vertCount);
         vec2 origin(edgeLength * 0.5f, 0.0f);
         float z(height * 0.5f);
         for (ivec2 p(0); p.y < edgeVerts; ++p.y) {
             for (p.x = 0; p.x <= p.y; ++p.x) {
-                SoftVertex vertex;
+                Vertex vertex;
                 vertex.position = vec3(origin - triToCart(vec2(p)) * weaveSize, z);
                 vertex.mass = 1.0f;
                 vertex.normal = vec3(0.0f, 0.0f, 1.0f);
@@ -239,9 +248,12 @@ namespace Clothier {
         }
 
         if (groupSize) decouple(vertices, constraints, groupSize);
-
-        return unq<SoftModel>(new SoftModel(SoftMesh(move(vertices), move(indices), move(constraints))));
-
+        
+        unq<Mesh> mesh(new SoftMesh(move(vertices), move(indices), move(constraints)));
+        if (!mesh->load()) {
+            return {};
+        }
+        return unq<Model>(new Model(SubModel("ClothRectangle", move(mesh))));
     }
 
 }

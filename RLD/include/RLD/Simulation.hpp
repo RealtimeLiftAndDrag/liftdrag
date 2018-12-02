@@ -11,6 +11,16 @@ struct GLFWwindow;
 
 namespace rld {
 
+    // Mirrors GPU struct
+    struct Result {
+        vec3 lift;
+        float _0;
+        vec3 drag;
+        float _1;
+        vec3 torq;
+        float _2;
+    };
+
     bool setup(int texSize, int sliceCount, float liftC, float dragC, float turbulenceDist, float maxSearchDist, float windShadDist, float backforceC, float flowback, float initVelC);
 
     // Sets the following variables. Must be called at the start of a sweep and after setup
@@ -57,20 +67,11 @@ namespace rld {
     // Returns the total number of slices
     int sliceCount();
 
-    // Returns the lift of the sweep
-    const vec3 & lift();
-    // Returns the lifts for each slice
-    const vec3 * lifts();
+    // Returns the result of the sweep
+    const Result & result();
 
-    // Returns the drag of the sweep
-    const vec3 & drag();
-    // Returns the drags for each slice
-    const vec3 * drags();
-
-    // Returns the torque of the sweep
-    const vec3 & torq();
-    // Returns the torques for each slice
-    const vec3 * torqs();
+    // Returns the result for each slice
+    const std::vector<Result> & results();
 
     u32 frontTex();
     u32 sideTex();

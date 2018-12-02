@@ -43,7 +43,7 @@ static const float k_targetFPS(60.0f);
 static const float k_targetDT(1.0f / k_targetFPS);
 static const float k_updateDT(1.0f / 60.0f);
 
-static constexpr bool k_doTri(true);
+static constexpr bool k_doTri(false);
 static constexpr bool k_doTouch(true);
 static const ivec2 k_clothLOD(40, 40);
 static const float k_clothLength(1.0f);
@@ -62,6 +62,7 @@ static const float k_rldLiftK(1.0f);
 static const float k_rldDragK(1.0f);
 static const float k_windframeWidth(2.0f * k_clothLength * 1.125f);
 static const float k_windframeDepth(k_clothLength * 1.125f);
+static const float k_windSpeed(10.0f);
 static const float k_turbulenceDist(0.045f);
 static const float k_windShadDist(0.1f);
 static const float k_backforceC(1000000.0f);
@@ -73,7 +74,8 @@ static const int k_minCompSize(128);
 static int s_workGroupSize;
 static ivec2 s_workGroupSize2D;
 
-static unq<SoftModel> s_model;
+static unq<Model> s_model;
+static const SoftMesh * s_mesh;
 static unq<Shader> s_clothShader;
 static unq<Shader> s_normalShader;
 
@@ -89,10 +91,10 @@ static bool setupModel() {
     else {
         s_model = Clothier::createRectangle(k_clothLOD, k_weaveSize, s_workGroupSize);
     }
-    if (!s_model->load()) {
-        std::cerr << "Failed to load soft model" << std::endl;
+    if (!s_model) {
         return false;
     }
+    s_mesh = &static_cast<const SoftMesh &>(s_model->subModels().front().mesh());
     return true;
 }
 
@@ -108,8 +110,8 @@ static bool setupShaders() {
         return false;
     }
     s_clothShader->bind();
-    s_clothShader->uniform("u_vertexCount", s_model->mesh().vertexCount());
-    s_clothShader->uniform("u_constraintCount", s_model->mesh().constraintCount());
+    s_clothShader->uniform("u_vertexCount", s_mesh->vertexCount());
+    s_clothShader->uniform("u_constraintCount", s_mesh->constraintCount());
     s_clothShader->uniform("u_dt", k_updateDT);
     s_clothShader->uniform("u_gravity", k_gravity);
     s_clothShader->uniform("u_weaveSize", k_weaveSize);
@@ -120,8 +122,8 @@ static bool setupShaders() {
         return false;
     }
     s_normalShader->bind();
-    s_normalShader->uniform("u_vertexCount", s_model->mesh().vertexCount());
-    s_normalShader->uniform("u_indexCount", s_model->mesh().indexCount());
+    s_normalShader->uniform("u_vertexCount", s_model->subModels().front().mesh().vertexCount());
+    s_normalShader->uniform("u_indexCount", s_model->subModels().front().mesh().indexCount());
 
     Shader::unbind();
     return true;
@@ -188,12 +190,13 @@ static void update() {
     
     // Do RLD
     //rld::set(*s_model, mat4(), mat3(), k_windframeWidth, k_windframeDepth, k_windSpeed, true);
+    //rld::sweep();
 
     s_time = glm::fract(s_time * 0.2f) * 5.0f;
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_model->mesh().vertexBuffer());
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_model->mesh().indexBuffer());
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_mesh->vertexBuffer());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mesh->indexBuffer());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_mesh->constraintBuffer());
 
     // Do cloth physics
     s_clothShader->bind();
@@ -227,7 +230,7 @@ static void update() {
 
 
 
-const SoftModel & model() {
+const Model & model() {
     return *s_model;
 }
 

@@ -59,7 +59,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::f18);
 
 static constexpr int k_simTexSize = 1024;
 static constexpr int k_simSliceCount = 100;
@@ -232,16 +232,9 @@ static void setSimulation(float angleOfAttack, bool debug) {
 }
 
 static void submitResults(float angleOfAttack) {
-    if (!rld::lifts()) {
-        return;
-    }
-
-    results::submitAngle(angleOfAttack, { rld::lift(), rld::drag(), rld::torq() });
-    const vec3 * lifts(rld::lifts());
-    const vec3 * drags(rld::drags());
-    const vec3 * torqs(rld::torqs());
+    results::submitAngle(angleOfAttack, rld::result());
     for (int i(0); i < rld::sliceCount(); ++i) {
-        results::submitSlice(i, { lifts[i], drags[i], torqs[i] });
+        results::submitSlice(i, rld::results()[i]);
     }
 
     results::update();
@@ -684,9 +677,9 @@ static void cleanup() {
 
 static void updateInfoText() {
     s_angleField->value(s_angleOfAttack);
-    s_angleLiftNum->value(rld::lift());
-    s_angleDragNum->value(rld::drag());
-    s_angleTorqueNum->value(rld::torq());}
+    s_angleLiftNum->value(rld::result().lift);
+    s_angleDragNum->value(rld::result().drag);
+    s_angleTorqueNum->value(rld::result().torq);}
 
 static void updateF18InfoText() {
     s_rudderNum->value(s_rudderAngle);
@@ -770,9 +763,6 @@ static void update(float dt) {
 
         if (rld::step()) { // That was the last slice
             s_shouldSweep = false;
-            vec3 lift(rld::lift());
-            vec3 drag(rld::drag());
-            vec3 torq(rld::torq());
 
             submitResults(s_angleOfAttack);
 

@@ -14,7 +14,7 @@ class ClothViewerComponent : public ui::Single {
 
     public:
 
-    ClothViewerComponent(const SoftModel & model, float scale, const ivec2 & minSize);
+    ClothViewerComponent(const Model & model, float scale, const ivec2 & minSize);
 
     virtual void render() const override;
 
@@ -38,7 +38,7 @@ class ClothViewerComponent : public ui::Single {
 
     void detTouchPoint();
     
-    const SoftModel & m_model;
+    const Model & m_model;
     ThirdPersonCamera m_camera;
     bool m_isTouch;
     vec2 m_touchP;

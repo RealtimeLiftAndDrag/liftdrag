@@ -2,11 +2,11 @@
 
 
 
-#include "Common/SoftModel.hpp"
+#include "Common/Model.hpp"
 
 
 
-const SoftModel & model();
+const Model & model();
 
 float windframeWidth();
 

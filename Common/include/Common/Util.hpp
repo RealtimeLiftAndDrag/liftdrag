@@ -4,6 +4,7 @@
 
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 #include "Global.hpp"
 
@@ -104,6 +105,14 @@ namespace util {
 
     inline bool isZero(const vec4 & v) {
         return isZero(v.x) && isZero(v.y) && isZero(v.z) && isZero(v.w);
+    }
+
+    template <typename T>
+    inline std::vector<T> singleToVector(T && v) {
+        std::vector<T> vec;
+        vec.reserve(1);
+        vec.emplace_back(move(v));
+        return vec;
     }
 
 }

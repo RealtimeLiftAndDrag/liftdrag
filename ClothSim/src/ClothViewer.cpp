@@ -86,7 +86,7 @@ bool setup() {
 
 
 
-ClothViewerComponent::ClothViewerComponent(const SoftModel & model, float scale, const ivec2 & minSize) :
+ClothViewerComponent::ClothViewerComponent(const Model & model, float scale, const ivec2 & minSize) :
     Single(minSize, ivec2()),
     m_model(model),
     m_camera(scale * 0.1f, scale * 10.0f),
@@ -114,10 +114,11 @@ void ClothViewerComponent::render() const {
         s_constraintsShader->uniform("u_normalMat", mat3());
         s_constraintsShader->uniform("u_viewMat", m_camera.viewMat());
         s_constraintsShader->uniform("u_projMat", m_camera.projMat());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, model().mesh().vertexBuffer());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, model().mesh().constraintBuffer());
+        const SoftMesh & mesh(static_cast<const SoftMesh &>(m_model.subModels().front().mesh()));
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, mesh.vertexBuffer());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, mesh.constraintBuffer());
         glBindVertexArray(s_constraintVAO);
-        glDrawArrays(GL_POINTS, 0, model().mesh().constraintCount());
+        glDrawArrays(GL_POINTS, 0, mesh.constraintCount());
         glBindVertexArray(0);
     }
     else {

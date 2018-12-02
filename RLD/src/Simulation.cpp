@@ -68,13 +68,6 @@ namespace rld {
     };
 
     // Mirrors GPU struct
-    struct Result {
-        vec4 lift;
-        vec4 drag;
-        vec4 torq;
-    };
-
-    // Mirrors GPU struct
     struct GeoPixelsPrefix {
         s32 geoCount;
         s32 padding0;
@@ -125,9 +118,8 @@ namespace rld {
     static vec3 s_lift; // Total lift for entire sweep
     static vec3 s_drag; // Total drag for entire sweep
     static vec3 s_torq; // Total torque for entire sweep
-    static std::vector<vec3> s_lifts; // Lifts for each slice
-    static std::vector<vec3> s_drags; // Drags for each slice
-    static std::vector<vec3> s_torqs; // Torqs for each slice
+    static std::vector<Result> s_results; // Results for each slice
+    static Result s_result; // Cumulative result of all slices
     static int s_swap;
 
     static unq<Shader> s_shader, s_shaderDebug;
@@ -456,34 +448,17 @@ namespace rld {
     }
 
     static void downloadResults() {
-        Result * p;
-        if (k_persistentMapping) {
-            glFinish();
-            p = s_resultsMappedPtr;
-        }
-        else {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
-            p = reinterpret_cast<Result *>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, s_sliceCount * sizeof(Result), GL_MAP_READ_BIT));
-        }
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, s_sliceCount * sizeof(Result), s_results.data());
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-        s_lifts.clear();
-        s_drags.clear();
-        s_torqs.clear();
-        s_lift = vec3();
-        s_drag = vec3();
-        s_torq = vec3();
-        for (int i(0); i < s_sliceCount; ++i) {
-            s_lifts.push_back(p[i].lift);
-            s_drags.push_back(p[i].drag);
-            s_torqs.push_back(p[i].torq);
-            s_lift += s_lifts.back();
-            s_drag += s_drags.back();
-            s_torq += s_torqs.back();
-        }
-
-        if (!k_persistentMapping) {
-            glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        s_result.lift = vec3();
+        s_result.drag = vec3();
+        s_result.torq = vec3();
+        for (const Result & result : s_results) {
+            s_result.lift += result.lift;
+            s_result.drag += result.drag;
+            s_result.torq += result.torq;
         }
     }
 
@@ -573,6 +548,8 @@ namespace rld {
         s_liftC = liftC;
         s_dragC = dragC;
         setVariables(turbulenceDist, maxSearchDist, windShadDist, backforceC, flowback, initVelC);
+
+        s_results.resize(s_sliceCount);
 
         // Setup shaders
         if (!setupShaders()) {
@@ -745,28 +722,12 @@ namespace rld {
         return s_sliceCount;
     }
 
-    const vec3 & lift() {
-        return s_lift;
+    const Result & result() {
+        return s_result;
     }
 
-    const vec3 * lifts() {
-        return s_lifts.data();
-    }
-
-    const vec3 & drag() {
-        return s_drag;
-    }
-
-    const vec3 * drags() {
-        return s_drags.data();
-    }
-
-    const vec3 & torq() {
-        return s_torq;
-    }
-
-    const vec3 * torqs() {
-        return s_torqs.data();
+    const std::vector<Result> & results() {
+        return s_results;
     }
 
     u32 frontTex() {
