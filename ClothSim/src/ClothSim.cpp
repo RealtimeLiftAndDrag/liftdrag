@@ -11,6 +11,8 @@ extern "C" {
 
 
 
+#include "ClothSim.hpp"
+
 #include <iostream>
 #include <vector>
 
@@ -20,12 +22,14 @@ extern "C" {
 #include "glm/gtc/constants.hpp"
 
 #include "Common/Global.hpp"
-#include "Common/SoftModel.hpp"
 #include "Common/Shader.hpp"
 #include "Common/Camera.hpp"
 #include "RLD/Simulation.hpp"
+#include "UI/Group.hpp"
+#include "UI/TexViewer.hpp"
 
-#include "ClothMesher.hpp"
+#include "Clothier.hpp"
+#include "ClothViewer.hpp"
 
 
 
@@ -35,182 +39,60 @@ static constexpr bool k_useAllCores(true); // Will utilize as many gpu cores as 
 static constexpr int k_coresToUse(1024); // Otherwise, use this many
 static constexpr int k_warpSize(64); // Should correspond to target architecture
 static const ivec2 k_warpSize2D(8, 8); // The components multiplied must equal warp size
-static constexpr float k_targetFPS(60.0f);
-static constexpr float k_targetDT(1.0f / k_targetFPS);
-static constexpr float k_updateDT(1.0f / 60.0f);
+static const float k_targetFPS(60.0f);
+static const float k_targetDT(1.0f / k_targetFPS);
+static const float k_updateDT(1.0f / 60.0f);
 
 static constexpr bool k_doTri(false);
-static constexpr bool k_viewConstraints(false);
+static constexpr bool k_doTouch(true);
 static const ivec2 k_clothLOD(40, 40);
 static const float k_clothSizeMajor(1.0f);
 static const float k_weaveSize(k_clothSizeMajor / glm::max(k_clothLOD.x, k_clothLOD.y));
 static const int k_triLOD(40);
 static const float k_triWeaveSize(1.0f / k_triLOD);
 static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
-static constexpr int k_constraintPasses(16);
-static constexpr bool k_doTouch(true);
+static const int k_constraintPasses(16);
 
-static constexpr float k_fov(glm::radians(90.0f));
-static constexpr float k_near(0.01f), k_far(100.0f);
-static const vec3 k_lightDir(glm::normalize(vec3(0.0f, 1.0f, 1.0f)));
-static constexpr float k_minCamDist(0.5f), k_maxCamDist(3.0f);
-static constexpr float k_camPanAngle(0.01f);
-static const float k_camZoomAmount(0.1f);
+static constexpr bool k_doRLD(true);
+static const int k_rldTexSize(1024);
+static const int k_rldSliceCount(100);
+static const float k_rldLiftK(1.0f);
+static const float k_rldDragK(1.0f);
+static const float k_windframeWidth(2.0f * k_clothSizeMajor * 1.25f);
+static const float k_windframeDepth(k_clothSizeMajor * 1.25f);
 
-static GLFWwindow * s_window;
-static ivec2 s_windowSize(k_defWindowSize);
+static const int k_minCompSize(128);
+
 static int s_workGroupSize;
 static ivec2 s_workGroupSize2D;
 
 static unq<SoftModel> s_model;
-static unq<Shader> s_renderShader;
 static unq<Shader> s_clothShader;
 static unq<Shader> s_normalShader;
-static unq<Shader> s_constraintsShader;
-static ThirdPersonCamera s_camera(k_minCamDist, k_maxCamDist);
-static u32 s_constraintVAO;
+
+static shr<ClothViewerComponent> s_viewerComp;
+static shr<ui::TexViewer> s_frontTexComp;
 
 
 
-static void errorCallback(int error, const char * description) {
-    std::cerr << "GLFW error " << error << ": " << description << std::endl;
-}
-
-static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    // Escape exits
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
-        glfwSetWindowShouldClose(s_window, true);
-    }
-}
-
-static ivec2 s_prevCursorPos;
-static bool s_isPrevCursorPosValid(false);
-
-void cursorPosCallback(GLFWwindow * window, double x, double y) {
-    ivec2 cursorPos{int(x), int(y)};
-    if (!s_isPrevCursorPosValid) {
-        s_prevCursorPos = cursorPos;
-        s_isPrevCursorPosValid = true;
-    }
-    ivec2 delta(cursorPos - s_prevCursorPos);
-
-    if (glfwGetMouseButton(s_window, 0)) {
-        s_camera.thetaPhi(
-            s_camera.theta() - float(delta.x) * k_camPanAngle,
-            s_camera.phi() - float(delta.y) * k_camPanAngle
-        );
-    }
-
-    s_prevCursorPos = cursorPos;
-}
-
-void cursorEnterCallback(GLFWwindow * window, int entered) {
-    if (!entered) {
-        s_isPrevCursorPosValid = false;
-    }
-}
-
-void scrollCallback(GLFWwindow * window, double dx, double dy) {    
-    s_camera.zoom(s_camera.zoom() - float(dy) * k_camZoomAmount);
-}
-
-static void framebufferSizeCallback(GLFWwindow * window, int width, int height) {
-    s_windowSize.x = width;
-    s_windowSize.y = height;
-
-    if (s_windowSize.y <= s_windowSize.x) {
-        s_camera.fov(vec2(k_fov, k_fov * float(s_windowSize.y) / float(s_windowSize.x)));
-    }
-    else {
-        s_camera.fov(vec2(k_fov * float(s_windowSize.x) / float(s_windowSize.y), k_fov));
-    }
-}
-
-static bool setup() {
-    // Setup window
-    glfwSetErrorCallback(errorCallback);
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
-        return false;
-    }
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    if (!(s_window = glfwCreateWindow(s_windowSize.x, s_windowSize.y, k_windowTitle.c_str(), nullptr, nullptr))) {
-        std::cerr << "Failed to create window" << std::endl;
-        return false;
-    }
-    glfwMakeContextCurrent(s_window);
-    glfwSwapInterval(0); // VSync on or off
-    //glfwSetInputMode(s_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glfwSetKeyCallback(s_window, keyCallback);
-    glfwSetCursorPosCallback(s_window, cursorPosCallback);
-    glfwSetCursorEnterCallback(s_window, cursorEnterCallback);
-    glfwSetScrollCallback(s_window, scrollCallback);
-    glfwSetFramebufferSizeCallback(s_window, framebufferSizeCallback);
-
-    // Setup GLAD
-    if (!gladLoadGL()) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
-        return false;
-    }
-
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glViewport(0, 0, s_windowSize.x, s_windowSize.y);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
-    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-
-    // Setup work group size, needs to happen as early as possible
-    int coreCount(0);
-    if (k_useAllCores) glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &coreCount);
-    else coreCount = k_coresToUse;
-    int warpCount(coreCount / k_warpSize);
-    s_workGroupSize = warpCount * k_warpSize; // we want workgroups to be a warp multiple
-    s_workGroupSize2D.x = int(std::round(std::sqrt(float(warpCount))));
-    s_workGroupSize2D.y = warpCount / s_workGroupSize2D.x;
-    s_workGroupSize2D *= k_warpSize2D;
-
-    // Setup mesh
+static bool setupModel() {
     if (k_doTri) {
-        s_model = createClothTriangle(k_triLOD, k_triWeaveSize, s_workGroupSize);
+        s_model = Clothier::createTriangle(k_triLOD, k_triWeaveSize, s_workGroupSize);
     }
     else {
-        s_model = createClothRectangle(k_clothLOD, k_weaveSize, s_workGroupSize);
+        s_model = Clothier::createRectangle(k_clothLOD, k_weaveSize, s_workGroupSize);
     }
     if (!s_model->load()) {
-        std::cerr << "Failed to load soft mesh" << std::endl;
+        std::cerr << "Failed to load soft model" << std::endl;
         return false;
     }
+    return true;
+}
 
-    // Setup camera
-    s_camera.zoom(0.5f);
-    s_camera.near(k_near);
-    s_camera.far(k_far);
-    if (s_windowSize.y <= s_windowSize.x) {
-        s_camera.fov(vec2(k_fov * float(s_windowSize.x) / float(s_windowSize.y), k_fov));
-    }
-    else {
-        s_camera.fov(vec2(k_fov, k_fov * float(s_windowSize.y) / float(s_windowSize.x)));
-    }
-
-    // Setup RLD
-    //if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC, s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC)) {
-    //    std::cerr << "Failed to setup RLD" << std::endl;
-    //    return false;
-    //}
-
-    // Setup render shader
+static bool setupShaders() {
     std::string shadersPath(g_resourcesDir + "/ClothSim/shaders/");
-    if (!(s_renderShader = Shader::load(shadersPath + "render.vert", shadersPath + "render.frag"))) {
-        std::cerr << "Failed to load render shader" << std::endl;
-        return false;
-    }
-    s_renderShader->bind();
-    s_renderShader->uniform("u_lightDir", k_lightDir);
-    s_renderShader->uniform("u_primitiveCount", s_model->mesh().indexCount() / 3);
-    Shader::unbind();
-    // Setup cloth shader
+
+    // Cloth shader
     if (!(s_clothShader = Shader::load(shadersPath + "cloth.comp", {
         { "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) },
         { "CONSTRAINT_PASSES", std::to_string(k_constraintPasses) }
@@ -224,7 +106,7 @@ static bool setup() {
     s_clothShader->uniform("u_dt", k_updateDT);
     s_clothShader->uniform("u_gravity", k_gravity);
     s_clothShader->uniform("u_weaveSize", k_weaveSize);
-    Shader::unbind();
+
     // Setup normal shader
     if (!(s_normalShader = Shader::load(shadersPath + "normal.comp", {{ "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) }}))) {
         std::cerr << "Failed to load normal shader" << std::endl;
@@ -233,14 +115,63 @@ static bool setup() {
     s_normalShader->bind();
     s_normalShader->uniform("u_vertexCount", s_model->mesh().vertexCount());
     s_normalShader->uniform("u_indexCount", s_model->mesh().indexCount());
+
     Shader::unbind();
-    // Setup constraints shader
-    if (!(s_constraintsShader = Shader::load(shadersPath + "constraints.vert", shadersPath + "constraints.geom", shadersPath + "constraints.frag"))) {
-        std::cerr << "Failed to load constraints shader" << std::endl;
+    return true;
+}
+
+static void setupUI() {
+    s_viewerComp.reset(new ClothViewerComponent(*s_model, k_clothSizeMajor, ivec2(k_minCompSize)));
+    s_frontTexComp.reset(new ui::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(k_minCompSize)));
+
+    shr<ui::HorizontalGroup> groupComp(new ui::HorizontalGroup());
+    groupComp->add(s_frontTexComp);
+    groupComp->add(s_viewerComp);
+
+    ui::setRootComponent(groupComp);
+}
+
+static bool setup() {
+    // Setup UI, which includes GLFW and GLAD
+    if (!ui::setup(k_defWindowSize, "Realtime Lift and Drag Visualizer", 4, 5, false)) {
+        std::cerr << "Failed to setup UI" << std::endl;
         return false;
     }
 
-    glGenVertexArrays(1, &s_constraintVAO);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glEnable(GL_BLEND);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+
+    // Setup work group size, needs to happen as early as possible
+    int coreCount(0);
+    if (k_useAllCores) glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &coreCount);
+    else coreCount = k_coresToUse;
+    int warpCount(coreCount / k_warpSize);
+    s_workGroupSize = warpCount * k_warpSize; // we want workgroups to be a warp multiple
+    s_workGroupSize2D.x = int(std::round(std::sqrt(float(warpCount))));
+    s_workGroupSize2D.y = warpCount / s_workGroupSize2D.x;
+    s_workGroupSize2D *= k_warpSize2D;
+
+    // Setup model
+    if (!setupModel()) {
+        std::cerr << "Failed to setup model" << std::endl;
+        return false;
+    }
+
+    // Setup shaders
+    if (!setupShaders()) {
+        std::cerr << "Failed to setup shaders" << std::endl;
+        return false;
+    }
+
+    // Setup RLD
+    //if (!rld::setup(k_rldTexSize, k_rldSliceCount, k_rldLiftK, k_rldDragK, s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC)) {
+    //    std::cerr << "Failed to setup RLD" << std::endl;
+    //    return false;
+    //}
+
+    setupUI();
 
     return true;
 }
@@ -257,20 +188,18 @@ static void update() {
     s_clothShader->bind();
     s_clothShader->uniform("u_time", s_time * 0.2f);
     if (k_doTouch) {
-        double mx, my;
-        glfwGetCursorPos(s_window, &mx, &my);
-        vec2 mp(mx, my);
-        mp /= s_windowSize;
-        mp.y = 1.0f - mp.y;
-        mp = mp * 2.0f - 1.0f;
-        vec2 aspect(1.0f);
-        if (s_windowSize.x > s_windowSize.y) aspect.x *= float(s_windowSize.x) / float(s_windowSize.y);
-        else aspect.y *= float(s_windowSize.y) / float(s_windowSize.x);
-        s_clothShader->uniform("u_touchMat", s_camera.projMat() * s_camera.viewMat());
-        s_clothShader->uniform("u_touchPos", mp);
-        s_clothShader->uniform("u_touchDir", -s_camera.w());
-        s_clothShader->uniform("u_isTouch", bool(glfwGetMouseButton(s_window, 1)));
-        s_clothShader->uniform("u_aspect", aspect);
+        if (s_viewerComp->isTouch()) {
+            vec2 aspect(s_viewerComp->aspect());
+            const ThirdPersonCamera & camera(s_viewerComp->camera());
+            s_clothShader->uniform("u_isTouch", true);
+            s_clothShader->uniform("u_touchPos", s_viewerComp->touchPoint());
+            s_clothShader->uniform("u_touchDir", -camera.w());
+            s_clothShader->uniform("u_touchMat", camera.projMat() * camera.viewMat());
+            s_clothShader->uniform("u_aspect", aspect);
+        }
+        else {
+            s_clothShader->uniform("u_isTouch", false);
+        }
     }
     glDispatchCompute(1, 1, 1);
     glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
@@ -284,49 +213,19 @@ static void update() {
     s_time += k_targetDT;
 }
 
-static void render() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glEnable(GL_DEPTH_TEST);
-    //glDisable(GL_BLEND);
 
-    //rld::set(*s_model, rldModelMat, rldNormalMat, k_windframeWidth, k_windframeDepth, glm::length(wind), false);
-    //if (s_unpaused) {
-    //    rld::sweep();
-    //}
-
-    //glEnable(GL_BLEND);
-
-    glViewport(0, 0, s_windowSize.x, s_windowSize.y);
-
-    if (k_viewConstraints) {
-        s_constraintsShader->bind();
-        s_constraintsShader->uniform("u_modelMat", mat4());
-        s_constraintsShader->uniform("u_normalMat", mat3());
-        s_constraintsShader->uniform("u_viewMat", s_camera.viewMat());
-        s_constraintsShader->uniform("u_projMat", s_camera.projMat());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_model->mesh().vertexBuffer());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_model->mesh().constraintBuffer());
-        glBindVertexArray(s_constraintVAO);
-        glDrawArrays(GL_POINTS, 0, s_model->mesh().constraintCount());
-        glBindVertexArray(0);
-    }
-    else {
-        s_renderShader->bind();
-        s_renderShader->uniform("u_modelMat", mat4());
-        s_renderShader->uniform("u_normalMat", mat3());
-        s_renderShader->uniform("u_viewMat", s_camera.viewMat());
-        s_renderShader->uniform("u_projMat", s_camera.projMat());
-        s_renderShader->uniform("u_camPos", s_camera.position());
-        s_model->draw();
-    }
-
-    Shader::unbind();
-
-    glDisable(GL_DEPTH_TEST);
+const SoftModel & model() {
+    return *s_model;
 }
 
+float windframeWidth() {
+    return k_windframeWidth;
+}
 
+float windframeDepth() {
+    return k_windframeDepth;
+}
 
 int main(int argc, char ** argv) {
     if (!setup()) {
@@ -338,21 +237,21 @@ int main(int argc, char ** argv) {
     double then(glfwGetTime());
     double prevRenderTime(then);
     float accumDT(k_targetDT);
-    while (!glfwWindowShouldClose(s_window)) {
+    while (!ui::shouldExit()) {
         double now(glfwGetTime());
         float dt(float(now - then));
         then = now;
         accumDT += dt;
 
-        glfwPollEvents();
+        ui::poll();
 
         if (accumDT >= k_targetDT) {
             float renderDT(float(now - prevRenderTime));
             prevRenderTime = now;
             //std::cout << (1.0f / renderDT) << std::endl;
             update();
-            render();
-            glfwSwapBuffers(s_window);
+            ui::update();
+            ui::render();
             do accumDT -= k_targetDT; while (accumDT >= k_targetDT);
         }
     }

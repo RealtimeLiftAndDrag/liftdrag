@@ -25,7 +25,7 @@ struct AirPixel {
 
 // Constants -------------------------------------------------------------------
 
-// External defines
+// External
 const int k_workGroupSize = WORK_GROUP_SIZE;
 const ivec2 k_workGroupSize2D = WORK_GROUP_SIZE_2D;
 const bool k_debug = DEBUG;
@@ -223,17 +223,18 @@ void prospect(ivec2 texCoord) {
         totalTorq += torq;
     }
 
+    // Check if we're on edge
     ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
     uvec4 nextColor = imageLoad(u_frontImg, nextTexCoord);
     if ((nextColor.r & k_geoBit) != 0) {
         return;
     }
 
+    // Add geo pixel
     int geoI = atomicAdd(u_geoCount, 1);
     if (geoI >= u_maxGeoPixels) {
         return;
     }
-
     u_geoPixels[geoI].windPos = geoWindPos.xy;
     u_geoPixels[geoI].normal = vec4(geoNormal, 0.0f);
     u_geoPixels[geoI].texCoord = texCoord;

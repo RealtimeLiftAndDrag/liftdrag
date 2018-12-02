@@ -69,6 +69,10 @@ namespace ui {
     {}
 
     void TexViewer::render() const {
+        if (!m_tex) {
+            return;
+        }
+
         setViewport();
 
         s_texProg->bind();
@@ -87,7 +91,7 @@ namespace ui {
     }
 
     void TexViewer::pack() {
-        m_initViewSize = vec2(size()) / vec2(m_texSize);
+        m_initViewSize = m_texSize == ivec2() ? vec2() : vec2(size()) / vec2(m_texSize);
         m_viewSize = m_initViewSize;
     }
 

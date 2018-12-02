@@ -1,17 +1,10 @@
 #version 450 core
 
-layout (location = 0) in vec3 in_pos;
-layout (location = 1) in vec3 in_norm;
-layout (location = 2) in float in_blah;
+layout (location = 0) in vec3 in_norm;
 
 layout (location = 0) out vec4 out_color;
 
-uniform vec3 u_lightDir; // normalized vector towards light
-uniform vec3 u_camPos; // camera position in world space
-uniform int u_primitiveCount;
-
-const float k_pi = 3.14159265f;
-const float k_ambience = 0.25f;
+/*const float k_pi = 3.14159265f;
 
 vec3 hsv2rgb(vec3 c) {
     vec4 K = vec4(1.0f, 2.0f / 3.0f, 1.0f / 3.0f, 3.0f);
@@ -61,7 +54,7 @@ vec3 luv2rgb(vec3 luv) {
 vec3 lch2luv(vec3 lch) {
     lch.z *= 2.0f * k_pi;
     return luv2rgb(vec3(lch.x, lch.y * cos(lch.z), lch.y * sin(lch.z)));
-}
+}*/
 
 vec3 safeNormalize(vec3 v) {
     float d = dot(v, v);
@@ -70,26 +63,10 @@ vec3 safeNormalize(vec3 v) {
 
 void main() {
     vec3 norm = safeNormalize(in_norm);
-    if (!gl_FrontFacing) norm = -norm;
 
-    float diffuse = max(dot(u_lightDir, norm), 0.0f) * (1.0f - k_ambience) + k_ambience;
-    //out_color.rgb = vec3(1.0f, 0.25f, 0.0f) * diffuse;
-
-    out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * diffuse;
+    //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * diffuse;
     //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, (gl_PrimitiveID % 16) / 16.0f));
-    
-    //out_color.g = (gl_PrimitiveID * 3 / 32) % 2;
-    //out_color.b = 1.0f - out_color.g;
-    //out_color.rgb *= (gl_PrimitiveID * 3 % 32) / 32.0f;
-    //if (sign(diffuse) == 0.0f) out_color.rgb = mix(out_color.rgb, vec3(1.0f, 0.0f, 0.0f), 0.33f);
 
-    //out_color.rgb = vec3(sign(diffuse));
-    //int i = gl_PrimitiveID * 3;
-    //if ((i / 32) != ((i + 3) / 32)) out_color.rgb = mix(out_color.rgb, vec3(0.5f, 0.0f, 0.0f), 0.5f);
-
-    //out_color.rgb = norm * 0.5f + 0.5f;
-    //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, float(gl_PrimitiveID) / float(u_primitiveCount - 1))) * abs(norm.z);
-    //out_color.rgb = mix(vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), float(gl_PrimitiveID * 3 % 32) / 32.0f) * abs(norm.z);
-    //out_color.rgb = vec3(in_blah);
+    out_color.rgb = norm * 0.5f + 0.5f;
     out_color.a = 1.0f;
 }

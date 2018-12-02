@@ -18,35 +18,50 @@
     <ClCompile Include="src\ClothSim.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\ClothMesher.cpp">
+    <ClCompile Include="src\Clothier.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ClothViewer.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\resources\ClothSim\shaders\render.frag">
-      <Filter>resources\shaders</Filter>
-    </None>
-    <None Include="..\resources\ClothSim\shaders\render.vert">
-      <Filter>resources\shaders</Filter>
-    </None>
     <None Include="..\resources\ClothSim\shaders\normal.comp">
       <Filter>resources\shaders</Filter>
     </None>
     <None Include="..\resources\ClothSim\shaders\cloth.comp">
       <Filter>resources\shaders</Filter>
     </None>
-    <None Include="..\resources\ClothSim\shaders\constraints.frag">
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.frag">
       <Filter>resources\shaders</Filter>
     </None>
-    <None Include="..\resources\ClothSim\shaders\constraints.geom">
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.geom">
       <Filter>resources\shaders</Filter>
     </None>
-    <None Include="..\resources\ClothSim\shaders\constraints.vert">
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_cloth.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_cloth.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_frame.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_frame.vert">
       <Filter>resources\shaders</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\ClothMesher.hpp">
+    <ClInclude Include="src\Clothier.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ClothSim.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ClothViewer.hpp">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

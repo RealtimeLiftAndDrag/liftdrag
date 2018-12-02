@@ -26,13 +26,14 @@ struct Constraint {
 
 // Constants -------------------------------------------------------------------
 
+// External
 const int k_workGroupSize = WORK_GROUP_SIZE;
 const int k_constraintPasses = CONSTRAINT_PASSES;
 
 const float k_pi = 3.14159265f;
 const float k_sqrt2 = 1.41421356f;
 const float k_damping = 0.01f;
-const bool k_doGravity = true;
+const bool k_doGravity = false;
 const bool k_doSphere = false;
 const bool k_doWind = false;
 const bool k_doTouch = true;
@@ -51,10 +52,10 @@ uniform int u_constraintCount;
 uniform float u_dt;
 uniform vec3 u_gravity;
 uniform float u_time;
-uniform mat4 u_touchMat;
+uniform bool u_isTouch;
 uniform vec2 u_touchPos;
 uniform vec3 u_touchDir;
-uniform bool u_isTouch;
+uniform mat4 u_touchMat;
 uniform vec2 u_aspect;
 uniform float u_weaveSize;
 
@@ -148,9 +149,10 @@ void main() {
     }
     if (k_doTouch && u_isTouch) {
         for (int vi = workI; vi < u_vertexCount; vi += k_workGroupSize) {
-            vec2 pos = (u_touchMat * vec4(u_vertices[vi].position, 1.0f)).xy;
-            pos *= u_aspect;
-            vec2 delta = pos - u_touchPos;
+            vec4 pos = (u_touchMat * vec4(u_vertices[vi].position, 1.0f));
+            pos.xy /= pos.w;
+            pos.xy *= u_aspect;
+            vec2 delta = pos.xy - u_touchPos;
             float dist2 = dot(delta, delta);
             float strength = max(1.0f - dist2 / (k_touchRad * k_touchRad), 0.0f) * k_touchMag;
             u_vertices[vi].force += u_touchDir * strength;
