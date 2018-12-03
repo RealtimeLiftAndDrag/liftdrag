@@ -340,7 +340,7 @@ namespace rld {
         u32 fboDepthRB(0);
         glGenRenderbuffers(1, &fboDepthRB);
         glBindRenderbuffer(GL_RENDERBUFFER, fboDepthRB);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, s_texSize, s_texSize);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32, s_texSize, s_texSize);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
         // Create FBO

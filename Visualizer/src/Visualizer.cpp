@@ -59,12 +59,12 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::f18);
 
 static constexpr int k_simTexSize(1024);
 static constexpr int k_simSliceCount(100);
-static constexpr float k_simLiftC(1.0f);
-static constexpr float k_simDragC(1.0f);
+static constexpr float k_simLiftC(0.3f);
+static constexpr float k_simDragC(0.3f);
 static constexpr float k_defWindSpeed(100.0f);
 
 static const ivec2 k_defWindowSize(1280, 720);
@@ -123,6 +123,7 @@ static bool s_isVariableChange(false);
 static shr<MainUIC> s_mainUIC;
 static shr<ui::TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
 static shr<ui::NumberField> s_angleField;
+static shr<ui::Number> s_sliceField;
 static shr<ui::Vector> s_angleLiftNum, s_angleDragNum, s_angleTorqueNum;
 static shr<ui::Number> s_rudderNum, s_elevatorNum, s_aileronNum;
 static shr<ui::NumberField> s_windSpeedField, s_turbDistField, s_maxSearchDistField, s_windShadDistField, s_backforceCField, s_flowbackField, s_initVelCField;
@@ -495,6 +496,10 @@ static void setupUI() {
     });
     angleValueGroup->add(s_angleField);
 
+    angleLabelGroup->add(shr<ui::String>(new ui::String("Slice: ", 1, vec4(1.0f))));
+    s_sliceField.reset(new ui::Number(0, 1, vec4(1.0f), 5, 0, true, 0));
+    angleValueGroup->add(s_sliceField);
+
     angleLabelGroup->add(shr<ui::String>(new ui::String("Lift: ", 1, vec4(1.0f))));
     s_angleLiftNum.reset(new ui::Vector(vec3(0.0), vec4(1.0f), 10, false, 3));
     angleValueGroup->add(s_angleLiftNum);
@@ -691,6 +696,7 @@ static void cleanup() {
 
 static void updateInfoText() {
     s_angleField->value(s_angleOfAttack);
+    s_sliceField->value(rld::slice());
     s_angleLiftNum->value(rld::result().lift);
     s_angleDragNum->value(rld::result().drag);
     s_angleTorqueNum->value(rld::result().torq);}
