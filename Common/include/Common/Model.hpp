@@ -69,11 +69,11 @@ class SoftMesh : public Mesh {
         vec3 position;
         float mass;
         vec3 normal;
-        float _0;
+        int group;
         vec3 force;
-        float _1;
+        float _0;
         vec3 prevPosition;
-        float _2;
+        float _1;
     };
 
     struct Constraint {
@@ -97,10 +97,13 @@ class SoftMesh : public Mesh {
     int constraintCount() const { return int(m_constraints.size()); }
 
     const std::vector<Vertex> & vertices() const { return m_vertices; }
+    std::vector<Vertex> & vertices() { return m_vertices; }
 
     const std::vector<u32> & indices() const { return m_indices; }
+    std::vector<u32> & indices() { return m_indices; }
 
     const std::vector<Constraint> & constraints() const { return m_constraints; }
+    std::vector<Constraint> & constraints() { return m_constraints; }
 
     u32 vertexBuffer() const { return m_vertexBuffer; }
 

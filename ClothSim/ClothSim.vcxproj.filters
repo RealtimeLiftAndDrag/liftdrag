@@ -53,6 +53,9 @@
     <None Include="..\resources\ClothSim\shaders\ClothViewer_frame.vert">
       <Filter>resources\shaders</Filter>
     </None>
+    <None Include="..\resources\ClothSim\shaders\transform.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Clothier.hpp">

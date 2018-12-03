@@ -1,6 +1,6 @@
 #version 410 core
 
-layout(triangles, fractional_even_spacing, cw) in;	//equal_spacing
+layout(triangles, fractional_even_spacing, cw) in;    //equal_spacing
 in vec2 TE_vertex_tex[];
 uniform mat4 P;
 uniform mat4 V;
@@ -16,24 +16,24 @@ out vec3 vertex_pos;
 out float colorO;
 
 void main() {
-	vec4 pos = (gl_TessCoord.x * gl_in[0].gl_Position +
-		gl_TessCoord.y * gl_in[1].gl_Position +
-		gl_TessCoord.z * gl_in[2].gl_Position);
+    vec4 pos = (gl_TessCoord.x * gl_in[0].gl_Position +
+        gl_TessCoord.y * gl_in[1].gl_Position +
+        gl_TessCoord.z * gl_in[2].gl_Position);
 
-	vec2 Tex = (gl_TessCoord.x * TE_vertex_tex[0] +
-		gl_TessCoord.y * TE_vertex_tex[1] +
-		gl_TessCoord.z * TE_vertex_tex[2]);
+    vec2 Tex = (gl_TessCoord.x * TE_vertex_tex[0] +
+        gl_TessCoord.y * TE_vertex_tex[1] +
+        gl_TessCoord.z * TE_vertex_tex[2]);
 
-	//float height = getHeight(pos.xyz);
+    //float height = getHeight(pos.xyz);
 
-	//pos.y = height;
+    //pos.y = height;
 
-	/*vertex_norm = calculateNormal(pos.xyz);
-	vertex_tan = calculateTan(vertex_norm);
-	vertex_bi = calculateBinorm(vertex_norm);*/
-	vertex_pos = pos.xyz;
+    /*vertex_norm = calculateNormal(pos.xyz);
+    vertex_tan = calculateTan(vertex_norm);
+    vertex_bi = calculateBinorm(vertex_norm);*/
+    vertex_pos = pos.xyz;
 
-	vertex_tex = Tex;
-	gl_Position = P * V * pos;
+    vertex_tex = Tex;
+    gl_Position = P * V * pos;
 
 }

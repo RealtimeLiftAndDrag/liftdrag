@@ -163,6 +163,7 @@
     <None Include="..\resources\ClothSim\shaders\ClothViewer_cloth.vert" />
     <None Include="..\resources\ClothSim\shaders\ClothViewer_frame.frag" />
     <None Include="..\resources\ClothSim\shaders\ClothViewer_frame.vert" />
+    <None Include="..\resources\ClothSim\shaders\transform.comp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Clothier.hpp" />

@@ -12,18 +12,18 @@ uniform vec3 camoff;
 
 void main()
 {
-	vec2 texcoords = vertTex;
-	float t = 1. / 100;
-	texcoords -= vec2(camoff.x, camoff.z) * t;
+    vec2 texcoords = vertTex;
+    float t = 1. / 100;
+    texcoords -= vec2(camoff.x, camoff.z) * t;
 
-	vec4 tpos = vec4(vertPos, 1.0);
+    vec4 tpos = vec4(vertPos, 1.0);
 
-	tpos.z -= camoff.z;
-	tpos.x -= camoff.x;
+    tpos.z -= camoff.z;
+    tpos.x -= camoff.x;
 
-	tpos = M * tpos;
+    tpos = M * tpos;
 
-	vertex_pos = tpos.xyz;
-	gl_Position = tpos;
-	vertex_tex = texcoords;
+    vertex_pos = tpos.xyz;
+    gl_Position = tpos;
+    vertex_tex = texcoords;
 }

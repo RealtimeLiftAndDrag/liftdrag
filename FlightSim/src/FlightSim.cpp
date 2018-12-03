@@ -356,7 +356,7 @@ static std::string createTextString(const vec3 & lift, const vec3 & drag, const 
     ss << "Lift: <" << std::setw(k_width) << lift.x << " " << std::setw(k_width) << lift.y << " " << std::setw(k_width) << lift.z << ">\n";
     ss << "Drag: <" << std::setw(k_width) << drag.x << " " << std::setw(k_width) << drag.y << " " << std::setw(k_width) << drag.z << ">\n";
     ss << "Torq: <" << std::setw(k_width) << torq.x << " " << std::setw(k_width) << torq.y << " " << std::setw(k_width) << torq.z << ">\n";
-	ss << "Speed: " << std::setw(k_width) << speed;
+    ss << "Speed: " << std::setw(k_width) << speed;
     return ss.str();
 }
 

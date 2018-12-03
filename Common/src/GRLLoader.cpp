@@ -125,7 +125,7 @@ namespace grl {
                         std::cerr << "Invalid vertex" << std::endl;
                         return {};
                     }
-					//objects.back().posData[i].z -= 1;
+                    //objects.back().posData[i].z -= 1;
                 }
             }
         }

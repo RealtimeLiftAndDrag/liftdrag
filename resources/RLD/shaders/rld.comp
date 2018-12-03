@@ -29,11 +29,11 @@ struct SoftVertex {
     vec3 position;
     float mass;
     vec3 normal;
-    float _0;
+    int group;
     vec3 force;
-    float constraintFactor;
+    float _0;
     vec3 prevPosition;
-    int _1;
+    float _1;
 };
 
 // Constants -------------------------------------------------------------------

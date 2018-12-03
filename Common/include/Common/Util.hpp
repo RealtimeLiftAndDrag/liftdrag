@@ -115,4 +115,8 @@ namespace util {
         return vec;
     }
 
+    inline float lawOfCosines(float a, float b, float c) {
+        return std::acos((a * a + b * b - c * c) / (2.0f * a * b));
+    }
+
 }

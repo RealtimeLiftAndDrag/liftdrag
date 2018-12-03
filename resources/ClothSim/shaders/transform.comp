@@ -1,0 +1,44 @@
+#version 450 core
+
+layout (local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+// Types -----------------------------------------------------------------------
+
+struct Vertex {
+    vec3 position;
+    float mass;
+    vec3 normal;
+    int group;
+    vec3 force;
+    float _0;
+    vec3 prevPosition;
+    float _1;
+};
+
+// Constants -------------------------------------------------------------------
+
+// External
+const int k_workGroupSize = WORK_GROUP_SIZE;
+
+// Uniforms --------------------------------------------------------------------
+
+uniform int u_vertexCount;
+uniform ivec4 u_groups;
+uniform mat4 u_transformMat;
+
+layout (binding = 0, std430) restrict buffer Vertices {
+    Vertex u_vertices[];
+};
+
+// Functions -------------------------------------------------------------------
+
+void main() {
+    const int workI = int(gl_LocalInvocationIndex);
+
+    // Update vertices
+    for (int vi = workI; vi < u_vertexCount; vi += k_workGroupSize) {
+        if (any(equal(ivec4(u_vertices[vi].group), u_groups))) {
+            u_vertices[vi].position = (u_transformMat * vec4(u_vertices[vi].position, 1.0f)).xyz;
+        }
+    }
+}

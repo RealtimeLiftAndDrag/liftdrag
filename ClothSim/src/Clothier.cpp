@@ -40,7 +40,15 @@ namespace Clothier {
 
 
 
-    unq<Model> createRectangle(ivec2 lod, float weaveSize, float totalMass, int groupSize, const mat4 & transform) {
+    unq<Model> createRectangle(
+        ivec2 lod,
+        float weaveSize,
+        float totalMass,
+        int groupSize,
+        const mat4 & transform,
+        const bvec4 & pinVerts,
+        const bvec4 & pinEdges
+    ) {
         ivec2 vertSize(lod + 1);
         int vertCount(vertSize.x * vertSize.y);
         std::vector<Vertex> vertices;
@@ -53,19 +61,44 @@ namespace Clothier {
                 vertex.position = vec3(transform * vec4(p.x * weaveSize, p.y * weaveSize, 0.0f, 1.0f));
                 vertex.mass = vertMass;
                 vertex.normal = vec3(0.0f, 0.0f, 1.0f);
+                vertex.group = 0;
                 vertex.force = vec3(0.0f);
                 vertex.prevPosition = vertex.position;
                 vertices.push_back(vertex);
             }
         }
-        //vertices[lod.y * vertSize.x].mass = 0.0f;
-        //vertices[lod.y * vertSize.x + lod.x].mass = 0.0f;
-        for (int i(0); i < vertSize.x; ++i) {
-            vertices[i].mass = 0.0f;
+        if (pinVerts.x) {
+            vertices[0].mass = 0.0f;
         }
-        //for (int i(0); i < vertSize.y; ++i) {
-        //    vertices[i * vertSize.x].mass = 0.0f;
-        //}
+        if (pinVerts.y) {
+            vertices[lod.x].mass = 0.0f;
+        }
+        if (pinVerts.z) {
+            vertices[vertSize.x * lod.y + lod.x].mass = 0.0f;
+        }
+        if (pinVerts.w) {
+            vertices[vertSize.x * lod.y].mass = 0.0f;
+        }
+        if (pinEdges.x) {
+            for (int i(0); i < vertSize.x; ++i) {
+                vertices[i].mass = 0.0f;
+            }
+        }
+        if (pinEdges.y) {
+            for (int i(0); i < vertSize.y; ++i) {
+                vertices[vertSize.x * i + lod.x].mass = 0.0f;
+            }
+        }
+        if (pinEdges.z) {
+            for (int i(0); i < vertSize.x; ++i) {
+                vertices[vertSize.x * lod.y + i].mass = 0.0f;
+            }
+        }
+        if (pinEdges.w) {
+            for (int i(0); i < vertSize.y; ++i) {
+                vertices[vertSize.x * i].mass = 0.0f;
+            }
+        }
 
         int indexCount = lod.x * lod.y * 2 * 3;
         std::vector<u32> indices;
@@ -155,30 +188,62 @@ namespace Clothier {
         return (p.y + 1) * p.y / 2 + p.x;
     }
 
-    unq<Model> createTriangle(int lod, float weaveSize, float totalMass, int groupSize, const mat4 & transform) {
+    unq<SoftMesh> createTriangle(
+        const vec3 & a,
+        const vec3 & b,
+        const vec3 & c,
+        int lod,
+        float totalMass,
+        int groupSize,
+        const bvec3 & pinVerts,
+        const bvec3 & pinEdges
+    ) {
         int edgeVerts(lod + 1);
         int vertCount((edgeVerts + 1) * edgeVerts / 2);
-        float edgeLength(lod * weaveSize);
-        float height(edgeLength * k_h);
         std::vector<Vertex> vertices;
         vertices.reserve(vertCount);
         float vertMass(totalMass / vertCount);
+        float invLOD(1.0f / float(lod));
+        vec3 normal(glm::normalize(glm::cross(b - a, c - a)));
         for (ivec2 p(0); p.y < edgeVerts; ++p.y) {
             for (p.x = 0; p.x <= p.y; ++p.x) {
+                float alpha(1.0f - p.y * invLOD);
+                float beta(1.0f - (lod - p.y + p.x) * invLOD);
+                float gamma(1.0f - alpha - beta);
                 Vertex vertex;
-                vertex.position = transform * vec4(triToCart(vec2(p)) * weaveSize, 0.0f, 1.0f);
+                vertex.position = alpha * a + beta * b + gamma * c;
                 vertex.mass = vertMass;
-                vertex.normal = vec3(0.0f, 0.0f, 1.0f);
+                vertex.normal = normal;
+                vertex.group = 0;
                 vertex.force = vec3(0.0f);
                 vertex.prevPosition = vertex.position;
                 vertices.push_back(vertex);
             }
         }
-        for (int i(0); i < edgeVerts; ++i) {
-            vertices[triI(ivec2(0, i))].mass = 0.0f;
+        if (pinVerts.x) {
+            vertices[triI(ivec2(0, 0))].mass = 0.0f;
         }
-        //vertices[triI(ivec2(0, 0))].mass = 0.0f;
-        //vertices[triI(ivec2(0, lod))].mass = 0.0f;
+        if (pinVerts.y) {
+            vertices[triI(ivec2(0, lod))].mass = 0.0f;
+        }
+        if (pinVerts.z) {
+            vertices[triI(ivec2(lod, lod))].mass = 0.0f;
+        }
+        if (pinEdges.x) {
+            for (int i(0); i < edgeVerts; ++i) {
+                vertices[triI(ivec2(0, i))].mass = 0.0f;
+            }
+        }
+        if (pinEdges.y) {
+            for (int i(0); i < edgeVerts; ++i) {
+                vertices[triI(ivec2(i, lod))].mass = 0.0f;
+            }
+        }
+        if (pinEdges.z) {
+            for (int i(0); i < edgeVerts; ++i) {
+                vertices[triI(ivec2(i, i))].mass = 0.0f;
+            }
+        }
 
         int indexCount = lod * lod * 3;
         std::vector<u32> indices;
@@ -198,58 +263,78 @@ namespace Clothier {
             }
         }
 
-        float d1(weaveSize);
-        float d2(weaveSize * k_h * 2.0f);
+        float minDistA(glm::distance(b, c) * invLOD);
+        float minDistB(glm::distance(c, a) * invLOD);
+        float minDistC(glm::distance(a, b) * invLOD);
+        float majDistA(glm::length((b - a) + (c - a)) * invLOD);
+        float majDistB(glm::length((c - b) + (a - b)) * invLOD);
+        float majDistC(glm::length((a - c) + (b - c)) * invLOD);
+        // Minor flat out from A corner
         std::vector<Constraint> constraints;
         for (ivec2 p(0, 1); p.y <= lod; ++p.y) {
             for (p.x = 0; p.x < p.y; ++p.x) {
                 ivec2 q(p);
-                constraints.push_back({ triI(q), triI(q + ivec2(1, 0)), d1 });
+                constraints.push_back({ triI(q), triI(q + ivec2(1, 0)), minDistA });
             }
         }
-        // Out from B corner
+        // Minor flat out from B corner
         for (ivec2 p(0, 1); p.y <= lod; ++p.y) {
             for (p.x = 0; p.x < p.y; ++p.x) {
                 ivec2 q(p.y - p.x, lod - p.x);
-                constraints.push_back({ triI(q), triI(q + ivec2(-1, -1)), d1 });
+                constraints.push_back({ triI(q), triI(q + ivec2(-1, -1)), minDistB });
             }
         }
-        // Out from C corner
+        // Minor flat out from C corner
         for (ivec2 p(0, 1); p.y <= lod; ++p.y) {
             for (p.x = 0; p.x < p.y; ++p.x) {
                 ivec2 q(lod - p.y, lod + p.x - p.y);
-                constraints.push_back({ triI(q), triI(q + ivec2(0, 1)), d1 });
+                constraints.push_back({ triI(q), triI(q + ivec2(0, 1)), minDistC });
             }
         }
-        // Out from A corner
+        // Major straight out from A corner
         for (ivec2 p(0, 0); p.y < lod - 1; ++p.y) {
             for (p.x = 0; p.x <= p.y; ++p.x) {
                 ivec2 q(p);
-                constraints.push_back({ triI(q), triI(q + ivec2(1, 2)), d2 });
+                constraints.push_back({ triI(q), triI(q + ivec2(1, 2)), majDistA });
             }
         }
-        // Out from B corner
+        //  Major straight out from B corner
         for (ivec2 p(0, 0); p.y < lod - 1; ++p.y) {
             for (p.x = 0; p.x <= p.y; ++p.x) {
                 ivec2 q(p.y - p.x, lod - p.x);
-                constraints.push_back({ triI(q), triI(q + ivec2(1, -1)), d2 });
+                constraints.push_back({ triI(q), triI(q + ivec2(1, -1)), majDistB });
             }
         }
-        // Out from C corner
+        //  Major straight out from C corner
         for (ivec2 p(0, 0); p.y < lod - 1; ++p.y) {
             for (p.x = 0; p.x <= p.y; ++p.x) {
                 ivec2 q(lod - p.y, lod + p.x - p.y);
-                constraints.push_back({ triI(q), triI(q + ivec2(-2, -1)), d2 });
+                constraints.push_back({ triI(q), triI(q + ivec2(-2, -1)), majDistC });
             }
         }
 
         if (groupSize) decouple(vertices, constraints, groupSize);
-        
-        unq<Mesh> mesh(new SoftMesh(move(vertices), move(indices), move(constraints)));
-        if (!mesh->load()) {
-            return {};
+
+        return unq<SoftMesh>(new SoftMesh(move(vertices), move(indices), move(constraints)));
+    }
+
+    unq<SoftMesh> createSail(float luffLength, float leechLength, float footLength, float areaDensity, int lod, int groupSize) {
+        float hp((luffLength + leechLength + footLength) * 0.5f);
+        float area(std::sqrt(hp * (hp - luffLength) * (hp - leechLength) * (hp - footLength)));
+        float mass(area * areaDensity);
+
+        float height(2.0f * area / footLength);
+        vec3 a(0.0f, -0.5f * height, 0.5f * footLength); // head
+        vec3 b(a.x, a.y, a.z - footLength); // clew
+        vec3 c(a.x, a.y + height, a.z - std::sqrt(luffLength * luffLength - height * height)); // tack
+        unq<SoftMesh> mesh(createTriangle(a, b, c, lod, mass, groupSize, bvec3(true, true, true), bvec3(false, false, true)));
+
+        for (int i(0); i <= lod; ++i) {
+            mesh->vertices()[triI(ivec2(i, i))].group = 1;
         }
-        return unq<Model>(new Model(SubModel("ClothRectangle", move(mesh))));
+        mesh->vertices()[triI(ivec2(0, lod))].group = 2;
+
+        return mesh;
     }
 
 }

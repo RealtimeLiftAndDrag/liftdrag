@@ -11,8 +11,8 @@ out vec2 vertex_tex;
 
 void main()
 {
-	vec4 tpos = M * vec4(vertPos, 1.0);
-	vertex_pos = tpos.xyz;
-	vertex_tex = vertTex;
-	gl_Position = P * V * tpos;
+    vec4 tpos = M * vec4(vertPos, 1.0);
+    vertex_pos = tpos.xyz;
+    vertex_tex = vertTex;
+    gl_Position = P * V * tpos;
 }

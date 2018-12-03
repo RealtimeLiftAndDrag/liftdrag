@@ -24,6 +24,7 @@ extern "C" {
 #include "Common/Global.hpp"
 #include "Common/Shader.hpp"
 #include "Common/Camera.hpp"
+#include "Common/Util.hpp"
 #include "RLD/Simulation.hpp"
 #include "UI/Group.hpp"
 #include "UI/TexViewer.hpp"
@@ -33,7 +34,31 @@ extern "C" {
 
 
 
+enum class Object { flag, sail };
+
 enum class State { free, sweeping, autoStepping, stepping };
+
+
+
+static const Object k_object(Object::sail);
+
+static const ivec2 k_flagLOD(50, 25);
+static const float k_flagLength(1.0f);
+static const float k_flagWeaveSize(k_flagLength / float(k_flagLOD.x));
+static const vec2 k_flagSize(vec2(k_flagLOD) * k_flagWeaveSize);
+static const float k_flagAreaDensity(0.25f); // kg per square meter
+
+static const int k_sailLOD(50);
+static const float k_sailLuffLength(13.0f);
+static const float k_sailLeechLength(12.0f);
+static const float k_sailFootLength(6.0f);
+static const float k_sailAreaDensity(0.35f); // kg per square meter (about right for 8 oz. sail)
+static const float k_sailRotateSpeed(glm::pi<float>() / 3.0f);
+static const float k_sailDrawSpeed(k_sailLuffLength / 5.0f);
+
+static constexpr bool k_doTouch(true);
+static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
+static const int k_constraintPasses(16);
 
 static const ivec2 k_defWindowSize(1280, 720);
 static const std::string k_windowTitle("Cloth Simulation");
@@ -45,36 +70,35 @@ static const float k_targetFPS(60.0f);
 static const float k_targetDT(1.0f / k_targetFPS);
 static const float k_updateDT(1.0f / 60.0f);
 
-static constexpr bool k_doTri(false);
-static constexpr bool k_doTouch(true);
-static const int k_lod(40);
-static const ivec2 k_clothLOD(k_lod, k_lod);
-static const float k_clothLength(1.0f);
-static const float k_weaveSize(k_clothLength / k_clothLOD.y);
-static const vec2 k_clothSize(vec2(k_clothLOD) * k_weaveSize);
-static const int k_triLOD(k_lod);
-static const float k_triClothSize(k_clothLength * 2.0f / std::sqrt(3.0f));
-static const float k_triWeaveSize(k_triClothSize / k_triLOD);
-static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
-static const int k_constraintPasses(16);
-static const float k_clothMass(1.0f);
-static const float k_touchForce(50.0f * k_clothMass / (k_lod * k_lod));
-
-static constexpr bool k_doRLD(true);
 static const int k_rldTexSize(1024);
 static const int k_rldSliceCount(100);
-static const float k_rldLiftK(1.0f);
-static const float k_rldDragK(1.0f);
-static const float k_windframeWidth(2.0f * k_clothLength * 1.125f);
-static const float k_windframeDepth(k_clothLength * 1.125f);
-static const float k_windSpeed(10.0f);
-static const float k_turbulenceDist(0.5f);
-static const float k_windShadDist(0.1f);
-static const float k_backforceC(10000.0f);
-static const float k_flowback(0.01f);
-static const float k_initVelC(1.0f);
 
 static const int k_minCompSize(128);
+
+
+
+static float s_clothScale;
+static float s_clothMass;
+static float s_touchForce;
+
+static mat4 s_sailRotateCCWMat, s_sailRotateCWMat;
+static float s_sailMaxClewDist;
+static float s_sailLuffAngle;
+static float s_sailHeight;
+static float s_sailArea;
+static vec3 s_sailDrawDir;
+static float s_sailDrawY;
+
+static float s_rldLiftC;
+static float s_rldDragC;
+static float s_windframeWidth;
+static float s_windframeDepth;
+static float s_windSpeed;
+static float s_turbulenceDist;
+static float s_windShadDist;
+static float s_backforceC;
+static float s_flowback;
+static float s_initVelC;
 
 static int s_workGroupSize;
 static ivec2 s_workGroupSize2D;
@@ -83,12 +107,17 @@ static unq<Model> s_model;
 static const SoftMesh * s_mesh;
 static unq<Shader> s_clothShader;
 static unq<Shader> s_normalShader;
+static unq<Shader> s_transformShader;
 
 static shr<ClothViewerComponent> s_viewerComp;
 static shr<ui::TexViewer> s_frontTexComp;
 
 static State s_state(State::free);
 static bool s_doStep(false);
+static float s_sailAngle(0.0f);
+static bool s_sailRotateCCW(false), s_sailRotateCW(false);
+static float s_sailClewDist;
+static bool s_sailClewIn(false), s_sailClewOut(false);
 
 
 
@@ -118,29 +147,98 @@ class RootComp : public ui::HorizontalGroup {
                 }
             }
         }
+        // Rotate sail CCW
+        else if (key == GLFW_KEY_LEFT) {
+            if (action == GLFW_PRESS) s_sailRotateCCW = true;
+            else if (action == GLFW_RELEASE) s_sailRotateCCW = false;
+        }
+        // Rotate sail CW
+        else if (key == GLFW_KEY_RIGHT) {
+            if (action == GLFW_PRESS) s_sailRotateCW = true;
+            else if (action == GLFW_RELEASE) s_sailRotateCW = false;
+        }
+        // Draw in clew
+        else if (key == GLFW_KEY_DOWN) {
+            if (action == GLFW_PRESS) s_sailClewIn = true;
+            else if (action == GLFW_RELEASE) s_sailClewIn = false;
+        }
+        // Draw out clew
+        else if (key == GLFW_KEY_UP) {
+            if (action == GLFW_PRESS) s_sailClewOut = true;
+            else if (action == GLFW_RELEASE) s_sailClewOut = false;
+        }
     }
 
 };
 
-static bool setupModel() {
-    if (k_doTri) {
-        mat4 transform(glm::rotate(glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)));
-        transform = glm::translate(vec3(k_triClothSize * 0.5f, 0.0f, 0.0f)) * transform;
-        //transform = glm::rotate(glm::pi<float>() / 3.0f, vec3(1.0f, 0.0f, 0.0f)) * transform;
-        transform = glm::translate(vec3(0.0f, 0.0f, k_clothLength * 0.5f)) * transform;
-        s_model = Clothier::createTriangle(k_triLOD, k_triWeaveSize, k_clothMass, s_workGroupSize, transform);
+static bool setupObject() {
+    if (k_object == Object::flag) {
+        s_clothScale = k_flagLength;
+        float clothArea(k_flagSize.x * k_flagSize.y);
+        s_clothMass = clothArea * k_flagAreaDensity;
+
+        mat4 transform;
+        transform = glm::translate(vec3(-0.5f * k_flagSize, 0.0f)) * transform;
+        transform = glm::rotate(glm::pi<float>() * 0.5f, vec3(0.0f, 1.0f, 0.0f)) * transform;
+        s_model = Clothier::createRectangle(k_flagLOD, k_flagWeaveSize, s_clothMass, s_workGroupSize, transform, bvec4(false, false, false, false), bvec4(false, false, true, true));
+
+        s_rldLiftC = 1.0f;
+        s_rldDragC = 1.0f;
+        s_windframeWidth = 2.0f * k_flagLength * 1.125f;
+        s_windframeDepth = k_flagLength * 1.125f;
+        s_windSpeed = 10.0f;
+        s_turbulenceDist = 0.5f;
+        s_windShadDist = 0.1f;
+        s_backforceC = 10000.0f;
+        s_flowback = 0.01f;
+        s_initVelC = 1.0f;
     }
-    else {
-        mat4 transform(glm::rotate(glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)));
-        transform = glm::translate(vec3(k_clothSize.x * 0.5f, 0.0f, 0.0f)) * transform;
-        //transform = glm::rotate(glm::pi<float>() / 3.0f, vec3(1.0f, 0.0f, 0.0f)) * transform;
-        transform = glm::translate(vec3(0.0f, 0.0f, k_clothLength * 0.5f)) * transform;
-        s_model = Clothier::createRectangle(k_clothLOD, k_weaveSize, k_clothMass, s_workGroupSize, transform);
+    else if (k_object == Object::sail) {
+        s_clothScale = k_sailLuffLength;
+        float hp((k_sailLuffLength + k_sailLeechLength + k_sailFootLength) * 0.5f);
+        s_sailArea = std::sqrt(hp * (hp - k_sailLuffLength) * (hp - k_sailLeechLength) * (hp - k_sailFootLength));
+        s_clothMass = s_sailArea * k_sailAreaDensity;
+        s_sailHeight = 2.0f * s_sailArea / k_sailFootLength;
+        s_sailLuffAngle = util::lawOfCosines(k_sailLuffLength, k_sailFootLength, k_sailLeechLength);
+        s_sailDrawY = std::tan(glm::pi<float>() * 0.5f - s_sailLuffAngle);
+        s_sailDrawDir = glm::normalize(vec3(0.0f, s_sailDrawY, 1.0f));
+
+        s_sailRotateCCWMat = glm::translate(vec3(0.0f, 0.0f, k_sailFootLength * -0.5f)) * s_sailRotateCCWMat;
+        s_sailRotateCCWMat = glm::rotate(k_sailRotateSpeed * k_updateDT, vec3(0.0f, 1.0f, 0.0f)) * s_sailRotateCCWMat;
+        s_sailRotateCCWMat = glm::translate(vec3(0.0f, 0.0f, k_sailFootLength * 0.5f)) * s_sailRotateCCWMat;
+
+        s_sailRotateCWMat = glm::translate(vec3(0.0f, 0.0f, k_sailFootLength * -0.5f)) * s_sailRotateCWMat;
+        s_sailRotateCWMat = glm::rotate(-k_sailRotateSpeed * k_updateDT, vec3(0.0f, 1.0f, 0.0f)) * s_sailRotateCWMat;
+        s_sailRotateCWMat = glm::translate(vec3(0.0f, 0.0f, k_sailFootLength * 0.5f)) * s_sailRotateCWMat;
+
+        s_sailMaxClewDist = 2.0f * s_sailArea / k_sailLuffLength;
+        s_sailClewDist = s_sailMaxClewDist;
+
+        unq<Mesh> mesh(Clothier::createSail(k_sailLuffLength, k_sailLeechLength, k_sailFootLength, k_sailAreaDensity, k_sailLOD, s_workGroupSize));
+        if (!mesh->load()) {
+            std::cerr << "Failed to load mesh" << std::endl;
+            return false;
+        }
+        s_model.reset(new Model(SubModel("Sail", move(mesh))));
+        s_mesh = &static_cast<const SoftMesh &>(s_model->subModels().front().mesh());
+
+        s_rldLiftC = 1.0f;
+        s_rldDragC = 1.0f;
+        s_windframeWidth = glm::max(k_sailFootLength * 2, s_sailHeight) * 1.125f;
+        s_windframeDepth = k_sailFootLength * 1.125f;
+        s_windSpeed = 10.0f;
+        s_turbulenceDist = 0.5f;
+        s_windShadDist = 0.1f;
+        s_backforceC = 10000.0f;
+        s_flowback = 0.01f;
+        s_initVelC = 1.0f;
     }
+
     if (!s_model) {
         return false;
     }
     s_mesh = &static_cast<const SoftMesh &>(s_model->subModels().front().mesh());
+    s_touchForce = s_clothMass / s_mesh->vertexCount() * 20.0f;
     return true;
 }
 
@@ -160,7 +258,7 @@ static bool setupShaders() {
     s_clothShader->uniform("u_constraintCount", s_mesh->constraintCount());
     s_clothShader->uniform("u_dt", k_updateDT);
     s_clothShader->uniform("u_gravity", k_gravity);
-    s_clothShader->uniform("u_weaveSize", k_weaveSize);
+    Shader::unbind();
 
     // Setup normal shader
     if (!(s_normalShader = Shader::load(shadersPath + "normal.comp", {{ "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) }}))) {
@@ -168,15 +266,24 @@ static bool setupShaders() {
         return false;
     }
     s_normalShader->bind();
-    s_normalShader->uniform("u_vertexCount", s_model->subModels().front().mesh().vertexCount());
-    s_normalShader->uniform("u_indexCount", s_model->subModels().front().mesh().indexCount());
-
+    s_normalShader->uniform("u_vertexCount", s_mesh->vertexCount());
+    s_normalShader->uniform("u_indexCount", s_mesh->indexCount());
     Shader::unbind();
+
+    // Setup transform shader
+    if (!(s_transformShader = Shader::load(shadersPath + "transform.comp", { { "WORK_GROUP_SIZE", std::to_string(s_workGroupSize) } }))) {
+        std::cerr << "Failed to load transform shader" << std::endl;
+        return false;
+    }
+    s_transformShader->bind();
+    s_transformShader->uniform("u_vertexCount", s_mesh->vertexCount());
+    Shader::unbind();
+
     return true;
 }
 
 static void setupUI() {
-    s_viewerComp.reset(new ClothViewerComponent(*s_model, k_clothLength, ivec2(k_minCompSize)));
+    s_viewerComp.reset(new ClothViewerComponent(*s_model, s_clothScale, ivec2(k_minCompSize)));
     s_frontTexComp.reset(new ui::TexViewer(rld::frontTex(), ivec2(rld::texSize()), ivec2(k_minCompSize)));
 
     shr<RootComp> rootComp(new RootComp());
@@ -208,9 +315,9 @@ static bool setup() {
     s_workGroupSize2D.y = warpCount / s_workGroupSize2D.x;
     s_workGroupSize2D *= k_warpSize2D;
 
-    // Setup model
-    if (!setupModel()) {
-        std::cerr << "Failed to setup model" << std::endl;
+    // Setup object
+    if (!setupObject()) {
+        std::cerr << "Failed to setup object" << std::endl;
         return false;
     }
 
@@ -224,14 +331,14 @@ static bool setup() {
     if (!rld::setup(
         k_rldTexSize,
         k_rldSliceCount,
-        k_rldLiftK,
-        k_rldDragK,
-        k_turbulenceDist,
-        2.0f * k_turbulenceDist,
-        k_windShadDist,
-        k_backforceC,
-        k_flowback,
-        k_initVelC,
+        s_rldLiftC,
+        s_rldDragC,
+        s_turbulenceDist,
+        2.0f * s_turbulenceDist,
+        s_windShadDist,
+        s_backforceC,
+        s_flowback,
+        s_initVelC,
         false,
         true,
         true
@@ -239,7 +346,7 @@ static bool setup() {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
-    rld::set(*s_model, mat4(), mat3(), k_windframeWidth, k_windframeDepth, k_windSpeed, true);
+    rld::set(*s_model, mat4(), mat3(), s_windframeWidth, s_windframeDepth, s_windSpeed, true);
 
     setupUI();
 
@@ -254,6 +361,36 @@ static void updateCloth() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_mesh->indexBuffer());
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_mesh->constraintBuffer());
 
+    // Transform sail
+    if (k_object == Object::sail) {
+        if (s_sailRotateCCW != s_sailRotateCW) {
+            s_sailAngle += (s_sailRotateCCW ? k_sailRotateSpeed : -k_sailRotateSpeed) * k_updateDT;
+
+            s_transformShader->bind();
+            s_transformShader->uniform("u_groups", ivec4(1, 1, 1, 2));
+            s_transformShader->uniform("u_transformMat", s_sailRotateCCW ? s_sailRotateCCWMat : s_sailRotateCWMat);
+            glDispatchCompute(1, 1, 1);
+            glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
+            Shader::unbind();
+        }
+        if (s_sailClewIn != s_sailClewOut) {
+            float delta(k_sailDrawSpeed * k_updateDT);
+            if (s_sailClewIn) delta = -delta;
+            float newDist(glm::clamp(s_sailClewDist + delta, 0.0f, s_sailMaxClewDist));
+            delta = newDist - s_sailClewDist;
+            if (!util::isZero(delta)) {
+                s_sailClewDist = newDist;
+                vec3 dir(glm::normalize(vec3(std::sin(s_sailAngle), s_sailDrawY, std::cos(s_sailAngle))));
+                s_transformShader->bind();
+                s_transformShader->uniform("u_groups", ivec4(2));
+                s_transformShader->uniform("u_transformMat", glm::translate(dir * -delta));
+                glDispatchCompute(1, 1, 1);
+                glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
+                Shader::unbind();
+            }
+        }
+    }
+
     // Do cloth physics
     s_clothShader->bind();
     s_clothShader->uniform("u_time", s_time * 0.2f);
@@ -263,7 +400,7 @@ static void updateCloth() {
             const ThirdPersonCamera & camera(s_viewerComp->camera());
             s_clothShader->uniform("u_isTouch", true);
             s_clothShader->uniform("u_touchPos", s_viewerComp->touchPoint());
-            s_clothShader->uniform("u_touchForce", -camera.w() * k_touchForce);
+            s_clothShader->uniform("u_touchForce", -camera.w() * s_touchForce);
             s_clothShader->uniform("u_touchMat", camera.projMat() * camera.viewMat());
             s_clothShader->uniform("u_aspect", aspect);
         }
@@ -338,11 +475,11 @@ const Model & model() {
 }
 
 float windframeWidth() {
-    return k_windframeWidth;
+    return s_windframeWidth;
 }
 
 float windframeDepth() {
-    return k_windframeDepth;
+    return s_windframeDepth;
 }
 
 int main(int argc, char ** argv) {

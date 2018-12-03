@@ -451,7 +451,7 @@ static bool setupModel() {
             s_initVelC = 1.0f;
             s_angleGraphRange = vec2(-500000, 500000.0f);
             s_sliceGraphRange = vec2(-50000.0f, 50000.0f);
-			//s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -2.0f)) * s_modelMat; // move center of gravity forward to help with stability
+            //s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -2.0f)) * s_modelMat; // move center of gravity forward to help with stability
             break;
 
         case SimModel::sphere:
@@ -523,29 +523,29 @@ static void setupUI() {
 
     f18Group->add(shr<ui::String>(new ui::String("Rudder: ", 1, vec4(1.0f))));
     s_rudderNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
-	s_rudderNum->actionCallback([]() {
-		setRudderAngle(s_rudderNum->value());
-		s_isVariableChange = true;
-		doSweep();
-	});
+    s_rudderNum->actionCallback([]() {
+        setRudderAngle(s_rudderNum->value());
+        s_isVariableChange = true;
+        doSweep();
+    });
     f18Group->add(s_rudderNum);
 
     f18Group->add(shr<ui::String>(new ui::String("Elevator: ", 1, vec4(1.0f))));
     s_elevatorNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
-	s_elevatorNum->actionCallback([]() {
-		setElevatorAngle(s_elevatorNum->value());
-		s_isVariableChange = true;
-		doSweep();
-	});
+    s_elevatorNum->actionCallback([]() {
+        setElevatorAngle(s_elevatorNum->value());
+        s_isVariableChange = true;
+        doSweep();
+    });
     f18Group->add(s_elevatorNum);
 
     f18Group->add(shr<ui::String>(new ui::String("Aileron: ", 1, vec4(1.0f))));
     s_aileronNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
-	s_aileronNum->actionCallback([]() {
-		setAileronAngle(s_aileronNum->value());
-		s_isVariableChange = true;
-		doSweep();
-	});
+    s_aileronNum->actionCallback([]() {
+        setAileronAngle(s_aileronNum->value());
+        s_isVariableChange = true;
+        doSweep();
+    });
     f18Group->add(s_aileronNum);
 
     //ivec2 textSize(Text::detDimensions(k_controlsString));
