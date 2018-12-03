@@ -46,7 +46,7 @@ static const std::string k_windowTitle("RLD Flight Simulator");
 static constexpr int k_simTexSize(1024);
 static constexpr int k_simSliceCount(100);
 static constexpr float k_simLiftC(0.3f);
-static constexpr float k_simDragC(1.0f);
+static constexpr float k_simDragC(0.3f);
 static constexpr float k_windframeWidth(14.5f);
 static constexpr float k_windframeDepth(22.0f);
 
@@ -552,6 +552,8 @@ static void updatePlane(float dt) {
     s_simObject->addTranslationalForce(lift + drag);
     s_simObject->addAngularForce(torq);
     s_simObject->update(dt);
+
+    s_textComp->string(createTextString(lift, drag, torq));
 }
 
 static void update(float dt) {
