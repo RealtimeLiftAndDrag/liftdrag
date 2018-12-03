@@ -13,13 +13,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Main.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\SimObject.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\ProgTerrain.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\FlightSim.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

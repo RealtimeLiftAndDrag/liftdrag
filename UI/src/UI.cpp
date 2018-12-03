@@ -25,7 +25,7 @@ namespace ui {
 
 
     static GLFWwindow * s_window;
-    static ivec2 s_windowSize;
+    static ivec2 s_clientSize;
     static ivec2 s_cursorPos;
     static bool s_cursorInside;
 
@@ -53,9 +53,9 @@ namespace ui {
     }
 
     static void glfwFramebufferSizeCallback(GLFWwindow * window, int width, int height) {
-        s_windowSize.x = width;
-        s_windowSize.y = height;
-        s_root->size(s_windowSize);
+        s_clientSize.x = width;
+        s_clientSize.y = height;
+        s_root->size(s_clientSize);
         s_root->pack();
     }
 
@@ -74,7 +74,7 @@ namespace ui {
     static void glfwCursorPositionCallback(GLFWwindow * window, double xpos, double ypos) {
         ivec2 prevCursorPos(s_cursorPos);
         s_cursorPos.x = int(xpos);
-        s_cursorPos.y = s_windowSize.y - 1 - int(ypos);
+        s_cursorPos.y = s_clientSize.y - 1 - int(ypos);
         if (s_cursorInside) {
             s_root->cursorPositionEvent(s_cursorPos, s_cursorPos - prevCursorPos);
         }
@@ -151,6 +151,12 @@ namespace ui {
 
     void Component::size(const ivec2 & size) {
         m_size = size;
+    }
+
+    vec2 Component::aspect() const {
+        return (m_size.x >= m_size.y) ?
+            vec2(float(m_size.x) / float(m_size.y), 1.0f) :
+            vec2(1.0f, float(m_size.y) / float(m_size.x));
     }
 
     bool Component::contains(const ivec2 & point) const {
@@ -316,7 +322,7 @@ namespace ui {
         Controller::dpadCallback(controllerDpadCallback);
         Controller::buttonCallback(controllerButtonCallback);
 
-        glfwGetFramebufferSize(s_window, &s_windowSize.x, &s_windowSize.y);
+        glfwGetFramebufferSize(s_window, &s_clientSize.x, &s_clientSize.y);
 
         // Setup GLAD
         if (!gladLoadGL()) {
@@ -379,6 +385,16 @@ namespace ui {
         //}
     }
 
+    const ivec2 & size() {
+        return s_clientSize;
+    }
+
+    vec2 aspect() {
+        return (s_clientSize.x >= s_clientSize.y) ?
+            vec2(float(s_clientSize.x) / float(s_clientSize.y), 1.0f) :
+            vec2(1.0f, float(s_clientSize.y) / float(s_clientSize.x));
+    }
+
     const ivec2 & cursorPosition() {
         return s_cursorPos;
     }
@@ -393,6 +409,14 @@ namespace ui {
 
     bool shouldExit() {
         return glfwWindowShouldClose(s_window);
+    }
+
+    void requestExit() {
+        glfwSetWindowShouldClose(s_window, 1);
+    }
+
+    void disableCursor() {
+        glfwSetInputMode(s_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
 
     void update() {
@@ -421,7 +445,7 @@ namespace ui {
 
     void setRootComponent(shr<Component> root) {
         s_root = root;
-        s_root->size(s_windowSize);
+        s_root->size(s_clientSize);
         s_root->pack();
 
         ivec2 minSize(s_root->minSize());

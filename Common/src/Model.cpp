@@ -12,73 +12,54 @@
 
 
 
-Mesh::Mesh(std::vector<vec3> && locations, std::vector<vec3> && normals, std::vector<u32> && indices) :
-    m_locations(move(locations)),
-    m_normals(move(normals)),
+HardMesh::HardMesh(std::vector<Vertex> && vertices, std::vector<u32> && indices) :
+    m_vertices(move(vertices)),
     m_indices(move(indices)),
-    m_vbo(0),
-    m_ibo(0),
-    m_vao(0),
-    m_spanMin(),
-    m_spanMax()
-{
-    detSpan();
-}
-
-Mesh::Mesh(std::vector<vec3> && locations, std::vector<vec3> && normals) :
-    Mesh(move(locations), move(normals), std::vector<u32>())
+    m_vertexBuffer(0),
+    m_indexBuffer(0),
+    m_vao(0)
 {}
 
-Mesh::Mesh(Mesh && other) :
-    m_locations(move(other.m_locations)),
-    m_normals(move(other.m_normals)),
+HardMesh::HardMesh(std::vector<Vertex> && vertices) :
+    HardMesh(move(vertices), std::vector<u32>())
+{}
+
+HardMesh::HardMesh(HardMesh && other) :
+    m_vertices(move(other.m_vertices)),
     m_indices(move(other.m_indices)),
-    m_vbo(other.m_vbo),
-    m_ibo(other.m_ibo),
-    m_vao(other.m_vao),
-    m_spanMin(other.m_spanMin),
-    m_spanMax(other.m_spanMax)
+    m_vertexBuffer(other.m_vertexBuffer),
+    m_indexBuffer(other.m_indexBuffer),
+    m_vao(other.m_vao)
 {
-    other.m_vbo = 0;
-    other.m_ibo = 0;
+    other.m_vertexBuffer = 0;
+    other.m_indexBuffer = 0;
     other.m_vao = 0;
 }
 
-bool Mesh::load() {
-    size_t vertexCount(m_locations.size());
-    size_t locationsSize(vertexCount * sizeof(vec3));
-    size_t normalsSize(vertexCount * sizeof(vec3));
-    size_t verticesSize(locationsSize + normalsSize);
-    size_t locationsOffset(0);
-    size_t normalsOffset(locationsSize);
-
-    // VBO
-    glGenBuffers(1, &m_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferData(GL_ARRAY_BUFFER, verticesSize, nullptr, GL_STATIC_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, locationsOffset, locationsSize, m_locations.data());
-    glBufferSubData(GL_ARRAY_BUFFER, normalsOffset, normalsSize, m_normals.data());
+bool HardMesh::load() {
+    // Vertex buffer
+    glGenBuffers(1, &m_vertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+    glBufferStorage(GL_ARRAY_BUFFER, m_vertices.size() * sizeof(Vertex), m_vertices.data(), 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // IBO
+    // Index buffer
     if (m_indices.size()) {
-        glGenBuffers(1, &m_ibo);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_indices.size() * sizeof(u32), m_indices.data(), GL_STATIC_DRAW);
+        glGenBuffers(1, &m_indexBuffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
+        glBufferStorage(GL_ELEMENT_ARRAY_BUFFER, m_indices.size() * sizeof(u32), m_indices.data(), 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
 
     // VAO
     glGenVertexArrays(1, &m_vao);
     glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+    if (m_indices.size()) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, reinterpret_cast<const void *>(locationsOffset));
-    glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, reinterpret_cast<const void *>(normalsOffset));
-    if (m_indices.size()) {
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
-    }
+    glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const void *>(           0));
+    glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const void *>(sizeof(vec4)));
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -91,33 +72,98 @@ bool Mesh::load() {
     return true;
 }
 
-void Mesh::draw() const {
+void HardMesh::draw() const {
     glBindVertexArray(m_vao);
     if (m_indices.size()) {
         glDrawElements(GL_TRIANGLES, u32(m_indices.size()), GL_UNSIGNED_INT, reinterpret_cast<const void *>(0));
     }
     else {
-        glDrawArrays(GL_TRIANGLES, 0, u32(m_locations.size()));
+        glDrawArrays(GL_TRIANGLES, 0, u32(m_vertices.size()));
     }
     glBindVertexArray(0);
 }
 
-void Mesh::detSpan() {
-    m_spanMin = vec3( k_infinity<float>);
-    m_spanMax = vec3(-k_infinity<float>);
-    for (const vec3 & location : m_locations) {
-        m_spanMin = glm::min(m_spanMin, location);
-        m_spanMax = glm::max(m_spanMax, location);
+
+
+SoftMesh::SoftMesh(std::vector<Vertex> && vertices, std::vector<u32> && indices, std::vector<Constraint> && constraints) :
+    m_vertices(move(vertices)),
+    m_indices(move(indices)),
+    m_constraints(move(constraints)),
+    m_vertexBuffer(0),
+    m_indexBuffer(0),
+    m_constraintBuffer(0),
+    m_vao(0)
+{}
+
+SoftMesh::SoftMesh(SoftMesh && other) :
+    m_vertices(move(other.m_vertices)),
+    m_indices(move(other.m_indices)),
+    m_constraints(move(other.m_constraints)),
+    m_vertexBuffer(other.m_vertexBuffer),
+    m_indexBuffer(other.m_indexBuffer),
+    m_constraintBuffer(other.m_constraintBuffer),
+    m_vao(other.m_vao)
+{
+    other.m_vertexBuffer = 0;
+    other.m_indexBuffer = 0;
+    other.m_constraintBuffer = 0;
+    other.m_vao = 0;
+}
+
+
+bool SoftMesh::load() {
+    // Vertex buffer
+    glGenBuffers(1, &m_vertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+    glBufferStorage(GL_ARRAY_BUFFER, m_vertices.size() * sizeof(Vertex), m_vertices.data(), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // Index buffer
+    glGenBuffers(1, &m_indexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
+    glBufferStorage(GL_ELEMENT_ARRAY_BUFFER, m_indices.size() * sizeof(u32), m_indices.data(), 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    // Constraint buffer
+    glGenBuffers(1, &m_constraintBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_constraintBuffer);
+    glBufferStorage(GL_SHADER_STORAGE_BUFFER, m_constraints.size() * sizeof(Constraint), m_constraints.data(), 0);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    // VAO
+    glGenVertexArrays(1, &m_vao);
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const void *>(           0));
+    glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const void *>(sizeof(vec4)));
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    if (glGetError() != GL_NO_ERROR) {
+        std::cerr << "OpenGL error" << std::endl;
+        return false;
     }
+
+    return true;
+}
+
+void SoftMesh::draw() const {
+    glBindVertexArray(m_vao);
+    glDrawElements(GL_TRIANGLES, u32(m_indices.size()), GL_UNSIGNED_INT, nullptr);
+    glBindVertexArray(0);
 }
 
 
 
-SubModel::SubModel(std::string && name, Mesh && mesh) :
+SubModel::SubModel(std::string && name, unq<Mesh> && mesh) :
     SubModel(move(name), move(mesh), mat4())
 {}
 
-SubModel::SubModel(std::string && name, Mesh && mesh, const mat4 & originMat) :
+SubModel::SubModel(std::string && name, unq<Mesh> && mesh, const mat4 & originMat) :
     m_name(move(name)),
     m_mesh(move(mesh)),
     m_modelMat(),
@@ -155,14 +201,14 @@ static unq<Model> loadOBJ(const std::string & filename) {
     std::vector<SubModel> subModels;
     for (tinyobj::shape_t & shape : shapes) {
         size_t vertexCount(shape.mesh.positions.size() / 3);
-
-        vec3 * start(reinterpret_cast<vec3 *>(shape.mesh.positions.data()));
-        std::vector<vec3> locations(start, start + vertexCount);
-
-        start = reinterpret_cast<vec3 *>(shape.mesh.normals.data());
-        std::vector<vec3> normals(start, start + vertexCount);
-
-        Mesh mesh(move(locations), move(normals), move(shape.mesh.indices));
+        std::vector<HardMesh::Vertex> vertices(vertexCount);
+        const vec3 * positions(reinterpret_cast<const vec3 *>(shape.mesh.positions.data()));
+        const vec3 *   normals(reinterpret_cast<const vec3 *>(shape.mesh.  normals.data()));
+        for (int i(0); i < vertexCount; ++i) {
+            vertices[i].position = positions[i];
+            vertices[i].  normal =   normals[i];
+        }
+        unq<Mesh> mesh(new HardMesh(move(vertices), move(shape.mesh.indices)));
         subModels.emplace_back(move(shape.name), move(mesh));
     }
 
@@ -178,7 +224,7 @@ static unq<Model> loadGRL(const std::string & filename) {
 
     std::vector<SubModel> subModels;
     for (grl::Object & object : objects) {
-        Mesh mesh(move(object.posData), move(object.norData));
+        unq<Mesh> mesh(new HardMesh(move(object.vertices)));
         subModels.emplace_back(move(object.name), move(mesh), object.originMat);
     }
 
@@ -205,7 +251,7 @@ unq<Model> Model::load(const std::string & filename) {
     }
 
     for (SubModel & subModel : model->m_subModels) {
-        if (!subModel.m_mesh.load()) {
+        if (!subModel.m_mesh->load()) {
             std::cerr << "Failed to load sub model: " << subModel.m_name << std::endl;
             return {};
         }
@@ -216,25 +262,23 @@ unq<Model> Model::load(const std::string & filename) {
 
 Model::Model(std::vector<SubModel> && subModels) :
     m_subModels(move(subModels)),
-    m_nameMap(),
-    m_spanMin(),
-    m_spanMax()
+    m_nameMap()
 {
     detNameMap();
-    detSpan();
 }
+
+Model::Model(SubModel && subModel) :
+    Model(util::singleToVector(move(subModel)))
+{}
 
 Model::Model(Model && other) :
     m_subModels(move(other.m_subModels)),
     m_nameMap(move(other.m_nameMap))
-{
-    m_spanMin = other.m_spanMin;
-    m_spanMax = other.m_spanMax;
-}
+{}
 
 void Model::draw() const {
     for (const SubModel & subModel : m_subModels) {
-        subModel.m_mesh.draw();
+        subModel.m_mesh->draw();
     }
 }
 
@@ -244,7 +288,7 @@ void Model::draw(const mat4 & modelMat, const mat3 & normalMat, u32 modelMatUnif
         glm::mat3 combNormalMat(normalMat * subModel.m_normalMat);
         glUniformMatrix4fv(modelMatUniformBinding, 1, GL_FALSE, reinterpret_cast<const float *>(&combModelMat));
         glUniformMatrix3fv(normalMatUniformBinding, 1, GL_FALSE, reinterpret_cast<const float *>(&combNormalMat));
-        subModel.m_mesh.draw();
+        subModel.m_mesh->draw();
     }
 }
 
@@ -262,14 +306,5 @@ void Model::detNameMap() {
     m_nameMap.clear();
     for (size_t i(0); i < m_subModels.size(); ++i) {
         m_nameMap[m_subModels[i].m_name] = i;
-    }
-}
-
-void Model::detSpan() {
-    m_spanMin = vec3( k_infinity<float>);
-    m_spanMax = vec3(-k_infinity<float>);
-    for (const SubModel & subModel : m_subModels) {
-        m_spanMin = glm::min(m_spanMin, subModel.m_mesh.spanMin());
-        m_spanMax = glm::max(m_spanMax, subModel.m_mesh.spanMax());
     }
 }

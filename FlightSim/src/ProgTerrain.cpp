@@ -428,7 +428,7 @@ namespace ProgTerrain {
         glBindTexture(GL_TEXTURE_2D, NightTexture);
         skySphere->draw();
 
-        progSky->unbind();
+        Shader::unbind();
     }
 
     void drawWater(const mat4 &V, const mat4 &P, const vec3 &camPos, const float &centerOffset, const vec3 &offset) {
@@ -452,7 +452,7 @@ namespace ProgTerrain {
         //glPatchParameteri(GL_PATCH_VERTICES, 3.0f);
         glDrawElements(GL_TRIANGLES, k_meshSize*k_meshSize * 6, GL_UNSIGNED_INT, (void*)0);
         //glEnable(GL_DEPTH_TEST);
-        progWater->unbind();
+        Shader::unbind();
     }
 
     void drawTerrain(const mat4 &V, const mat4 &P, const vec3 &camPos, const float &centerOffset, const vec3 &offset) {
@@ -491,7 +491,7 @@ namespace ProgTerrain {
         glPatchParameteri(GL_PATCH_VERTICES, 3);
         glDrawElements(GL_PATCHES, k_meshSize*k_meshSize * 6, GL_UNSIGNED_INT, (void*)0);
 
-        heightshader->unbind();
+        Shader::unbind();
     }
 
     void render(const mat4 &V, const mat4 &P, const vec3 &camPos) {

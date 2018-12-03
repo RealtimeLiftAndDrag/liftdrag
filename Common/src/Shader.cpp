@@ -368,12 +368,12 @@ unq<Shader> Shader::load(
     return unq<Shader>(new Shader(progId));
 }
 
-void Shader::bind() {
-    glUseProgram(m_glId);
-}
-
 void Shader::unbind() {
     glUseProgram(0);
+}
+
+void Shader::bind() {
+    glUseProgram(m_glId);
 }
 
 template <typename T>

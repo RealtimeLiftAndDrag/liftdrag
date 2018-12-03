@@ -1,0 +1,48 @@
+#version 450 core
+
+layout (local_size_x = 32, local_size_y = 8, local_size_z = 1) in;
+
+// Constants -------------------------------------------------------------------
+
+const ivec2 k_groupSize = ivec2(gl_WorkGroupSize);
+const ivec2 k_localID = ivec2(gl_LocalInvocationID);
+
+// Uniforms --------------------------------------------------------------------
+
+layout (binding = 0, rgba8) uniform restrict image2D u_frontImg;
+layout (binding = 7, rgba8) uniform restrict image2D u_sideImg;
+
+uniform int u_texSize;
+uniform int u_sideX;
+
+// Shared ----------------------------------------------------------------------
+
+shared vec4 s_accumArrays[k_groupSize.y][k_groupSize.x];
+shared vec4 s_sideVals[k_groupSize.y];
+
+// Functions -------------------------------------------------------------------
+
+void accumulate() {
+    for (uint n = k_groupSize.x / 2; n > 0; n /= 2) {
+        barrier();
+        if (k_localID.x < n) s_accumArrays[k_localID.y][k_localID.x] = max(s_accumArrays[k_localID.y][k_localID.x], s_accumArrays[k_localID.y][k_localID.x + n]);
+    }
+}
+
+void main() {    
+    s_sideVals[k_localID.y] = vec4(0.0f);
+
+    int iterations = (u_texSize + k_groupSize.x - 1) / k_groupSize.x;
+    int i = 0;
+    for (ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy); i < iterations; texCoord.x += k_groupSize.x, ++i) {
+        s_accumArrays[k_localID.y][k_localID.x] = imageLoad(u_frontImg, texCoord);
+        accumulate();
+        if (k_localID.x == 0) {
+            s_sideVals[k_localID.y] = max(s_sideVals[k_localID.y], s_accumArrays[k_localID.y][0]);
+        }
+    }
+
+    if (k_localID.x == 0) {
+        imageStore(u_sideImg, ivec2(u_sideX, gl_GlobalInvocationID.y), s_sideVals[k_localID.y]);
+    }
+}

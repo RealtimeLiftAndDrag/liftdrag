@@ -1,21 +1,20 @@
 #version 450 core
 
-#ifndef WORK_GROUP_SIZE
-#define WORK_GROUP_SIZE 1024
+#ifndef DISTINGUISH_ACTIVE_PIXELS
+#define DISTINGUISH_ACTIVE_PIXELS false
 #endif
 
-layout (local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
-
-// Types -----------------------------------------------------------------------
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 // Constants -------------------------------------------------------------------
 
-const int k_workGroupSize = WORK_GROUP_SIZE;
+const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4; // Must also change in other shaders
+const bool k_distinguishActivePixels = DISTINGUISH_ACTIVE_PIXELS; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
+const float k_inactiveVal = k_distinguishActivePixels ? 1.0f / 3.0f : 1.0f;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 0, rgba8) uniform image2D u_fboImg;
-layout (binding = 6, rgba8) uniform coherent image2D u_sideImg;
+layout (binding = 0, rgba8ui) uniform restrict uimage2D u_frontImg;
 
 layout (binding = 0) uniform sampler2D u_turbTex;
 layout (binding = 2) uniform sampler2D u_shadTex;
@@ -43,15 +42,7 @@ layout (binding = 0, std140) uniform Constants {
     float u_pixelSize;
 };
 
-// Shared ----------------------------------------------------------------------
-
-shared vec4 s_sideVals[k_workGroupSize];
-
 // Functions -------------------------------------------------------------------
-
-float windToScreen(float wind) {
-    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
-}
 
 float getShadFactor(float shad) {
     float shadDepth = shad * u_windframeDepth;
@@ -60,48 +51,23 @@ float getShadFactor(float shad) {
 }
 
 void main() {
-    const int workI = int(gl_LocalInvocationIndex);
-    int sideX = int(windToScreen(-u_sliceZ));
-    float depth = u_slice * u_sliceSize;
-
-    ivec2 texCoord;
-    for (texCoord.y = workI; texCoord.y < u_screenSize; texCoord.y += int(k_workGroupSize)) {
-        s_sideVals[workI] = vec4(0.0f);
-
-        for (texCoord.x = 0; texCoord.x < u_screenSize; ++texCoord.x) {
-            vec4 color = imageLoad(u_fboImg, texCoord);
-            float geo = color.r;
-            float air = color.g;
-            float turb = texture(u_turbTex, (vec2(texCoord) + 0.5f) / float(u_screenSize)).r;
-            float shad = texture(u_shadTex, (vec2(texCoord) + 0.5f) / float(u_screenSize)).r;
-
-            color.rgb = vec3(geo * 0.5f);
-            color.r += getShadFactor(shad) * 0.5f;
-            color.g += air;
-            color.b += turb * 0.5f;
-            color.a = 1.0f;
-            imageStore(u_fboImg, texCoord, color);
-
-            vec4 val = vec4(geo, air, turb, shad);
-            s_sideVals[workI] = max(s_sideVals[workI], val);
-        }
-
-        barrier();
-
-        ivec2 sideTexCoord = ivec2(sideX, texCoord.y);
-        vec4 color = imageLoad(u_sideImg, sideTexCoord);
-        vec4 val = s_sideVals[workI];
-
-        float geo = val.x;
-        float air = val.y;
-        float turb = val.z;
-        float shad = val.w;
-
-        //color.rgb = max(color.rgb, vec3(geo * 0.5f));
-        color.r += getShadFactor(shad) * 0.5f;
-        color.g += air;
-        color.b += turb * 0.5f;
-        color.a = 1.0f;
-        imageStore(u_sideImg, sideTexCoord, color);
+    ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(texCoord, ivec2(u_screenSize)))) {
+        return;
     }
+
+    uvec4 frontVal = imageLoad(u_frontImg, texCoord);
+    float activeFactor = float(bool(frontVal & k_activeBit)) * (1.0f - k_inactiveVal) + k_inactiveVal;
+    float geo = float(bool(frontVal & k_geoBit)) * activeFactor;
+    float air = float(bool(frontVal & k_airBit)) * activeFactor;
+    float turb = texture(u_turbTex, (vec2(texCoord) + 0.5f) / float(u_screenSize)).r;
+    float shad = texture(u_shadTex, (vec2(texCoord) + 0.5f) / float(u_screenSize)).r;
+
+    vec4 color;
+    color.rgb = vec3(geo * 0.5f);
+    color.r += getShadFactor(shad) * 0.5f;
+    color.g += air;
+    color.b += turb * 0.5f;
+    color.a = 1.0f;
+    imageStore(u_frontImg, texCoord, uvec4(round(color * 255.0f)));
 }

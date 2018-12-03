@@ -20,10 +20,10 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{D954425B-411D-41D6-8385-641A6BA04351}</ProjectGuid>
+    <ProjectGuid>{4FE12CF3-560C-4324-8465-AAC8D0ABE92B}</ProjectGuid>
     <RootNamespace>RealtimeLiftAndDrag</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
-    <ProjectName>Visualizer</ProjectName>
+    <ProjectName>ClothSim</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -91,7 +91,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>include/Visualizer;../RLD/include;../UI/include;../Common/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include/ClothSim;../RLD/include;../UI/include;../Common/include</AdditionalIncludeDirectories>
       <AdditionalOptions>/std:c++latest</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -149,20 +149,25 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Results.cpp" />
-    <ClCompile Include="src\Viewer.cpp" />
-    <ClCompile Include="src\Visualizer.cpp" />
+    <ClCompile Include="src\Clothier.cpp" />
+    <ClCompile Include="src\ClothSim.cpp" />
+    <ClCompile Include="src\ClothViewer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Results.hpp" />
-    <ClInclude Include="src\Viewer.hpp" />
-    <ClInclude Include="src\Visualizer.hpp" />
+    <None Include="..\resources\ClothSim\shaders\cloth.comp" />
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.frag" />
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.geom" />
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.vert" />
+    <None Include="..\resources\ClothSim\shaders\normal.comp" />
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_cloth.frag" />
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_cloth.vert" />
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_frame.frag" />
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_frame.vert" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\resources\Visualizer\shaders\viewer_frame.frag" />
-    <None Include="..\resources\Visualizer\shaders\viewer_frame.vert" />
-    <None Include="..\resources\Visualizer\shaders\viewer_object.frag" />
-    <None Include="..\resources\Visualizer\shaders\viewer_object.vert" />
+    <ClInclude Include="src\Clothier.hpp" />
+    <ClInclude Include="src\ClothSim.hpp" />
+    <ClInclude Include="src\ClothViewer.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

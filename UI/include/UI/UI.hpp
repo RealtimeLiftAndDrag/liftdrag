@@ -27,6 +27,8 @@ namespace ui {
         virtual const ivec2 & minSize() const = 0;
         virtual const ivec2 & maxSize() const = 0;
 
+        virtual vec2 aspect() const final;
+
         virtual bool contains(const ivec2 & point) const final;
 
         virtual void focus() final;
@@ -159,11 +161,17 @@ namespace ui {
 
     };
 
+    class Space : public Single {};
 
 
-    bool setup(const ivec2 & windowSize, const std::string & windowTitle, int majorGLVersion, int minorGLVersion, bool vSync);
+
+    bool setup(const ivec2 & clientSize, const std::string & windowTitle, int majorGLVersion, int minorGLVersion, bool vSync);
 
     void poll();
+
+    const ivec2 & size();
+
+    vec2 aspect();
 
     const ivec2 & cursorPosition();
 
@@ -172,6 +180,10 @@ namespace ui {
     bool isKeyPressed(int key);
 
     bool shouldExit();
+
+    void requestExit();
+
+    void disableCursor();
 
     /*
     // Called when a key is pressed, held, or released

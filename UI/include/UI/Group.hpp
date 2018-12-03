@@ -30,4 +30,16 @@ namespace ui {
 
     };
 
+    class LayerGroup : public Group {
+
+        public:
+
+        virtual void pack() override;
+
+        protected:
+
+        virtual duo<ivec2> detSizeExtrema() const override;
+
+    };
+
 }

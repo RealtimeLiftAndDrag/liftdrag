@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{c9420426-a5c6-40cd-bf4a-3ec266a6342d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{389e76c1-e5d6-421f-808d-7522fde3ac8f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources">
+      <UniqueIdentifier>{4f903dc7-1842-4dfb-af32-f8ce1b5cf2de}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\shaders">
+      <UniqueIdentifier>{abf146ff-00cb-48e7-b01d-97f8cbb515ab}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\ClothSim.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Clothier.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ClothViewer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\ClothSim\shaders\normal.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\cloth.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.geom">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_cloth.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_cloth.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_frame.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_frame.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Clothier.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ClothSim.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ClothViewer.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

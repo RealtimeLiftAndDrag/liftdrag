@@ -32,10 +32,10 @@ namespace results {
     static int s_sliceCount;
     static vec2 s_angleGraphRange, s_sliceGraphRange;
 
-    static std::map<float, Entry> s_angleRecord; // map of results where key is angle and value is lift/drag pair
+    static std::map<float, Result> s_angleRecord; // map of results where key is angle and value is lift/drag pair
     static bool s_isAngleRecordChange;
 
-    static std::map<int, Entry> s_sliceRecord;
+    static std::map<int, Result> s_sliceRecord;
     static bool s_isSliceRecordChange;
 
     static shr<ui::Graph> s_angleGraph, s_sliceGraph;
@@ -127,9 +127,9 @@ namespace results {
         }
     }
 
-    void submitAngle(float angle, const Entry & entry) {
+    void submitAngle(float angle, const Result & result) {
         angle = std::round(angle * k_invAngleGranularity) * k_angleGranularity;
-        s_angleRecord[angle] = entry;
+        s_angleRecord[angle] = result;
         s_isAngleRecordChange = true;
     }
 
@@ -138,8 +138,8 @@ namespace results {
         s_isAngleRecordChange = true;
     }
 
-    void submitSlice(int slice, const Entry & entry) {
-        s_sliceRecord[slice] = entry;
+    void submitSlice(int slice, const Result & result) {
+        s_sliceRecord[slice] = result;
         s_isSliceRecordChange = true;
     }
 
@@ -148,10 +148,10 @@ namespace results {
         s_isSliceRecordChange = true;
     }
 
-    bool valAt(float angle, Entry & r_entry) {
+    bool valAt(float angle, Result & r_result) {
         auto it(s_angleRecord.find(angle));
         if (it != s_angleRecord.end()) {
-            r_entry = it->second;
+            r_result = it->second;
             return true;
         }
 
@@ -162,22 +162,22 @@ namespace results {
         --preIt;
 
         float preAngle(preIt->first);
-        const Entry & preEntry(preIt->second);
+        const Result & preResult(preIt->second);
         float postAngle(postIt->first);
-        const Entry & postEntry(postIt->second);
+        const Result & postResult(postIt->second);
 
         float interpP((angle - preAngle) / (postAngle - preAngle));
-        r_entry.lift = glm::mix(preEntry.lift, postEntry.lift, interpP);
-        r_entry.drag = glm::mix(preEntry.drag, postEntry.drag, interpP);
-        r_entry.torq = glm::mix(preEntry.torq, postEntry.torq, interpP);
+        r_result.lift = glm::mix(preResult.lift, postResult.lift, interpP);
+        r_result.drag = glm::mix(preResult.drag, postResult.drag, interpP);
+        r_result.torq = glm::mix(preResult.torq, postResult.torq, interpP);
         return true;
     }
 
-    const std::map<float, Entry> & angleRecord() {
+    const std::map<float, Result> & angleRecord() {
         return s_angleRecord;
     }
 
-    const std::map<int, Entry> & sliceRecord() {
+    const std::map<int, Result> & sliceRecord() {
         return s_sliceRecord;
     }
 

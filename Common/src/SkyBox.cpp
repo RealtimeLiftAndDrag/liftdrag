@@ -147,7 +147,7 @@ void SkyBox::render(const mat4 & viewMat, const mat4 & projMat) const {
     glCullFace(GL_BACK);
     glDepthFunc(GL_LESS);
 
-    s_shader->unbind();
+    Shader::unbind();
 }
 
 SkyBox::SkyBox(u32 cubemap) :

@@ -26,7 +26,7 @@ extern "C" {
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 #include "glm/gtc/constants.hpp"
-#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtx/transform.hpp"
 #include "Common/Util.hpp"
 #include "Common/Shader.hpp"
 #include "Common/GLInterface.hpp"
@@ -61,11 +61,11 @@ enum class SimModel { airfoil, f18, sphere };
 
 static constexpr SimModel k_simModel(SimModel::airfoil);
 
-static constexpr int k_simTexSize = 1024;
-static constexpr int k_simSliceCount = 100;
-static constexpr float k_simLiftC = 1.0f;
-static constexpr float k_simDragC = 1.0f;
-static constexpr float k_defWindSpeed = 100.0f;
+static constexpr int k_simTexSize(1024);
+static constexpr int k_simSliceCount(100);
+static constexpr float k_simLiftC(1.0f);
+static constexpr float k_simDragC(1.0f);
+static constexpr float k_defWindSpeed(100.0f);
 
 static const ivec2 k_defWindowSize(1280, 720);
 
@@ -90,8 +90,10 @@ static const std::string & k_controlsString(
 
 
 static unq<Model> s_model;
-static mat4 s_modelMat;
-static mat3 s_normalMat;
+static mat4 s_modelMat; // Particular to model, does not change
+static mat3 s_normalMat; // Particular to model, does not change
+static mat4 s_windModelMat; // Changes based on angle of attack
+static mat3 s_windNormalMat; // Changes based on angle of attack
 static float s_windframeWidth, s_windframeDepth;
 static float s_windSpeed = k_defWindSpeed;
 static float s_turbulenceDist;
@@ -167,7 +169,7 @@ static void setRudderAngle(float angle) {
     if (angle != s_rudderAngle) {
         s_rudderAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(glm::radians(-s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
         s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
@@ -186,11 +188,11 @@ static void setAileronAngle(float angle) {
     if (angle != s_aileronAngle) {
         s_aileronAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_aileronAngle), vec3(1.0f, 0.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(glm::radians(s_aileronAngle), vec3(1.0f, 0.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
 
-        modelMat = glm::rotate(mat4(), glm::radians(-s_aileronAngle), vec3(1.0f, 0.0f, 0.0f));
+        modelMat = glm::rotate(glm::radians(-s_aileronAngle), vec3(1.0f, 0.0f, 0.0f));
         normalMat = modelMat;
         s_model->subModel("AileronR01")->localTransform(modelMat, normalMat);
 
@@ -208,7 +210,7 @@ static void setElevatorAngle(float angle) {
     if (angle != s_elevatorAngle) {
         s_elevatorAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(glm::radians(-s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
         s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
@@ -222,18 +224,17 @@ static void changeElevatorAngle(float deltaAngle) {
 }
 
 static void setSimulation(float angleOfAttack, bool debug) {
-    mat4 rotMat(glm::rotate(mat4(), glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
+    mat4 rotMat(glm::rotate(glm::radians(angleOfAttack), vec3(-1.0f, 0.0f, 0.0f)));
+    s_windModelMat = rotMat * s_modelMat;
+    s_windNormalMat = mat3(rotMat) * s_normalMat;
 
-    rld::set(*s_model, rotMat * s_modelMat, mat3(rotMat) * s_normalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
+    rld::set(*s_model, s_windModelMat, s_windNormalMat, s_windframeWidth, s_windframeDepth, s_windSpeed, debug);
 }
 
 static void submitResults(float angleOfAttack) {
-    results::submitAngle(angleOfAttack, { rld::lift(), rld::drag(), rld::torq() });
-    const vec3 * lifts(rld::lifts());
-    const vec3 * drags(rld::drags());
-    const vec3 * torqs(rld::torqs());
+    results::submitAngle(angleOfAttack, rld::result());
     for (int i(0); i < rld::sliceCount(); ++i) {
-        results::submitSlice(i, { lifts[i], drags[i], torqs[i] });
+        results::submitSlice(i, rld::results()[i]);
     }
 
     results::update();
@@ -244,20 +245,17 @@ static void doFastSweep(float angleOfAttack) {
 
     glDisable(GL_BLEND); // Can't have blending for simulation
 
-    double then(glfwGetTime());
     rld::sweep();
-    double dt(glfwGetTime() - then);
 
     glEnable(GL_BLEND);
 
     submitResults(angleOfAttack);
-
-    std::cout << "Angle: " << angleOfAttack << ", Lift: " << rld::lift().y << ", Drag: " << glm::length(rld::drag()) << ", Torque: " << rld::torq().x << ", SPS: " << (1.0 / dt) << std::endl;
 }
 
 static void doAllAngles() {
     results::clearSlices();
 
+    glFinish();
     double then(glfwGetTime());
 
     int count(0);
@@ -267,6 +265,7 @@ static void doAllAngles() {
         count += 2;
     }
 
+    glFinish();
     double dt(glfwGetTime() - then);
     std::cout << "Average SPS: " << (double(count) / dt) << std::endl;
 }
@@ -617,12 +616,12 @@ static void setupUI() {
     bottomGroup->add(angleGraph);
     bottomGroup->add(sliceGraph);
     bottomGroup->add(infoGroup);
+    bottomGroup->add(Viewer::component());
 
     s_mainUIC.reset(new MainUIC());
     s_mainUIC->add(displayGroup);
     s_mainUIC->add(bottomGroup);
 
-    //ui::setRootComponent(Viewer::component());
     ui::setRootComponent(s_mainUIC);
 }
 
@@ -646,7 +645,21 @@ static bool setup() {
     }
 
     // Setup simulation
-    if (!rld::setup(k_simTexSize, k_simSliceCount, k_simLiftC, k_simDragC, s_turbulenceDist, s_maxSearchDist, s_windShadDist, s_backforceC, s_flowback, s_initVelC)) {
+    if (!rld::setup(
+        k_simTexSize,
+        k_simSliceCount,
+        k_simLiftC,
+        k_simDragC,
+        s_turbulenceDist,
+        s_maxSearchDist,
+        s_windShadDist,
+        s_backforceC,
+        s_flowback,
+        s_initVelC,
+        true,
+        false,
+        false
+    )) {
         std::cerr << "Failed to setup RLD" << std::endl;
         return false;
     }
@@ -678,9 +691,9 @@ static void cleanup() {
 
 static void updateInfoText() {
     s_angleField->value(s_angleOfAttack);
-    s_angleLiftNum->value(rld::lift());
-    s_angleDragNum->value(rld::drag());
-    s_angleTorqueNum->value(rld::torq());}
+    s_angleLiftNum->value(rld::result().lift);
+    s_angleDragNum->value(rld::result().drag);
+    s_angleTorqueNum->value(rld::result().torq);}
 
 static void updateF18InfoText() {
     s_rudderNum->value(s_rudderAngle);
@@ -764,9 +777,6 @@ static void update(float dt) {
 
         if (rld::step()) { // That was the last slice
             s_shouldSweep = false;
-            vec3 lift(rld::lift());
-            vec3 drag(rld::drag());
-            vec3 torq(rld::torq());
 
             submitResults(s_angleOfAttack);
 
@@ -818,11 +828,19 @@ const Model & model() {
 }
 
 const mat4 & modelMat() {
-    return s_modelMat;
+    return s_windModelMat;
 }
 
 const mat3 & normalMat() {
-    return s_normalMat;
+    return s_windNormalMat;
+}
+
+float windframeWidth() {
+    return s_windframeWidth;
+}
+
+float windframeDepth() {
+    return s_windframeDepth;
 }
 
 int main(int argc, char ** argv) {

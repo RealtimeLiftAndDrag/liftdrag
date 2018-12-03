@@ -33,24 +33,26 @@ namespace grl {
         return true;
     }
 
-    static bool readVertex(std::istream & is, vec3 & r_position, vec3 & r_normal, vec2 & r_texCoord) {
+    static bool readVertex(std::istream & is, HardMesh::Vertex & r_vertex) {
         static std::string line;
+
+        vec2 texCoord;
 
         if (!std::getline(is, line)) {
             return false;
         }
         std::stringstream ss(line);
         if (!(
-            (ss >> r_position.x) &&
-            (ss >> r_position.y) &&
-            (ss >> r_position.z) &&
+            (ss >> r_vertex.position.x) &&
+            (ss >> r_vertex.position.y) &&
+            (ss >> r_vertex.position.z) &&
 
-            (ss >> r_texCoord.x) &&
-            (ss >> r_texCoord.y) &&
+            (ss >> texCoord.x) &&
+            (ss >> texCoord.y) &&
 
-            (ss >> r_normal.x) &&
-            (ss >> r_normal.y) &&
-            (ss >> r_normal.z)
+            (ss >> r_vertex.normal.x) &&
+            (ss >> r_vertex.normal.y) &&
+            (ss >> r_vertex.normal.z)
         )) {
             return false;
         }
@@ -117,16 +119,9 @@ namespace grl {
                     std::cerr << "Invalid vertex count";
                     return {};
                 }
-                objects.back().posData.resize(vertexCount);
-                objects.back().norData.resize(vertexCount);
-                objects.back().texData.resize(vertexCount);
+                objects.back().vertices.resize(vertexCount);
                 for (int i(0); i < vertexCount; ++i) {
-                    if (!readVertex(
-                        ifs,
-                        objects.back().posData[i],
-                        objects.back().norData[i],
-                        objects.back().texData[i]
-                    )) {
+                    if (!readVertex(ifs, objects.back().vertices[i])) {
                         std::cerr << "Invalid vertex" << std::endl;
                         return {};
                     }

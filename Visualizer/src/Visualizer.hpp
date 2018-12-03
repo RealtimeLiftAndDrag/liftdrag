@@ -10,3 +10,5 @@
 const Model & model();
 const mat4 & modelMat();
 const mat3 & normalMat();
+float windframeWidth();
+float windframeDepth();

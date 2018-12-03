@@ -34,4 +34,18 @@
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\Visualizer\shaders\viewer_frame.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Visualizer\shaders\viewer_frame.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Visualizer\shaders\viewer_object.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\Visualizer\shaders\viewer_object.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+  </ItemGroup>
 </Project>
