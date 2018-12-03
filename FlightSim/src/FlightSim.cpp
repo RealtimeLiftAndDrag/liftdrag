@@ -45,8 +45,8 @@ static const std::string k_windowTitle("RLD Flight Simulator");
 
 static constexpr int k_simTexSize(1024);
 static constexpr int k_simSliceCount(100);
-static constexpr float k_simLiftC(0.3f);
-static constexpr float k_simDragC(0.3f);
+static constexpr float k_simLiftC(1.0f);
+static constexpr float k_simDragC(1.0f);
 static constexpr float k_windframeWidth(14.5f);
 static constexpr float k_windframeDepth(22.0f);
 
@@ -347,7 +347,7 @@ void triggerCallback(int player, Controller::Trigger trigger, float val) {\
     }
 }
 
-static std::string createTextString(const vec3 & lift, const vec3 & drag, const vec3 & torq) {
+static std::string createTextString(const vec3 & lift, const vec3 & drag, const vec3 & torq, float speed) {
     constexpr int k_preDigits(7), k_postDigits(2);
     constexpr int k_width(k_preDigits + k_postDigits + 2);
     std::stringstream ss;
@@ -355,7 +355,8 @@ static std::string createTextString(const vec3 & lift, const vec3 & drag, const 
     ss << std::fixed;
     ss << "Lift: <" << std::setw(k_width) << lift.x << " " << std::setw(k_width) << lift.y << " " << std::setw(k_width) << lift.z << ">\n";
     ss << "Drag: <" << std::setw(k_width) << drag.x << " " << std::setw(k_width) << drag.y << " " << std::setw(k_width) << drag.z << ">\n";
-    ss << "Torq: <" << std::setw(k_width) << torq.x << " " << std::setw(k_width) << torq.y << " " << std::setw(k_width) << torq.z << ">";
+    ss << "Torq: <" << std::setw(k_width) << torq.x << " " << std::setw(k_width) << torq.y << " " << std::setw(k_width) << torq.z << ">\n";
+	ss << "Speed: " << std::setw(k_width) << speed;
     return ss.str();
 }
 
@@ -369,7 +370,7 @@ static bool setupObject() {
 
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)); // flip right-side up
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)) * s_modelMat; // turn to face -z
-    //s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 2.0f)) * s_modelMat; // move center of gravity forward to help with stability
+    s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 2.0f)) * s_modelMat; // move center of gravity forward to help with stability
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
 
     s_turbulenceDist = 0.225f;
@@ -391,7 +392,7 @@ static bool setupObject() {
 
 static void setupUI() {
     s_mainComp.reset(new MainComp());
-    s_textComp.reset(new ui::Text(createTextString(vec3(), vec3(), vec3()), ivec2(1, 1), vec4(1.0f, 1.0f, 1.0f, 1.0f)));
+    s_textComp.reset(new ui::Text(createTextString(vec3(), vec3(), vec3(), 0.0f), ivec2(1, 1), vec4(1.0f, 1.0f, 1.0f, 1.0f)));
     shr<ui::HorizontalGroup> horizGroup(new ui::HorizontalGroup());
     horizGroup->add(s_textComp);
     horizGroup->add(shr<ui::Space>(new ui::Space()));
@@ -547,13 +548,13 @@ static void updatePlane(float dt) {
     vec3 torq = windBasis * result.torq;
     //lift.x = lift.y = 0.0f;
     //drag.x = drag.y = 0.0f;
-    //torq.x = torq.z = 0.0f;
+    //torq.y = torq.z = 0.0f;
 
     s_simObject->addTranslationalForce(lift + drag);
     s_simObject->addAngularForce(torq);
     s_simObject->update(dt);
 
-    s_textComp->string(createTextString(lift, drag, torq));
+    s_textComp->string(createTextString(lift, drag, torq, glm::length(s_simObject->velocity())));
 }
 
 static void update(float dt) {

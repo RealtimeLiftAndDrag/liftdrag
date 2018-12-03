@@ -61,18 +61,18 @@ enum class SimModel { airfoil, f18, sphere };
 
 static constexpr SimModel k_simModel(SimModel::f18);
 
-static constexpr int k_simTexSize(1024);
-static constexpr int k_simSliceCount(100);
-static constexpr float k_simLiftC(0.3f);
-static constexpr float k_simDragC(0.3f);
-static constexpr float k_defWindSpeed(100.0f);
+static const int k_simTexSize(1024);
+static const int k_simSliceCount(100);
+static const float k_simLiftC(1.0f);
+static const float k_simDragC(1.0f);
+static const float k_defWindSpeed(100.0f);
 
 static const ivec2 k_defWindowSize(1280, 720);
 
-static constexpr float k_maxAutoAoA(45.0f);
-static constexpr float k_autoAngleIncrement(1.0f); // how many degrees to change the angle of attack by when auto progressing
-static constexpr float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
-static constexpr float k_seekSpeed(15.0f); // how many degrees to seek per second
+static const float k_maxAutoAoA(45.0f);
+static const float k_autoAngleIncrement(1.0f); // how many degrees to change the angle of attack by when auto progressing
+static const float k_manualAngleIncrement(1.0f); // how many degrees to change the rudder, elevator, and ailerons by when using arrow keys
+static const float k_seekSpeed(15.0f); // how many degrees to seek per second
 
 static const std::string & k_controlsString(
     "Controls"                                      "\n"
@@ -125,7 +125,7 @@ static shr<ui::TexViewer> s_frontTexViewer, s_turbTexViewer, s_sideTexViewer;
 static shr<ui::NumberField> s_angleField;
 static shr<ui::Number> s_sliceField;
 static shr<ui::Vector> s_angleLiftNum, s_angleDragNum, s_angleTorqueNum;
-static shr<ui::Number> s_rudderNum, s_elevatorNum, s_aileronNum;
+static shr<ui::NumberField> s_rudderNum, s_elevatorNum, s_aileronNum;
 static shr<ui::NumberField> s_windSpeedField, s_turbDistField, s_maxSearchDistField, s_windShadDistField, s_backforceCField, s_flowbackField, s_initVelCField;
 
 
@@ -451,6 +451,7 @@ static bool setupModel() {
             s_initVelC = 1.0f;
             s_angleGraphRange = vec2(-500000, 500000.0f);
             s_sliceGraphRange = vec2(-50000.0f, 50000.0f);
+			//s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -2.0f)) * s_modelMat; // move center of gravity forward to help with stability
             break;
 
         case SimModel::sphere:
@@ -521,15 +522,30 @@ static void setupUI() {
     shr<ui::HorizontalGroup> f18Group(new ui::HorizontalGroup());
 
     f18Group->add(shr<ui::String>(new ui::String("Rudder: ", 1, vec4(1.0f))));
-    s_rudderNum.reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    s_rudderNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
+	s_rudderNum->actionCallback([]() {
+		setRudderAngle(s_rudderNum->value());
+		s_isVariableChange = true;
+		doSweep();
+	});
     f18Group->add(s_rudderNum);
 
     f18Group->add(shr<ui::String>(new ui::String("Elevator: ", 1, vec4(1.0f))));
-    s_elevatorNum.reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    s_elevatorNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
+	s_elevatorNum->actionCallback([]() {
+		setElevatorAngle(s_elevatorNum->value());
+		s_isVariableChange = true;
+		doSweep();
+	});
     f18Group->add(s_elevatorNum);
 
     f18Group->add(shr<ui::String>(new ui::String("Aileron: ", 1, vec4(1.0f))));
-    s_aileronNum.reset(new ui::Number(0.0, 1, vec4(1.0f), 4, 4, false, 2));
+    s_aileronNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
+	s_aileronNum->actionCallback([]() {
+		setAileronAngle(s_aileronNum->value());
+		s_isVariableChange = true;
+		doSweep();
+	});
     f18Group->add(s_aileronNum);
 
     //ivec2 textSize(Text::detDimensions(k_controlsString));
