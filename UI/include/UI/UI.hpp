@@ -161,6 +161,8 @@ namespace ui {
 
     };
 
+    class Space : public Single {};
+
 
 
     bool setup(const ivec2 & clientSize, const std::string & windowTitle, int majorGLVersion, int minorGLVersion, bool vSync);
@@ -178,6 +180,10 @@ namespace ui {
     bool isKeyPressed(int key);
 
     bool shouldExit();
+
+    void requestExit();
+
+    void disableCursor();
 
     /*
     // Called when a key is pressed, held, or released

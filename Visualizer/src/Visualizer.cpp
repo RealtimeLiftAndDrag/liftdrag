@@ -59,7 +59,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::sphere);
+static constexpr SimModel k_simModel(SimModel::airfoil);
 
 static constexpr int k_simTexSize(1024);
 static constexpr int k_simSliceCount(100);
@@ -657,6 +657,7 @@ static bool setup() {
         s_flowback,
         s_initVelC,
         true,
+        false,
         false
     )) {
         std::cerr << "Failed to setup RLD" << std::endl;

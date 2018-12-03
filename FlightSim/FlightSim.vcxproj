@@ -149,7 +149,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\FlightSim.cpp" />
     <ClCompile Include="src\ProgTerrain.cpp" />
     <ClCompile Include="src\SimObject.cpp" />
   </ItemGroup>

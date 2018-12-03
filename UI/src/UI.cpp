@@ -411,6 +411,14 @@ namespace ui {
         return glfwWindowShouldClose(s_window);
     }
 
+    void requestExit() {
+        glfwSetWindowShouldClose(s_window, 1);
+    }
+
+    void disableCursor() {
+        glfwSetInputMode(s_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
+
     void update() {
         s_root->update();
 

@@ -121,5 +121,33 @@ namespace ui {
 
         return { minSize, maxSize };
     }
+    
+
+
+    void LayerGroup::pack() {
+        for (auto & comp : m_components) {
+            comp->size(size());
+            comp->position(position());
+        }
+
+        packComponents();
+    }
+
+    duo<ivec2> LayerGroup::detSizeExtrema() const {
+        ivec2 minSize(std::numeric_limits<int>::max()), maxSize(0);
+
+        for (const auto & comp : m_components) {
+            ivec2 compMinSize(comp->minSize());
+            if (compMinSize.x && compMinSize.x < minSize.x) minSize.x = compMinSize.x;
+            if (compMinSize.y && compMinSize.y < minSize.y) minSize.y = compMinSize.y;
+
+            maxSize = glm::max(maxSize, comp->maxSize());
+        }
+
+        if (maxSize.x == std::numeric_limits<int>::max()) maxSize.x = 0;
+        if (maxSize.y == std::numeric_limits<int>::max()) maxSize.y = 0;
+
+        return { minSize, maxSize };
+    }
 
 }
