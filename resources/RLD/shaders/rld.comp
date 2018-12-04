@@ -253,11 +253,11 @@ void prospect(ivec2 texCoord) {
     vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
 
     // Set wind shadow
-    if (k_doWindShadow && geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
+    if (!k_doSoft && k_doWindShadow && geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
         imageStore(u_shadImg, texCoord / 4, vec4(u_slice * u_sliceSize / u_windframeDepth, 0.0f, 0.0f, 0.0f));
     }
     // Calculate drag and torque
-    else if (!isScreenInShadow(vec2(texCoord) + 0.5f)) {
+    else if (k_doSoft || !isScreenInShadow(vec2(texCoord) + 0.5f)) {
         float dragFactor = 0.5f * k_airDensity * u_windSpeed * u_windSpeed * u_pixelSize * u_pixelSize * geoNormal.z;
         dragFactor *= u_dragC;
         vec3 drag = -geoNormal * dragFactor;
@@ -375,6 +375,81 @@ void draw(int prevAirI) {
 
 // Outline ---------------------------------------------------------------------
 
+// Looks for a geo pixel from given point in given direction
+// searchDir is normalized xy in screen space
+// returns airI if air is found, -1 if nothing is found, -2 if turbulence is found, and -3 if geometry is found
+int findAir(vec2 geoScreenPos, ivec2 geoTexCoord, vec2 searchDir) {
+    vec2 searchScreenPos = geoScreenPos;
+    ivec2 searchPixel = geoTexCoord;
+    vec2 corner = step(vec2(0.0f), searchDir);
+    float totalDist = 0.0f;
+
+    // Check for air on geometry
+    uvec4 color = imageLoad(u_frontImg, searchPixel);
+    if ((color.r & k_airBit) != 0) {
+        int airI = imageLoad(u_flagImg, searchPixel).x;
+        if (airI != 0) { // TODO: this should not be necessary, just here for sanity
+            return airI - 1;
+        }
+    }
+
+    // Search along line in searchDir
+    if (shouldSpawn)
+    while (true) {
+        // TODO: potentially optimize line search
+        vec2 delta = corner - (searchScreenPos - vec2(searchPixel));
+        vec2 dist = abs(delta / searchDir);
+        if (dist.x < dist.y) {
+            searchScreenPos += searchDir * dist.x;
+            searchPixel.x += int(sign(searchDir.x));
+            totalDist += screenToWindDist(dist.x);
+        }
+        else {
+            searchScreenPos += searchDir * dist.y;
+            searchPixel.y += int(sign(searchDir.y));
+            totalDist += screenToWindDist(dist.y);
+        }
+
+        if (totalDist > u_maxSearchDist) {
+            return -1;
+        }
+
+        // If find turbulence, stop looking and mark turbulence
+        if (k_doTurbulence && isScreenTurbulent(searchScreenPos)) {
+            // Write turbulence pixel half way between found turbulence and geometry
+            setScreenTurbulent((geoScreenPos + searchScreenPos) * 0.5f);
+            return -2;
+        }
+
+        color = imageLoad(u_frontImg, searchPixel);
+
+        // Visualize the search
+        //if (k_debug) {
+        //    imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
+        //}
+
+        if ((color.r & k_geoBit) != 0) { // we found a geo pixel
+            return -3;
+        }
+        if ((color.r & k_airBit) != 0) { // we found an air pixel
+            int airI = imageLoad(u_flagImg, searchPixel).x;
+            if (airI != 0) { // TODO: this should not be necessary, just here for sanity
+                --airI;
+
+                // If past turbulence distance, set air as turbulent and mark turbulance
+                if (k_doTurbulence && totalDist > u_turbulenceDist) {
+                    // Set air pixel to be turbulent
+                    u_airPixels[airI].turbulence.x = 1.0f;
+                    return -2;
+                }
+
+                return airI;
+            }
+        }
+    }
+
+}
+
 void outline(int geoI) {
     vec2 geoWindPos = u_geoPixels[geoI].windPos;
     vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
@@ -393,89 +468,13 @@ void outline(int geoI) {
 
     // Look for existing air pixel
     if (shouldSearch) {
-        vec2 searchScreenPos = geoScreenPos;
-        ivec2 searchPixel = geoTexCoord;
-        vec2 searchDir = normalize(geoNormal.xy);
-        vec2 corner = step(vec2(0.0f), searchDir);
-        float totalDist = 0.0f;
-
-        // Check for air on geometry
-        uvec4 color = imageLoad(u_frontImg, searchPixel);
-        if ((color.r & k_airBit) != 0) {
-            int airI = imageLoad(u_flagImg, searchPixel).x;
-            if (airI != 0) { // TODO: this should not be necessary, just here for sanity
-                --airI;
-
-                shouldSpawn = false;
-
+        int res = findAir(geoScreenPos, geoTexCoord, normalize(geoNormal.xy));
+        if (res >
+        shouldSpawn = res == -1;
                 u_airGeoMap[airI] = geoI + 1;
-            }
-        }
-
-        // Search along line in direction of geo normal
-        if (shouldSpawn)
-        while (true) {
-            // TODO: potentially optimize line search
-            vec2 delta = corner - (searchScreenPos - vec2(searchPixel));
-            vec2 dist = abs(delta / searchDir);
-            if (dist.x < dist.y) {
-                searchScreenPos += searchDir * dist.x;
-                searchPixel.x += int(sign(searchDir.x));
-                totalDist += screenToWindDist(dist.x);
-            }
-            else {
-                searchScreenPos += searchDir * dist.y;
-                searchPixel.y += int(sign(searchDir.y));
-                totalDist += screenToWindDist(dist.y);
-            }
-
-            if (totalDist > u_maxSearchDist) {
-                break;
-            }
-
-            // If find turbulence, stop looking and mark turbulence
-            if (k_doTurbulence && isScreenTurbulent(searchScreenPos)) {
-                // Write turbulence pixel half way between found turbulence and geometry
-                setScreenTurbulent((geoScreenPos + searchScreenPos) * 0.5f);
 
                 shouldSpawn = false;
                 break;
-            }
-
-            color = imageLoad(u_frontImg, searchPixel);
-
-            // Visualize the search
-            //if (k_debug) {
-            //    imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
-            //}
-
-            if ((color.r & k_geoBit) != 0) { // we found a geo pixel
-                break;
-            }
-            if ((color.r & k_airBit) != 0) { // we found an air pixel
-                int airI = imageLoad(u_flagImg, searchPixel).x;
-                if (airI != 0) { // TODO: this should not be necessary, just here for sanity
-                    --airI;
-
-                    // If past turbulence distance, set air as turbulent and mark turbulance
-                    if (k_doTurbulence && totalDist > u_turbulenceDist) {
-                        // Set air pixel to be turbulent
-                        u_airPixels[airI].turbulence.x = 1.0f;
-                        // Don't need to write turbulence at air because it happens in move shader
-                        // Write turbulence pixel half way between air and geometry
-                        setScreenTurbulent((geoScreenPos + searchScreenPos) * 0.5f);
-
-                        shouldSpawn = false;
-                        break;
-                    }
-
-                    u_airGeoMap[airI] = geoI + 1;
-
-                    shouldSpawn = false;
-                    break;
-                }
-            }
-        }
     }
 
     // Overwrite flag image with geometry index

@@ -65,7 +65,7 @@ void main() {
     }
 
     vec3 norm = normalize(in_norm);
-    if (k_twoSided && !gl_FrontFacing) norm = -norm;
+    if (k_twoSided && !gl_FrontFacing) norm = -norm; // the normal is always facing forward
 
     // Using the g and b channels to store wind position
     vec2 subPixelPos = windToScreen(in_pos.xy);

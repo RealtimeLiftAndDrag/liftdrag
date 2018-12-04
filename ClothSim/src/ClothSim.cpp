@@ -51,7 +51,7 @@ static const float k_flagAreaDensity(0.25f); // kg per square meter
 static const int k_sailLOD(50);
 static const float k_sailLuffLength(13.0f);
 static const float k_sailLeechLength(12.0f);
-static const float k_sailFootLength(6.0f);
+static const float k_sailFootLength(8.0f);
 static const float k_sailAreaDensity(0.35f); // kg per square meter (about right for 8 oz. sail)
 static const float k_sailRotateSpeed(glm::pi<float>() / 3.0f);
 static const float k_sailDrawSpeed(k_sailLuffLength / 5.0f);
@@ -211,8 +211,8 @@ static bool setupObject() {
         s_sailRotateCWMat = glm::rotate(-k_sailRotateSpeed * k_updateDT, vec3(0.0f, 1.0f, 0.0f)) * s_sailRotateCWMat;
         s_sailRotateCWMat = glm::translate(vec3(0.0f, 0.0f, k_sailFootLength * 0.5f)) * s_sailRotateCWMat;
 
-        s_sailMaxClewDist = 2.0f * s_sailArea / k_sailLuffLength;
-        s_sailClewDist = s_sailMaxClewDist;
+        s_sailClewDist = 2.0f * s_sailArea / k_sailLuffLength;
+        s_sailMaxClewDist = s_sailClewDist * 2.0f;
 
         unq<Mesh> mesh(Clothier::createSail(k_sailLuffLength, k_sailLeechLength, k_sailFootLength, k_sailAreaDensity, k_sailLOD, s_workGroupSize));
         if (!mesh->load()) {
@@ -223,7 +223,7 @@ static bool setupObject() {
         s_mesh = &static_cast<const SoftMesh &>(s_model->subModels().front().mesh());
 
         s_rldLiftC = 1.0f;
-        s_rldDragC = 1.0f;
+        s_rldDragC = 1.5f;
         s_windframeWidth = glm::max(k_sailFootLength * 2, s_sailHeight) * 1.125f;
         s_windframeDepth = k_sailFootLength * 1.125f;
         s_windSpeed = 10.0f;

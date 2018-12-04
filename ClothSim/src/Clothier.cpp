@@ -329,6 +329,7 @@ namespace Clothier {
         vec3 c(a.x, a.y + height, a.z - std::sqrt(luffLength * luffLength - height * height)); // tack
         unq<SoftMesh> mesh(createTriangle(a, b, c, lod, mass, groupSize, bvec3(true, true, true), bvec3(false, false, true)));
 
+
         for (int i(0); i <= lod; ++i) {
             mesh->vertices()[triI(ivec2(i, i))].group = 1;
         }
