@@ -377,7 +377,7 @@ void draw(int prevAirI) {
 
 // Looks for a geo pixel from given point in given direction
 // searchDir is normalized xy in screen space
-// returns airI if air is found, -1 if nothing is found, -2 if turbulence is found, and -3 if geometry is found
+// returns airI if air is found, -1 if nothing is found, and -2 if turbulence is found
 int findAir(vec2 geoScreenPos, ivec2 geoTexCoord, vec2 searchDir) {
     vec2 searchScreenPos = geoScreenPos;
     ivec2 searchPixel = geoTexCoord;
@@ -394,7 +394,6 @@ int findAir(vec2 geoScreenPos, ivec2 geoTexCoord, vec2 searchDir) {
     }
 
     // Search along line in searchDir
-    if (shouldSpawn)
     while (true) {
         // TODO: potentially optimize line search
         vec2 delta = corner - (searchScreenPos - vec2(searchPixel));
@@ -429,7 +428,7 @@ int findAir(vec2 geoScreenPos, ivec2 geoTexCoord, vec2 searchDir) {
         //}
 
         if ((color.r & k_geoBit) != 0) { // we found a geo pixel
-            return -3;
+            return -1;
         }
         if ((color.r & k_airBit) != 0) { // we found an air pixel
             int airI = imageLoad(u_flagImg, searchPixel).x;
@@ -458,7 +457,7 @@ void outline(int geoI) {
     geoScreenPos = clamp(geoScreenPos, vec2(geoTexCoord), vec2(geoTexCoord + 1)); // necessary for edge cases
 
     bool shouldSpawn = geoNormal.z >= k_minNormalZ && geoNormal.z <= k_maxNormalZ;
-    bool shouldSearch = true;
+    bool shouldSearch = abs(geoNormal.z) <= k_maxNormalZ;
 
     // If geo is in turbulence, forget it
     if (k_doTurbulence && isScreenTurbulent(geoScreenPos)) {
@@ -468,14 +467,18 @@ void outline(int geoI) {
 
     // Look for existing air pixel
     if (shouldSearch) {
-        int res = findAir(geoScreenPos, geoTexCoord, normalize(geoNormal.xy));
-        if (res >
-        shouldSpawn = res == -1;
-                u_airGeoMap[airI] = geoI + 1;
+        vec2 searchDir = normalize(geoNormal.xy);
+        int res = findAir(geoScreenPos, geoTexCoord, searchDir);
+        shouldSpawn = shouldSpawn && res == -1;
+        if (res >= 0) u_airGeoMap[res] = geoI + 1;
 
-                shouldSpawn = false;
-                break;
+        if (k_doSoft) {
+            res = findAir(geoScreenPos, geoTexCoord, -searchDir);
+            if (res >= 0) u_airGeoMap[res] = geoI + 1;            
+        }
     }
+
+    barrier();
 
     // Overwrite flag image with geometry index
     imageStore(u_flagImg, geoTexCoord, ivec4(geoI + 1, 0, 0, 0));
@@ -635,6 +638,10 @@ void move(int airI) {
         liftFactor *= u_liftC;
         if (airTurbulence > 0.0f) liftFactor = 0.0f;
         vec3 lift = geoNormal * liftFactor;
+        if (k_doSoft) {
+            // If cloth, air could be on "wrong" side of geometry
+            lift *= sign(dot(airWindPos - geoWindPos, geoNormal.xy));
+        }
 
         // Calculate torque
         vec3 torq = cross(vec3(geoWindPos, u_sliceZ), lift);

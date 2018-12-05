@@ -223,7 +223,7 @@ static bool setupObject() {
         s_mesh = &static_cast<const SoftMesh &>(s_model->subModels().front().mesh());
 
         s_rldLiftC = 1.0f;
-        s_rldDragC = 1.5f;
+        s_rldDragC = 0.0f;
         s_windframeWidth = glm::max(k_sailFootLength * 2, s_sailHeight) * 1.125f;
         s_windframeDepth = k_sailFootLength * 1.125f;
         s_windSpeed = 10.0f;
