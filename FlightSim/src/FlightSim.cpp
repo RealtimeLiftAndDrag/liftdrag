@@ -84,7 +84,7 @@ static float s_initVelC;
 static bool s_unpaused;
 
 // all in degrees
-static float k_elevatorTrim(4.0f);
+static float k_elevatorTrim(4.0f); //27 is tipping point
 
 
 static float s_rudderAngle(0.0f);
@@ -352,7 +352,7 @@ void triggerCallback(int player, Controller::Trigger trigger, float val) {\
     }
 }
 
-static std::string createTextString(const vec3 & lift, const vec3 & drag, const vec3 & torq) {
+static std::string createTextString(const vec3 & lift, const vec3 & drag, const vec3 & torq, const float & speed) {
     constexpr int k_preDigits(7), k_postDigits(2);
     constexpr int k_width(k_preDigits + k_postDigits + 2);
     std::stringstream ss;
@@ -360,7 +360,8 @@ static std::string createTextString(const vec3 & lift, const vec3 & drag, const 
     ss << std::fixed;
     ss << "Lift: <" << std::setw(k_width) << lift.x << " " << std::setw(k_width) << lift.y << " " << std::setw(k_width) << lift.z << ">\n";
     ss << "Drag: <" << std::setw(k_width) << drag.x << " " << std::setw(k_width) << drag.y << " " << std::setw(k_width) << drag.z << ">\n";
-    ss << "Torq: <" << std::setw(k_width) << torq.x << " " << std::setw(k_width) << torq.y << " " << std::setw(k_width) << torq.z << ">";
+	ss << "Torq: <" << std::setw(k_width) << torq.x << " " << std::setw(k_width) << torq.y << " " << std::setw(k_width) << torq.z << ">\n";
+	ss << "Speed: " << speed << "\n";
     return ss.str();
 }
 
@@ -395,7 +396,7 @@ static bool setupObject() {
 
 static void setupUI() {
     s_mainComp.reset(new MainComp());
-    s_textComp.reset(new ui::Text(createTextString(vec3(), vec3(), vec3()), ivec2(1, 1), vec4(1.0f, 1.0f, 1.0f, 1.0f)));
+    s_textComp.reset(new ui::Text(createTextString(vec3(), vec3(), vec3(), 0.0f), ivec2(1, 1), vec4(1.0f, 1.0f, 1.0f, 1.0f)));
     shr<ui::HorizontalGroup> horizGroup(new ui::HorizontalGroup());
     horizGroup->add(s_textComp);
     horizGroup->add(shr<ui::Space>(new ui::Space()));
@@ -557,7 +558,7 @@ static void updatePlane(float dt) {
     s_simObject->addAngularForce(torq);
     s_simObject->update(dt);
 
-    s_textComp->string(createTextString(lift, drag, torq));
+    s_textComp->string(createTextString(lift, drag, torq, windSpeed));
 }
 
 static void update(float dt) {
