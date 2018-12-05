@@ -45,8 +45,8 @@ static const std::string k_windowTitle("RLD Flight Simulator");
 
 static constexpr int k_simTexSize(1024);
 static constexpr int k_simSliceCount(100);
-static constexpr float k_simLiftC(0.3f);
-static constexpr float k_simDragC(0.3f);
+static constexpr float k_simLiftC(1.f);
+static constexpr float k_simDragC(10.f);
 static constexpr float k_windframeWidth(14.5f);
 static constexpr float k_windframeDepth(22.0f);
 
@@ -84,10 +84,15 @@ static float s_initVelC;
 static bool s_unpaused;
 
 // all in degrees
+static float k_elevatorTrim(4.0f);
+
+
 static float s_rudderAngle(0.0f);
 static float s_aileronAngle(0.0f);
-static float s_elevatorAngle(0.0f);
+static float s_elevatorAngle(k_elevatorTrim);
 static bool s_increaseThrust(false);
+
+
 
 static constexpr float k_maxRudderAngle(30.0f);
 static constexpr float k_maxAileronAngle(30.0f);
@@ -320,7 +325,7 @@ static void setElevatorAngle(float angle) {
     if (angle != s_elevatorAngle) {
         s_elevatorAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_elevatorAngle), vec3(1.0f, 0.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_elevatorAngle - k_elevatorTrim), vec3(1.0f, 0.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("ElevatorL01")->localTransform(modelMat, normalMat);
         s_model->subModel("ElevatorR01")->localTransform(modelMat, normalMat);
@@ -369,7 +374,7 @@ static bool setupObject() {
 
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)); // flip right-side up
     s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 1.0f, 0.0f)) * s_modelMat; // turn to face -z
-    //s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 2.0f)) * s_modelMat; // move center of gravity forward to help with stability
+    s_modelMat = glm::translate(mat4(), vec3(0.0f, 0.0f, 2.0f)) * s_modelMat; // move center of gravity forward to help with stability
     s_normalMat = glm::transpose(glm::inverse(s_modelMat));
 
     s_turbulenceDist = 0.225f;
@@ -385,7 +390,6 @@ static bool setupObject() {
     float dryThrust(71616.368f * 2.0f); // thrust in N without afterburners pulled from wiki (62.3kN per enginer)
 
     s_simObject.reset(new SimObject(mass, inertiaTensor, dryThrust, k_initPos, k_initDir, k_initSpeed));
-
     return true;
 }
 
@@ -584,7 +588,7 @@ static void update(float dt) {
         }
         else { // No input, return to default position
             float newAngle(s_elevatorAngle + k_returnAngleSpeed * -glm::sign(s_elevatorAngle) * dt);
-            if (newAngle * s_elevatorAngle < 0.0f) newAngle = 0.0f;
+            if (newAngle * (s_elevatorAngle) < 0.0f) newAngle = 0.0f;
             setElevatorAngle(newAngle);
         }
     }
