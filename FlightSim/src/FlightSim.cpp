@@ -46,11 +46,11 @@ static const std::string k_windowTitle("RLD Flight Simulator");
 static constexpr int k_simTexSize(1024);
 static constexpr int k_simSliceCount(100);
 static constexpr float k_simLiftC(1.f);
-static constexpr float k_simDragC(10.f);
+static constexpr float k_simDragC(30.f);
 static constexpr float k_windframeWidth(14.5f);
 static constexpr float k_windframeDepth(22.0f);
 
-static constexpr float k_gravity(0.0f);//9.8f);
+static constexpr float k_gravity(9.8f);//9.8f);
 static const vec3 k_lightDir(glm::normalize(vec3(-1.0f, 0.25f, -1.0f)));
 
 static const float k_fov(glm::radians(75.0f));
@@ -63,7 +63,7 @@ static const float k_camFar(1000.0f);
 
 static const vec3 k_initPos(0.0f, 80.0f, 0.0f);
 static const vec3 k_initDir(0.0f, 0.0f, -1.0f);
-static constexpr float k_initSpeed(60.0f);
+static constexpr float k_initSpeed(139.0f);
 static constexpr float k_minCamDist(5.0f), k_maxCamDist(50.0f);
 static constexpr float k_camSpeed(0.05f);
 
@@ -84,19 +84,20 @@ static float s_initVelC;
 static bool s_unpaused;
 
 // all in degrees
-static float k_elevatorTrim(4.0f); //27 is tipping point
+static float k_elevatorTrim(18.15f); //27 is tipping point
+static float k_rudderTrim(0.0f);
+static float k_aileronTrim(0.0f);
 
-
-static float s_rudderAngle(0.0f);
-static float s_aileronAngle(0.0f);
 static float s_elevatorAngle(k_elevatorTrim);
+static float s_rudderAngle(k_rudderTrim);
+static float s_aileronAngle(k_aileronTrim);
 static bool s_increaseThrust(false);
 
 
 
-static constexpr float k_maxRudderAngle(30.0f);
+static constexpr float k_maxRudderAngle(45.0f);
 static constexpr float k_maxAileronAngle(30.0f);
-static constexpr float k_maxElevatorAngle(30.0f);
+static constexpr float k_maxElevatorAngle(45.0f);
 
 static constexpr float k_keyAngleSpeed(90.0f); // how quickly the rudders/ailerons/elevators will rotate when using the keyboard in degrees per second
 static constexpr float k_returnAngleSpeed(90.0f); // how quickly the rudders/ailerons/elevators will return to their default position in degrees per second
@@ -288,7 +289,7 @@ static void setRudderAngle(float angle) {
     if (angle != s_rudderAngle) {
         s_rudderAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_rudderAngle), vec3(0.0f, 1.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(-s_rudderAngle - k_rudderTrim), vec3(0.0f, 1.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("RudderL01")->localTransform(modelMat, normalMat);
         s_model->subModel("RudderR01")->localTransform(modelMat, normalMat);
@@ -305,7 +306,7 @@ static void setAileronAngle(float angle) {
     if (angle != s_aileronAngle) {
         s_aileronAngle = angle;
 
-        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_aileronAngle), vec3(1.0f, 0.0f, 0.0f)));
+        mat4 modelMat(glm::rotate(mat4(), glm::radians(s_aileronAngle + k_aileronTrim), vec3(1.0f, 0.0f, 0.0f)));
         mat3 normalMat(modelMat);
         s_model->subModel("AileronL01")->localTransform(modelMat, normalMat);
 
@@ -348,11 +349,11 @@ void stickCallback(int player, Controller::Stick stick, vec2 val) {
 
 void triggerCallback(int player, Controller::Trigger trigger, float val) {\
     if (trigger == Controller::Trigger::right) {
-        s_controllerThrust = val;
+        s_controllerThrust = val + 3.4;
     }
 }
 
-static std::string createTextString(const vec3 & lift, const vec3 & drag, const vec3 & torq, const float & speed) {
+static std::string createTextString(const vec3 & lift, const vec3 & drag, const vec3 & torq, const float & speed, const float & elev_angle, const float & aileron_angle, const float & rudder_angle) {
     constexpr int k_preDigits(7), k_postDigits(2);
     constexpr int k_width(k_preDigits + k_postDigits + 2);
     std::stringstream ss;
@@ -362,6 +363,9 @@ static std::string createTextString(const vec3 & lift, const vec3 & drag, const 
     ss << "Drag: <" << std::setw(k_width) << drag.x << " " << std::setw(k_width) << drag.y << " " << std::setw(k_width) << drag.z << ">\n";
 	ss << "Torq: <" << std::setw(k_width) << torq.x << " " << std::setw(k_width) << torq.y << " " << std::setw(k_width) << torq.z << ">\n";
 	ss << "Speed: " << speed << "\n";
+	ss << "Elevator Angle: " << elev_angle << "\n";
+	ss << "Aileron Angle: " << aileron_angle << "\n";
+	ss << "Rudder Angle: " << rudder_angle;
     return ss.str();
 }
 
@@ -396,7 +400,7 @@ static bool setupObject() {
 
 static void setupUI() {
     s_mainComp.reset(new MainComp());
-    s_textComp.reset(new ui::Text(createTextString(vec3(), vec3(), vec3(), 0.0f), ivec2(1, 1), vec4(1.0f, 1.0f, 1.0f, 1.0f)));
+    s_textComp.reset(new ui::Text(createTextString(vec3(), vec3(), vec3(), 0.0f, 0.0f, 0.0f, 0.0f), ivec2(1, 1), vec4(1.0f, 1.0f, 1.0f, 1.0f)));
     shr<ui::HorizontalGroup> horizGroup(new ui::HorizontalGroup());
     horizGroup->add(s_textComp);
     horizGroup->add(shr<ui::Space>(new ui::Space()));
@@ -558,7 +562,7 @@ static void updatePlane(float dt) {
     s_simObject->addAngularForce(torq);
     s_simObject->update(dt);
 
-    s_textComp->string(createTextString(lift, drag, torq, windSpeed));
+    s_textComp->string(createTextString(lift, drag, torq, windSpeed, s_elevatorAngle + k_elevatorTrim, s_aileronAngle + k_aileronTrim, s_rudderAngle + k_rudderTrim));
 }
 
 static void update(float dt) {

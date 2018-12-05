@@ -53,7 +53,7 @@ void SimObject::update(float dt) {
         m_orientMatrix = glm::toMat3(m_orientation);
     }
 
-    m_acceleration = vec3();
+    m_acceleration = vec3(0.0f, -9.8f, 0.0f); //add gravity back in
     m_angularAcc = vec3();
 }
 
