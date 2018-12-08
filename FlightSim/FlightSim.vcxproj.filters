@@ -22,6 +22,9 @@
     <ClCompile Include="src\FlightSim.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\PID.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\SimObject.hpp">
@@ -31,6 +34,9 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\stb_image.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\PID.hpp">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

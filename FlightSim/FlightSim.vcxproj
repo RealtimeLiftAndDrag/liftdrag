@@ -150,10 +150,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\FlightSim.cpp" />
+    <ClCompile Include="src\PID.cpp" />
     <ClCompile Include="src\ProgTerrain.cpp" />
     <ClCompile Include="src\SimObject.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\PID.hpp" />
     <ClInclude Include="src\ProgTerrain.hpp" />
     <ClInclude Include="src\SimObject.hpp" />
     <ClInclude Include="src\stb_image.h" />

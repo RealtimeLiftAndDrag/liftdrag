@@ -33,6 +33,7 @@ extern "C" {
 
 #include "SimObject.hpp"
 #include "ProgTerrain.hpp"
+#include "PID.hpp"
 
 
 
@@ -83,6 +84,8 @@ static float s_flowback;
 static float s_initVelC;
 static bool s_unpaused;
 
+
+static bool s_autoRoll(true);
 // all in degrees
 static float k_elevatorTrim(18.15f); //27 is tipping point
 static float k_rudderTrim(0.0f);
