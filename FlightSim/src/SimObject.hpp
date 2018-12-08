@@ -9,7 +9,7 @@ class SimObject {
     public:
 
     // `direction` must be normalized and should not be +-z
-    SimObject(float mass, const vec3 & momentsOfInertia, float dryThrust, const vec3 & position, const vec3 & direction, float speed);
+    SimObject(float mass, const vec3 & momentsOfInertia, float dryThrust, const vec3 & position, const vec3 & direction, float speed, float thrust);
 
     void update(float time);
 

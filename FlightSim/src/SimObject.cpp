@@ -2,7 +2,7 @@
 
 #include "glm/gtc/matrix_transform.hpp"
 
-SimObject::SimObject(float mass, const vec3 & momentsOfInertia, float dryThrust, const vec3 & position, const vec3 & direction, float speed) :
+SimObject::SimObject(float mass, const vec3 & momentsOfInertia, float dryThrust, const vec3 & position, const vec3 & direction, float speed, float thrust) :
     k_mass(mass),
     k_invMass(1.0f / k_mass),
     k_momentsOfInertia(momentsOfInertia),
@@ -14,7 +14,7 @@ SimObject::SimObject(float mass, const vec3 & momentsOfInertia, float dryThrust,
     m_orientMatrix(),
     m_angularVel(),
     m_angularAcc(),
-    m_thrust(0.0f)
+    m_thrust(thrust)
 {
     reset(position, direction, speed);
 }

@@ -88,9 +88,12 @@ static float k_elevatorTrim(18.15f); //27 is tipping point
 static float k_rudderTrim(0.0f);
 static float k_aileronTrim(0.0f);
 
+
 static float s_elevatorAngle(k_elevatorTrim);
 static float s_rudderAngle(k_rudderTrim);
 static float s_aileronAngle(k_aileronTrim);
+
+static float k_initThrust(3.4f);
 static bool s_increaseThrust(false);
 
 
@@ -349,7 +352,7 @@ void stickCallback(int player, Controller::Stick stick, vec2 val) {
 
 void triggerCallback(int player, Controller::Trigger trigger, float val) {\
     if (trigger == Controller::Trigger::right) {
-        s_controllerThrust = val + 3.4;
+        s_controllerThrust = val;
     }
 }
 
@@ -394,7 +397,7 @@ static bool setupObject() {
     vec3 inertiaTensor(205125.765f, 230414.482f, 31183.813f); // pitch, yaw, roll
     float dryThrust(71616.368f * 2.0f); // thrust in N without afterburners pulled from wiki (62.3kN per enginer)
 
-    s_simObject.reset(new SimObject(mass, inertiaTensor, dryThrust, k_initPos, k_initDir, k_initSpeed));
+    s_simObject.reset(new SimObject(mass, inertiaTensor, dryThrust, k_initPos, k_initDir, k_initSpeed, k_initThrust));
     return true;
 }
 
@@ -616,10 +619,10 @@ static void update(float dt) {
 
     // Update thrust
     if (s_controllerThrust) { // Controller takes priority
-        s_simObject->thrust(s_controllerThrust);
+        s_simObject->thrust(s_controllerThrust + k_initThrust);
     }
     else { // Otherwise keyboard
-        s_simObject->thrust(float(s_keyboardThrust));
+        s_simObject->thrust(float(s_keyboardThrust + k_initThrust));
     }
 
     // Update plane using RLD
