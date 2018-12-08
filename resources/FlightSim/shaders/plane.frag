@@ -13,25 +13,25 @@ uniform vec3 u_camPos; // camera position in world space
 void main() {
     // Variables
     vec3 viewDir = normalize(u_camPos - in_pos);
-    vec3 normal = normalize(in_norm);
+    vec3 norm = normalize(in_norm);
 
     // Ambient calculation
     vec3 ambientColor = vec3(0.0f);
 
     // Diffuse calculation
-    //float diffuseFactor = max(dot(lightDir, normal), 0); // Clamp to prevent color from reaching back side
-    float diffuseFactor = (dot(u_lightDir, normal) + 1) / 2; // Normalize so the color bleeds onto the back side
+    //float diffuseFactor = max(dot(lightDir, norm), 0); // Clamp to prevent color from reaching back side
+    float diffuseFactor = (dot(u_lightDir, norm) + 1) / 2; // Normalize so the color bleeds onto the back side
     vec3 diffuseColor = vec3(0.5, 0.5, 0.5) * diffuseFactor;
 
     // Specular calculation
     float specularStrength = 0.5f;
-    vec3 reflectDir = reflect(-u_lightDir, normal);
+    vec3 reflectDir = reflect(-u_lightDir, norm);
     float shininess = 3.0f;
     float specularFactor = pow(max(dot(viewDir, reflectDir), 0), shininess);
     vec3 specularColor = vec3(1) * specularFactor * specularStrength;
 
     //output color
     out_color.rgb = ambientColor + diffuseColor + specularColor;
-    //out_color.rgb = (normal + 1.0f) * 0.5f;
+    //out_color.rgb = (norm + 1.0f) * 0.5f;
     out_color.a = 1.0f;
 }

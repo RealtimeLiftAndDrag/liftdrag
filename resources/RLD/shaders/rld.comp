@@ -30,10 +30,12 @@ struct SoftVertex {
     float mass;
     vec3 normal;
     int group;
-    vec3 force;
-    float _0;
     vec3 prevPosition;
+    float _0;
+    vec3 force0; // lift
     float _1;
+    vec3 force1; // drag
+    float _2;
 };
 
 // Constants -------------------------------------------------------------------
@@ -45,7 +47,7 @@ const bool k_debug = DEBUG;
 const bool k_doWindShadow = DO_WIND_SHADOW;
 const bool k_distinguishActivePixels = DISTINGUISH_ACTIVE_PIXELS; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 const bool k_doTurbulence = DO_TURBULENCE;
-const bool k_doSoft = DO_SOFT;
+const bool k_doCloth = DO_CLOTH;
 
 const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4; // Must also change in other shaders
 const float k_airDensity = 1.0f;
@@ -122,10 +124,12 @@ layout (binding = 4, std430) restrict buffer Results {
     Result u_results[];
 };
 
+// Only present if doing cloth
 layout (binding = 5, std430) restrict buffer SoftVertices {
     SoftVertex u_softVertices[];
 };
 
+// Only present if doing cloth
 layout (binding = 6, std430) restrict buffer Indices {
     uint u_indices[];
 };
@@ -211,25 +215,39 @@ ivec2 getPixelDelta(vec2 dir) {
     }
 }
 
-void applySoftForce(ivec2 texCoord, vec3 force) {
+void applySoftForce(ivec2 texCoord, vec3 lift, vec3 drag) {
     uint ii = imageLoad(u_indexImg, texCoord).x * 3;
     if (ii == 0) {
         return;
     }
     --ii;
-    force *= (1.0f / 3.0f);
+    lift *= (1.0f / 3.0f);
+    drag *= (1.0f / 3.0f);
     uint i0 = u_indices[ii + 0];
     uint i1 = u_indices[ii + 1];
     uint i2 = u_indices[ii + 2];
-    atomicAdd(u_softVertices[i0].force.x, force.x);
-    atomicAdd(u_softVertices[i0].force.y, force.y);
-    atomicAdd(u_softVertices[i0].force.z, force.z);
-    atomicAdd(u_softVertices[i1].force.x, force.x);
-    atomicAdd(u_softVertices[i1].force.y, force.y);
-    atomicAdd(u_softVertices[i1].force.z, force.z);
-    atomicAdd(u_softVertices[i2].force.x, force.x);
-    atomicAdd(u_softVertices[i2].force.y, force.y);
-    atomicAdd(u_softVertices[i2].force.z, force.z);
+    if (lift != vec3(0.0f)) {
+        atomicAdd(u_softVertices[i0].force0.x, lift.x);
+        atomicAdd(u_softVertices[i0].force0.y, lift.y);
+        atomicAdd(u_softVertices[i0].force0.z, lift.z);
+        atomicAdd(u_softVertices[i1].force0.x, lift.x);
+        atomicAdd(u_softVertices[i1].force0.y, lift.y);
+        atomicAdd(u_softVertices[i1].force0.z, lift.z);
+        atomicAdd(u_softVertices[i2].force0.x, lift.x);
+        atomicAdd(u_softVertices[i2].force0.y, lift.y);
+        atomicAdd(u_softVertices[i2].force0.z, lift.z);
+    }
+    if (drag != vec3(0.0f)) {
+        atomicAdd(u_softVertices[i0].force1.x, drag.x);
+        atomicAdd(u_softVertices[i0].force1.y, drag.y);
+        atomicAdd(u_softVertices[i0].force1.z, drag.z);
+        atomicAdd(u_softVertices[i1].force1.x, drag.x);
+        atomicAdd(u_softVertices[i1].force1.y, drag.y);
+        atomicAdd(u_softVertices[i1].force1.z, drag.z);
+        atomicAdd(u_softVertices[i2].force1.x, drag.x);
+        atomicAdd(u_softVertices[i2].force1.y, drag.y);
+        atomicAdd(u_softVertices[i2].force1.z, drag.z);
+    }
 }
 
 void accumulate() {
@@ -253,19 +271,19 @@ void prospect(ivec2 texCoord) {
     vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
 
     // Set wind shadow
-    if (!k_doSoft && k_doWindShadow && geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
+    if (!k_doCloth && k_doWindShadow && geoNormal.z < 0.0f) { // TODO: do we want a minimum angle for wind shadow?
         imageStore(u_shadImg, texCoord / 4, vec4(u_slice * u_sliceSize / u_windframeDepth, 0.0f, 0.0f, 0.0f));
     }
     // Calculate drag and torque
-    else if (k_doSoft || !isScreenInShadow(vec2(texCoord) + 0.5f)) {
+    else if (k_doCloth || !isScreenInShadow(vec2(texCoord) + 0.5f)) {
         float dragFactor = 0.5f * k_airDensity * u_windSpeed * u_windSpeed * u_pixelSize * u_pixelSize * geoNormal.z;
         dragFactor *= u_dragC;
         vec3 drag = -geoNormal * dragFactor;
 
         vec3 torq = cross(vec3(geoWindPos, u_sliceZ), drag);
 
-        if (k_doSoft) {
-            applySoftForce(texCoord, drag);
+        if (k_doCloth) {
+            applySoftForce(texCoord, vec3(0.0f), drag);
         }
         else {
             totalDrag += drag;
@@ -472,7 +490,7 @@ void outline(int geoI) {
         shouldSpawn = shouldSpawn && res == -1;
         if (res >= 0) u_airGeoMap[res] = geoI + 1;
 
-        if (k_doSoft) {
+        if (k_doCloth) {
             res = findAir(geoScreenPos, geoTexCoord, -searchDir);
             if (res >= 0) u_airGeoMap[res] = geoI + 1;            
         }
@@ -638,7 +656,7 @@ void move(int airI) {
         liftFactor *= u_liftC;
         if (airTurbulence > 0.0f) liftFactor = 0.0f;
         vec3 lift = geoNormal * liftFactor;
-        if (k_doSoft) {
+        if (k_doCloth) {
             // If cloth, air could be on "wrong" side of geometry
             lift *= sign(dot(airWindPos - geoWindPos, geoNormal.xy));
         }
@@ -646,8 +664,8 @@ void move(int airI) {
         // Calculate torque
         vec3 torq = cross(vec3(geoWindPos, u_sliceZ), lift);
 
-        if (k_doSoft) {
-            applySoftForce(ivec2(windToScreen(geoWindPos)), lift);
+        if (k_doCloth) {
+            applySoftForce(ivec2(windToScreen(geoWindPos)), lift, vec3(0.0f));
         }
         else {
             totalLift += lift;
@@ -692,7 +710,7 @@ void main() {
     ivec2 workI2D = ivec2(workI % k_workGroupSize2D.x, workI / k_workGroupSize2D.x);
 
     // Zero results
-    if (!k_doSoft) {
+    if (!k_doCloth) {
         s_accumulationArray[workI] = vec3(0.0f);
         if (workI == 0) {
             u_results[u_slice].lift = vec4(0.0f);
@@ -738,7 +756,7 @@ void main() {
         move(airI);
     }
 
-    if (!k_doSoft) {
+    if (!k_doCloth) {
         barrier();
 
         // Accumulate lift

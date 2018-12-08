@@ -69,11 +69,13 @@ class SoftMesh : public Mesh {
         vec3 position;
         float mass;
         vec3 normal;
-        int group;
-        vec3 force;
-        float _0;
+        s32 group;
         vec3 prevPosition;
+        float _0;
+        vec3 force0; // lift
         float _1;
+        vec3 force1; // drag
+        float _2;
     };
 
     struct Constraint {

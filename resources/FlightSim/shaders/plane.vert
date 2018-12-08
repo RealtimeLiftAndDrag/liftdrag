@@ -23,7 +23,7 @@ uniform mat4 u_projMat;
 
 void main() {
     out_pos = vec3(u_modelMat * vec4(in_pos, 1.0f));
-    out_norm = vec3(u_modelMat * vec4(in_norm, 0.0f));
+    out_norm = u_normalMat * in_norm;
     out_texCoord = in_texCoord;
 
     gl_Position = u_projMat * u_viewMat * vec4(out_pos, 1.0f);

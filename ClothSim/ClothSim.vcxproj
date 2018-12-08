@@ -158,6 +158,9 @@
     <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.frag" />
     <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.geom" />
     <None Include="..\resources\ClothSim\shaders\ClothViewer_constraints.vert" />
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_force.frag" />
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_force.geom" />
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_force.vert" />
     <None Include="..\resources\ClothSim\shaders\normal.comp" />
     <None Include="..\resources\ClothSim\shaders\ClothViewer_cloth.frag" />
     <None Include="..\resources\ClothSim\shaders\ClothViewer_cloth.vert" />

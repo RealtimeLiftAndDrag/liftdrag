@@ -108,8 +108,7 @@ namespace rld {
     static float s_dt; // The time it would take to travel `s_sliceSize` at `s_windSpeed`
     static bool s_debug; // Whether to enable non essentials like side view or active pixel highlighting
     static bool s_doSide;
-    static bool s_twoSided;
-    static bool s_doSoft;
+    static bool s_doCloth;
 
     static int s_currentSlice(0); // slice index [0, k_nSlices)
     static float s_angleOfAttack(0.0f); // IN DEGREES
@@ -154,26 +153,17 @@ namespace rld {
         std::string shadersPath(g_resourcesDir + "/RLD/shaders/");
         std::string workGroupSizeStr(std::to_string(s_workGroupSize));
         std::string workGroupSize2DStr("ivec2(" + std::to_string(s_workGroupSize2D.x) + ", " + std::to_string(s_workGroupSize2D.y) + ")");
-        std::initializer_list<duo<std::string_view>> defines{
+        std::vector<duo<std::string_view>> defines{
             { "WORK_GROUP_SIZE", workGroupSizeStr },
             { "WORK_GROUP_SIZE_2D", workGroupSize2DStr },
-            { "DEBUG", "false" },
             { "DISTINGUISH_ACTIVE_PIXELS", k_distinguishActivePixels ? "true" : "false" },
             { "DO_TURBULENCE", k_doTurbulence ? "true" : "false" },
             { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" },
-            { "TWO_SIDED", s_twoSided ? "true" : "false" },
-            { "DO_SOFT", s_doSoft ? "true" : "false" }
+            { "DO_CLOTH", s_doCloth ? "true" : "false" }
         };
-        std::initializer_list<duo<std::string_view>> debugDefines{
-            { "WORK_GROUP_SIZE", workGroupSizeStr },
-            { "WORK_GROUP_SIZE_2D", workGroupSize2DStr },
-            { "DEBUG", "true" },
-            { "DISTINGUISH_ACTIVE_PIXELS", k_distinguishActivePixels ? "true" : "false" },
-            { "DO_TURBULENCE", k_doTurbulence ? "true" : "false" },
-            { "DO_WIND_SHADOW", k_doWindShadow ? "true" : "false" },
-            { "TWO_SIDED", s_twoSided ? "true" : "false" },
-            { "DO_SOFT", s_doSoft ? "true" : "false" }
-        };
+        std::vector<duo<std::string_view>> debugDefines(defines);
+        defines.push_back({ "DEBUG", "false" });
+        debugDefines.push_back({ "DEBUG", "true" });
 
         // Foil Shader
         if (!(s_foilShader = Shader::load(shadersPath + "foil.vert", shadersPath + "foil.frag", defines))) {
@@ -327,7 +317,7 @@ namespace rld {
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16_SNORM, s_texSize, s_texSize);
 
         // Index texture
-        if (s_doSoft) {
+        if (s_doCloth) {
             glGenTextures(1, &s_indexTex);
             glBindTexture(GL_TEXTURE_2D, s_indexTex);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -349,7 +339,7 @@ namespace rld {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_frontTex_uint, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, s_fboNormTex, 0);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fboDepthRB);
-        if (s_doSoft) {
+        if (s_doCloth) {
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, s_indexTex, 0);
             u32 drawBuffers[]{ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
             glDrawBuffers(3, drawBuffers);
@@ -553,7 +543,7 @@ namespace rld {
         //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_airPixelsSSBO[1 - s_swap]);   // done in step()
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_airGeoMapSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_resultsSSBO);
-        if (s_doSoft) {
+        if (s_doCloth) {
             const SoftMesh & softMesh(static_cast<const SoftMesh &>(s_model->subModels().front().mesh()));
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, softMesh.vertexBuffer());
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, softMesh.indexBuffer());
@@ -565,7 +555,7 @@ namespace rld {
         glBindImageTexture(3,        s_turbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
         glBindImageTexture(4,    s_prevTurbTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
         glBindImageTexture(5,        s_shadTex, 0, GL_FALSE, 0, GL_READ_WRITE,           GL_R8);
-        if (s_doSoft) {
+        if (s_doCloth) {
             glBindImageTexture(6,       s_indexTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_R32UI);
         }
         glBindImageTexture(7,        s_sideTex, 0, GL_FALSE, 0, GL_READ_WRITE,        GL_RGBA8);
@@ -592,8 +582,7 @@ namespace rld {
         float flowback,
         float initVelC,
         bool doSide,
-        bool twoSided,
-        bool doSoft
+        bool doCloth
     ) {
         int coreCount(0);
         if (k_useAllCores) glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &coreCount);
@@ -620,8 +609,7 @@ namespace rld {
             initVelC
         );
         s_doSide = doSide;
-        s_twoSided = twoSided;
-        s_doSoft = doSoft;
+        s_doCloth = doCloth;
 
         s_results.resize(s_sliceCount);
 
@@ -762,7 +750,7 @@ namespace rld {
 
         // Was last slice
         if (s_currentSlice >= s_sliceCount) {
-            if (!s_doSoft) downloadResults();
+            if (!s_doCloth) downloadResults();
 
             s_currentSlice = 0;
             return true;

@@ -1,12 +1,29 @@
 #version 450 core
 
-layout (location = 0) in vec3 in_norm;
+// Inputs ----------------------------------------------------------------------
+
+layout (location = 0) in vec3 in_pos;
+layout (location = 1) in vec3 in_norm;
+
+// Outputs ---------------------------------------------------------------------
 
 layout (location = 0) out vec4 out_color;
 
-/*const float k_pi = 3.14159265f;
+// Constants -------------------------------------------------------------------
 
-vec3 hsv2rgb(vec3 c) {
+//const float k_pi = 3.14159265f;
+const float k_ambience = 0.2f;
+const float k_shininess = 8.0f;
+const vec3 k_lightDir = normalize(vec3(1.0f, 1.0f, 1.0f));
+const vec3 k_color = vec3(0.25f, 0.25f, 1.0f);
+
+// Uniforms --------------------------------------------------------------------
+
+uniform vec3 u_camPos; // camera position in world space
+
+// Functions -------------------------------------------------------------------
+
+/*vec3 hsv2rgb(vec3 c) {
     vec4 K = vec4(1.0f, 2.0f / 3.0f, 1.0f / 3.0f, 3.0f);
     vec3 p = abs(fract(c.xxx + K.xyz) * 6.0f - K.www);
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
@@ -62,11 +79,37 @@ vec3 safeNormalize(vec3 v) {
 }
 
 void main() {
+    vec3 viewDir = normalize(u_camPos - in_pos);
     vec3 norm = safeNormalize(in_norm);
+    //if (!gl_FrontFacing) norm = -norm;
 
-    //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * diffuse;
-    //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, (gl_PrimitiveID % 16) / 16.0f));
+    // Phong
+    if (true) {
+        // Diffuse calculation
+        float diffuse = max(dot(k_lightDir, norm), 0) + k_ambience; // Clamp to prevent color from reaching back side
+        //float diffuseFactor = (dot(u_lightDir, norm) + 1) / 2; // Normalize so the color bleeds onto the back side
 
-    out_color.rgb = norm * 0.5f + 0.5f;
-    out_color.a = 1.0f;
+        // Specular calculation
+        vec3 reflectDir = reflect(-k_lightDir, norm);
+        float specular = pow(max(dot(viewDir, reflectDir), 0), k_shininess);
+
+        //output color
+        out_color.rgb = diffuse * k_color + vec3(specular * 0.5f);
+        out_color.a = 1.0f;
+    }
+
+    // Rainbow
+    else if (false) {
+        //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, vec3(gl_PrimitiveID) / float(u_primitiveCount - 1))) * diffuse;
+        //out_color.rgb = lch2luv(vec3(0.67f, 1.0f, (gl_PrimitiveID % 16) / 16.0f));
+        out_color.a = 1.0f;
+    }
+
+    // Normals
+    else if (false) {
+        out_color.rgb = norm * 0.5f + 0.5f;
+        out_color.a = 1.0f;
+    }
+
+
 }

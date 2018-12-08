@@ -9,17 +9,19 @@ struct Vertex {
     float mass;
     vec3 normal;
     int group;
-    vec3 force;
-    float _0;
     vec3 prevPosition;
+    float _0;
+    vec3 force0; // lift
     float _1;
+    vec3 force1; // drag
+    float _2;
 };
 
 struct Constraint {
     int i;
     int j;
     float d;
-    float padding0;
+    float _0;
 };
 
 // Constants -------------------------------------------------------------------
@@ -68,11 +70,12 @@ void update(int vi) {
     Vertex vertex = u_vertices[vi];
     vec3 pos = vertex.position;
     if (vertex.mass > 0.0f) {
-        vec3 acceleration = vertex.force / vertex.mass;
+        vec3 acceleration = (vertex.force0 + vertex.force1) / vertex.mass;
         if (k_doGravity) acceleration += u_gravity;
         vertex.position += (pos - vertex.prevPosition) * (1.0f - k_damping) + acceleration * u_dt * u_dt;
     }
-    vertex.force = vec3(0.0f);
+    vertex.force0 = vec3(0.0f);
+    vertex.force1 = vec3(0.0f);
     vertex.prevPosition = pos;
     u_vertices[vi] = vertex;
 }
@@ -115,7 +118,7 @@ void main() {
             vec2 delta = pos.xy - u_touchPos;
             float dist2 = dot(delta, delta);
             float strength = max(1.0f - dist2 / (k_touchRad * k_touchRad), 0.0f);
-            u_vertices[vi].force += u_touchForce * strength;
+            u_vertices[vi].force0 += u_touchForce * strength;
         }        
     }
     barrier();

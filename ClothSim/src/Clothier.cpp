@@ -62,8 +62,9 @@ namespace Clothier {
                 vertex.mass = vertMass;
                 vertex.normal = vec3(0.0f, 0.0f, 1.0f);
                 vertex.group = 0;
-                vertex.force = vec3(0.0f);
                 vertex.prevPosition = vertex.position;
+                vertex.force0 = vec3(0.0f);
+                vertex.force1 = vec3(0.0f);
                 vertices.push_back(vertex);
             }
         }
@@ -215,7 +216,8 @@ namespace Clothier {
                 vertex.mass = vertMass;
                 vertex.normal = normal;
                 vertex.group = 0;
-                vertex.force = vec3(0.0f);
+                vertex.force0 = vec3(0.0f);
+                vertex.force1 = vec3(0.0f);
                 vertex.prevPosition = vertex.position;
                 vertices.push_back(vertex);
             }
@@ -318,7 +320,14 @@ namespace Clothier {
         return unq<SoftMesh>(new SoftMesh(move(vertices), move(indices), move(constraints)));
     }
 
-    unq<SoftMesh> createSail(float luffLength, float leechLength, float footLength, float areaDensity, int lod, int groupSize) {
+    unq<SoftMesh> createSail(
+        float luffLength,
+        float leechLength,
+        float footLength,
+        float areaDensity,
+        int lod,
+        int groupSize
+    ) {
         float hp((luffLength + leechLength + footLength) * 0.5f);
         float area(std::sqrt(hp * (hp - luffLength) * (hp - leechLength) * (hp - footLength)));
         float mass(area * areaDensity);

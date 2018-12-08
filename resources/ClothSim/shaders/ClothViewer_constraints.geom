@@ -15,11 +15,13 @@ struct Vertex {
     vec3 position;
     float mass;
     vec3 normal;
-    float _0;
-    vec3 force;
-    float constraintFactor;
+    int group;
     vec3 prevPosition;
-    int _1;
+    float _0;
+    vec3 force0; // lift
+    float _1;
+    vec3 force1; // drag
+    float _2;
 };
 
 struct Constraint {

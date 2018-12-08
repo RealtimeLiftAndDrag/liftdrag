@@ -40,7 +40,7 @@ enum class State { free, sweeping, autoStepping, stepping };
 
 
 
-static const Object k_object(Object::sail);
+static constexpr Object k_object(Object::sail);
 
 static const ivec2 k_flagLOD(50, 25);
 static const float k_flagLength(1.0f);
@@ -52,6 +52,7 @@ static const int k_sailLOD(50);
 static const float k_sailLuffLength(13.0f);
 static const float k_sailLeechLength(12.0f);
 static const float k_sailFootLength(8.0f);
+static const float k_sailLuffAngle(glm::radians(30.0f)); // Angle off vertical
 static const float k_sailAreaDensity(0.35f); // kg per square meter (about right for 8 oz. sail)
 static const float k_sailRotateSpeed(glm::pi<float>() / 3.0f);
 static const float k_sailDrawSpeed(k_sailLuffLength / 5.0f);
@@ -115,9 +116,11 @@ static shr<ui::TexViewer> s_frontTexComp;
 static State s_state(State::free);
 static bool s_doStep(false);
 static float s_sailAngle(0.0f);
-static bool s_sailRotateCCW(false), s_sailRotateCW(false);
 static float s_sailClewDist;
+static vec3 s_sailTack, s_sailHead, s_sailClew;
+static bool s_sailRotateCCW(false), s_sailRotateCW(false);
 static bool s_sailClewIn(false), s_sailClewOut(false);
+static bool s_isClothUpdateNeeded(false);
 
 
 
@@ -171,6 +174,17 @@ class RootComp : public ui::HorizontalGroup {
 
 };
 
+static void detSailPoints() {
+    static const float k_sinLuffAngle(std::sin(k_sailLuffAngle));
+    static const float k_cosLuffAngle(std::cos(k_sailLuffAngle));
+
+    vec2 tack(0.0f, 0.0f);
+    vec2 head(k_sailLuffLength * k_sinLuffAngle, k_sailLuffLength * k_cosLuffAngle);
+    vec2 clew(util::intersectCircles(head, k_sailLeechLength, tack, k_sailFootLength).first);
+    vec2 farClew(util::intersectCircles(head, k_sailLeechLength * 2.0f, tack, k_sailFootLength * 2.0f).first);
+    vec2 drawVec(glm::normalize(farClew - clew));
+}
+
 static bool setupObject() {
     if (k_object == Object::flag) {
         s_clothScale = k_flagLength;
@@ -223,7 +237,7 @@ static bool setupObject() {
         s_mesh = &static_cast<const SoftMesh &>(s_model->subModels().front().mesh());
 
         s_rldLiftC = 1.0f;
-        s_rldDragC = 0.0f;
+        s_rldDragC = 1.0f;
         s_windframeWidth = glm::max(k_sailFootLength * 2, s_sailHeight) * 1.125f;
         s_windframeDepth = k_sailFootLength * 1.125f;
         s_windSpeed = 10.0f;
@@ -340,7 +354,6 @@ static bool setup() {
         s_flowback,
         s_initVelC,
         false,
-        true,
         true
     )) {
         std::cerr << "Failed to setup RLD" << std::endl;
@@ -427,14 +440,14 @@ static void update() {
         if (rld::slice()) {
             glEnable(GL_DEPTH_TEST);
             glDisable(GL_BLEND);
-
+            
             while (!rld::step());
 
             glDisable(GL_DEPTH_TEST);
             glEnable(GL_BLEND);
         }
 
-        updateCloth();
+        s_isClothUpdateNeeded = true;
     }
     else if (s_state == State::sweeping) {
         glEnable(GL_DEPTH_TEST);
@@ -450,21 +463,21 @@ static void update() {
 
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
-
-        updateCloth();
+        
+        s_isClothUpdateNeeded = true;
 
     }
     else if (s_state == State::autoStepping || s_state == State::stepping && s_doStep) {
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
-
+        
         bool done(rld::step());
 
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         s_doStep = false;
 
-        if (done) updateCloth();
+        if (done) s_isClothUpdateNeeded = true;
     }
 }
 
@@ -507,6 +520,10 @@ int main(int argc, char ** argv) {
             update();
             ui::update();
             ui::render();
+            if (s_isClothUpdateNeeded) {
+                updateCloth();
+                s_isClothUpdateNeeded = false;
+            }
             do accumDT -= k_targetDT; while (accumDT >= k_targetDT);
         }
     }

@@ -119,4 +119,19 @@ namespace util {
         return std::acos((a * a + b * b - c * c) / (2.0f * a * b));
     }
 
+    // Assumes circles actually intersect, will get nonsense if they do not
+    // Returns the two intersect points, i0 and i1
+    // The triangle p0 p1 i0 is CCW, the triangle p0 p1 i1 is CW
+    // https://stackoverflow.com/questions/3349125/circle-circle-intersection-points
+    inline duo<vec2> intersectCircles(const vec2 & p0, float r0, const vec2 & p1, float r1) {
+        vec2 dir(p1 - p0);
+        float d(glm::length(dir));
+        dir /= d;
+        float a((r0 * r0 - r1 * r1 + d * d) / (2.0f * d));
+        float h(std::sqrt(r0 * r0 - a * a));
+        vec2 p2(p0 + a * dir);
+        vec2 off(h * -dir.y, h * dir.x);
+        return { vec2(p2 + off), vec2(p2 - off) };
+    }
+
 }

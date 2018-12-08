@@ -10,6 +10,7 @@
 
 
 static constexpr bool k_viewConstraints(false);
+static constexpr bool k_viewForces(true);
 
 static const float k_fov(glm::radians(90.0f));
 static const float k_camPanAngle(0.01f);
@@ -20,8 +21,9 @@ static const float k_camMaxDist(3.0f);
 static bool s_isSetup(false);
 static unq<Shader> s_clothShader;
 static unq<Shader> s_constraintsShader;
+static unq<Shader> s_forceShader;
 static unq<Shader> s_frameShader;
-static u32 s_constraintVAO;
+static u32 s_dummyVAO;
 static u32 s_frameVBO, s_frameIBO, s_frameVAO;
 
 
@@ -37,6 +39,11 @@ bool setup() {
     // Constraints shader
     if (!(s_constraintsShader = Shader::load(shadersPath + "ClothViewer_constraints.vert", shadersPath + "ClothViewer_constraints.geom", shadersPath + "ClothViewer_constraints.frag"))) {
         std::cerr << "Failed to load constraints shader" << std::endl;
+        return false;
+    }
+    // Force shader
+    if (!(s_forceShader = Shader::load(shadersPath + "ClothViewer_force.vert", shadersPath + "ClothViewer_force.geom", shadersPath + "ClothViewer_force.frag"))) {
+        std::cerr << "Failed to load force shader" << std::endl;
         return false;
     }
     // Frame shader
@@ -79,7 +86,7 @@ bool setup() {
         return false;
     }
 
-    glGenVertexArrays(1, &s_constraintVAO);
+    glGenVertexArrays(1, &s_dummyVAO);
 
     return true;
 }
@@ -104,6 +111,7 @@ ClothViewerComponent::ClothViewerComponent(const Model & model, float scale, con
 }
 
 void ClothViewerComponent::render() const {
+    const SoftMesh & mesh(static_cast<const SoftMesh &>(m_model.subModels().front().mesh()));
     glEnable(GL_DEPTH_TEST);
     setViewport();
 
@@ -114,10 +122,9 @@ void ClothViewerComponent::render() const {
         s_constraintsShader->uniform("u_normalMat", mat3());
         s_constraintsShader->uniform("u_viewMat", m_camera.viewMat());
         s_constraintsShader->uniform("u_projMat", m_camera.projMat());
-        const SoftMesh & mesh(static_cast<const SoftMesh &>(m_model.subModels().front().mesh()));
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, mesh.vertexBuffer());
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, mesh.constraintBuffer());
-        glBindVertexArray(s_constraintVAO);
+        glBindVertexArray(s_dummyVAO);
         glDrawArrays(GL_POINTS, 0, mesh.constraintCount());
         glBindVertexArray(0);
     }
@@ -129,6 +136,18 @@ void ClothViewerComponent::render() const {
         s_clothShader->uniform("u_projMat", m_camera.projMat());
         s_clothShader->uniform("u_camPos", m_camera.position());
         model().draw();
+    }
+
+    if (k_viewForces) {
+        s_forceShader->bind();
+        s_forceShader->uniform("u_modelMat", mat4());
+        s_forceShader->uniform("u_normalMat", mat3());
+        s_forceShader->uniform("u_viewMat", m_camera.viewMat());
+        s_forceShader->uniform("u_projMat", m_camera.projMat());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, mesh.vertexBuffer());
+        glBindVertexArray(s_dummyVAO);
+        glDrawArrays(GL_POINTS, 0, mesh.vertexCount());
+        glBindVertexArray(0);
     }
 
     // Render frame

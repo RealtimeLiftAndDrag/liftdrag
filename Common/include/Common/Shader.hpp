@@ -1,7 +1,9 @@
 #pragma once
 
+
+
+#include <vector>
 #include <unordered_map>
-#include <string>
 
 #include "Global.hpp"
 
@@ -11,23 +13,25 @@ class Shader {
 
     public:
 
+    using Defines = std::vector<duo<std::string_view>>;
+
     static unq<Shader> load(
         const std::string & vertFile,
         const std::string & fragFile,
-        std::initializer_list<duo<std::string_view>> defines = {}
+        const Defines & defines = {}
     );
     static unq<Shader> load(
         const std::string & vertFile,
         const std::string & geomFile,
         const std::string & fragFile,
-        std::initializer_list<duo<std::string_view>> defines = {}
+        const Defines & defines = {}
     );
     static unq<Shader> load(
         const std::string & vertFile,
         const std::string & tescFile,
         const std::string & teseFile,
         const std::string & fragFile,
-        std::initializer_list<duo<std::string_view>> defines = {}
+        const Defines & defines = {}
     );
     static unq<Shader> load(
         const std::string & vertFile,
@@ -35,11 +39,11 @@ class Shader {
         const std::string & teseFile,
         const std::string & geomFile,
         const std::string & fragFile,
-        std::initializer_list<duo<std::string_view>> defines = {}
+        const Defines & defines = {}
     );
     static unq<Shader> load(
         const std::string & compFile,
-        std::initializer_list<duo<std::string_view>> defines = {}
+        const Defines & defines = {}
     );
 
     static void unbind();

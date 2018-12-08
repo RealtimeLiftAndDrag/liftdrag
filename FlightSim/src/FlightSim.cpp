@@ -437,7 +437,6 @@ static bool setup() {
         s_flowback,
         s_initVelC,
         false,
-        false,
         false
     )) {
         std::cerr << "Failed to setup RLD" << std::endl;

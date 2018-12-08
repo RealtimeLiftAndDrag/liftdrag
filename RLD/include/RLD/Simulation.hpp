@@ -33,8 +33,7 @@ namespace rld {
         float flowback,
         float initVelC,
         bool doSide,
-        bool twoSided,
-        bool doSoft
+        bool doCloth
     );
 
     // Sets the following variables. Must be called at the start of a sweep and after setup

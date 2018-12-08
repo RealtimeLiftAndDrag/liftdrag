@@ -162,7 +162,7 @@ static u32 createProgram(
     return progId;
 }
 
-static std::string createDefinesStr(std::initializer_list<duo<std::string_view>> defines) {
+static std::string createDefinesStr(const Shader::Defines & defines) {
     std::stringstream ss;
     for (const auto & define : defines) {
         ss << "#define " << define.first << " " << define.second << '\n';
@@ -223,9 +223,9 @@ static u32 createProgram(
     const std::string & geomSrc,
     const std::string & fragSrc,
     const std::string & compSrc,
-    std::initializer_list<duo<std::string_view>> defines
+    const Shader::Defines & defines
 ) {
-    if (defines.size() == 0) {
+    if (defines.empty()) {
         return createProgram(vertSrc, tescSrc, teseSrc, geomSrc, fragSrc, compSrc);
     }
 
@@ -246,7 +246,7 @@ static u32 loadProgram(
     const std::string & geomFile,
     const std::string & fragFile,
     const std::string & compFile,
-    std::initializer_list<duo<std::string_view>> defines
+    const Shader::Defines & defines
 ) {
     std::string vertSrc, tescSrc, teseSrc, geomSrc, fragSrc, compSrc;
     if (vertFile.size()) {
@@ -292,7 +292,7 @@ static u32 loadProgram(
 unq<Shader> Shader::load(
     const std::string & vertFile,
     const std::string & fragFile,
-    std::initializer_list<duo<std::string_view>> defines
+    const Defines & defines
 ) {
     return load(vertFile, "", "", "", fragFile, defines);
 }
@@ -301,7 +301,7 @@ unq<Shader> Shader::load(
     const std::string & vertFile,
     const std::string & geomFile,
     const std::string & fragFile,
-    std::initializer_list<duo<std::string_view>> defines
+    const Defines & defines
 ) {
     return load(vertFile, "", "", geomFile, fragFile, defines);
 }
@@ -311,7 +311,7 @@ unq<Shader> Shader::load(
     const std::string & tescFile,
     const std::string & teseFile,
     const std::string & fragFile,
-    std::initializer_list<duo<std::string_view>> defines
+    const Defines & defines
 ) {
     return load(vertFile, tescFile, teseFile, "", fragFile, defines);
 }
@@ -322,7 +322,7 @@ unq<Shader> Shader::load(
     const std::string & teseFile,
     const std::string & geomFile,
     const std::string & fragFile,
-    std::initializer_list<duo<std::string_view>> defines
+    const Defines & defines
 ) {
     if (vertFile.empty()) {
         std::cerr << "Missing vertex shader" << std::endl;
@@ -353,7 +353,7 @@ unq<Shader> Shader::load(
 
 unq<Shader> Shader::load(
     const std::string & compFile,
-    std::initializer_list<duo<std::string_view>> defines
+    const Defines & defines
 ) {
     if (compFile.empty()) {
         std::cerr << "Missing compute shader" << std::endl;

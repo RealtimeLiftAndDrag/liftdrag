@@ -56,6 +56,15 @@
     <None Include="..\resources\ClothSim\shaders\transform.comp">
       <Filter>resources\shaders</Filter>
     </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_force.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_force.geom">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\ClothSim\shaders\ClothViewer_force.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Clothier.hpp">
