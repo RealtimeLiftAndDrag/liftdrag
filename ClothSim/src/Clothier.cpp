@@ -38,7 +38,17 @@ namespace Clothier {
         }
     }
 
+    
 
+    constexpr float k_h(0.866025404f); // height of an equilateral triangle
+
+    vec2 triToCart(vec2 p) {
+        return vec2(p.y - p.x * 0.5f, p.x * k_h);
+    }
+
+    u32 triI(ivec2 p) {
+        return (p.y + 1) * p.y / 2 + p.x;
+    }
 
     unq<Model> createRectangle(
         ivec2 lod,
@@ -179,16 +189,6 @@ namespace Clothier {
         return unq<Model>(new Model(SubModel("ClothRectangle", move(mesh))));
     }
 
-    constexpr float k_h(0.866025404f); // height of an equilateral triangle
-
-    vec2 triToCart(vec2 p) {
-        return vec2(p.y - p.x * 0.5f, p.x * k_h);
-    }
-
-    u32 triI(ivec2 p) {
-        return (p.y + 1) * p.y / 2 + p.x;
-    }
-
     unq<SoftMesh> createTriangle(
         const vec3 & a,
         const vec3 & b,
@@ -318,33 +318,6 @@ namespace Clothier {
         if (groupSize) decouple(vertices, constraints, groupSize);
 
         return unq<SoftMesh>(new SoftMesh(move(vertices), move(indices), move(constraints)));
-    }
-
-    unq<SoftMesh> createSail(
-        float luffLength,
-        float leechLength,
-        float footLength,
-        float areaDensity,
-        int lod,
-        int groupSize
-    ) {
-        float hp((luffLength + leechLength + footLength) * 0.5f);
-        float area(std::sqrt(hp * (hp - luffLength) * (hp - leechLength) * (hp - footLength)));
-        float mass(area * areaDensity);
-
-        float height(2.0f * area / footLength);
-        vec3 a(0.0f, -0.5f * height, 0.5f * footLength); // head
-        vec3 b(a.x, a.y, a.z - footLength); // clew
-        vec3 c(a.x, a.y + height, a.z - std::sqrt(luffLength * luffLength - height * height)); // tack
-        unq<SoftMesh> mesh(createTriangle(a, b, c, lod, mass, groupSize, bvec3(true, true, true), bvec3(false, false, true)));
-
-
-        for (int i(0); i <= lod; ++i) {
-            mesh->vertices()[triI(ivec2(i, i))].group = 1;
-        }
-        mesh->vertices()[triI(ivec2(0, lod))].group = 2;
-
-        return mesh;
     }
 
 }

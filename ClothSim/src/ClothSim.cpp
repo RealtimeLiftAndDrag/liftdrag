@@ -55,7 +55,9 @@ static const float k_sailFootLength(8.0f);
 static const float k_sailLuffAngle(glm::radians(30.0f)); // Angle off vertical
 static const float k_sailAreaDensity(0.35f); // kg per square meter (about right for 8 oz. sail)
 static const float k_sailRotateSpeed(glm::pi<float>() / 3.0f);
-static const float k_sailDrawSpeed(k_sailLuffLength / 5.0f);
+static const float k_sailDrawSpeed(0.25f);
+static const float k_sailDrawMin(k_sailLuffLength / (k_sailLeechLength + k_sailFootLength) * 1.01f);
+static const float k_sailDrawMax(1.5f);
 
 static constexpr bool k_doTouch(true);
 static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
@@ -83,12 +85,7 @@ static float s_clothMass;
 static float s_touchForce;
 
 static mat4 s_sailRotateCCWMat, s_sailRotateCWMat;
-static float s_sailMaxClewDist;
-static float s_sailLuffAngle;
-static float s_sailHeight;
 static float s_sailArea;
-static vec3 s_sailDrawDir;
-static float s_sailDrawY;
 
 static float s_rldLiftC;
 static float s_rldDragC;
@@ -113,11 +110,12 @@ static unq<Shader> s_transformShader;
 static shr<ClothViewerComponent> s_viewerComp;
 static shr<ui::TexViewer> s_frontTexComp;
 
+static float s_sailDraw(1.0f);
+static float s_sailAngle(0.0f);
+static vec3 s_sailTack, s_sailHead, s_sailClew;
+
 static State s_state(State::free);
 static bool s_doStep(false);
-static float s_sailAngle(0.0f);
-static float s_sailClewDist;
-static vec3 s_sailTack, s_sailHead, s_sailClew;
 static bool s_sailRotateCCW(false), s_sailRotateCW(false);
 static bool s_sailClewIn(false), s_sailClewOut(false);
 static bool s_isClothUpdateNeeded(false);
@@ -175,14 +173,14 @@ class RootComp : public ui::HorizontalGroup {
 };
 
 static void detSailPoints() {
-    static const float k_sinLuffAngle(std::sin(k_sailLuffAngle));
-    static const float k_cosLuffAngle(std::cos(k_sailLuffAngle));
-
-    vec2 tack(0.0f, 0.0f);
-    vec2 head(k_sailLuffLength * k_sinLuffAngle, k_sailLuffLength * k_cosLuffAngle);
-    vec2 clew(util::intersectCircles(head, k_sailLeechLength, tack, k_sailFootLength).first);
-    vec2 farClew(util::intersectCircles(head, k_sailLeechLength * 2.0f, tack, k_sailFootLength * 2.0f).first);
-    vec2 drawVec(glm::normalize(farClew - clew));
+    vec2 head2D(k_sailLuffLength * std::sin(k_sailLuffAngle), k_sailLuffLength * std::cos(k_sailLuffAngle));
+    vec2 clew2D(util::intersectCircles(head2D, k_sailLeechLength * s_sailDraw, vec2(), k_sailFootLength * s_sailDraw).first);
+    float sinAngle(std::sin(s_sailAngle));
+    float cosAngle(std::cos(s_sailAngle));
+    s_sailHead = vec3(-head2D.x * sinAngle, head2D.y, -head2D.x * cosAngle);
+    s_sailClew = vec3(-clew2D.x * sinAngle, clew2D.y, -clew2D.x * cosAngle);
+    s_sailHead += s_sailTack;
+    s_sailClew += s_sailTack;
 }
 
 static bool setupObject() {
@@ -208,27 +206,36 @@ static bool setupObject() {
         s_initVelC = 1.0f;
     }
     else if (k_object == Object::sail) {
+        vec2 head2D(k_sailLuffLength * std::sin(k_sailLuffAngle), k_sailLuffLength * std::cos(k_sailLuffAngle));
+        vec2 clew2D(util::intersectCircles(head2D, k_sailLeechLength, vec2(), k_sailFootLength).first);
+        float height(glm::max(head2D.y, head2D.y - clew2D.y));
+        float depth(glm::max(head2D.x, clew2D.x));
+        s_sailTack = vec3(0.0f, 0.5f * height - head2D.y, depth * 0.5f);
+        s_sailHead = vec3(0.0f, s_sailTack.y + head2D.y, s_sailTack.z - head2D.x);
+        s_sailClew = vec3(0.0f, s_sailTack.y + clew2D.y, s_sailTack.z - clew2D.x);
+
         s_clothScale = k_sailLuffLength;
         float hp((k_sailLuffLength + k_sailLeechLength + k_sailFootLength) * 0.5f);
         s_sailArea = std::sqrt(hp * (hp - k_sailLuffLength) * (hp - k_sailLeechLength) * (hp - k_sailFootLength));
         s_clothMass = s_sailArea * k_sailAreaDensity;
-        s_sailHeight = 2.0f * s_sailArea / k_sailFootLength;
-        s_sailLuffAngle = util::lawOfCosines(k_sailLuffLength, k_sailFootLength, k_sailLeechLength);
-        s_sailDrawY = std::tan(glm::pi<float>() * 0.5f - s_sailLuffAngle);
-        s_sailDrawDir = glm::normalize(vec3(0.0f, s_sailDrawY, 1.0f));
 
-        s_sailRotateCCWMat = glm::translate(vec3(0.0f, 0.0f, k_sailFootLength * -0.5f)) * s_sailRotateCCWMat;
+        s_sailRotateCCWMat = glm::translate(-s_sailTack);
         s_sailRotateCCWMat = glm::rotate(k_sailRotateSpeed * k_updateDT, vec3(0.0f, 1.0f, 0.0f)) * s_sailRotateCCWMat;
-        s_sailRotateCCWMat = glm::translate(vec3(0.0f, 0.0f, k_sailFootLength * 0.5f)) * s_sailRotateCCWMat;
+        s_sailRotateCCWMat = glm::translate(s_sailTack) * s_sailRotateCCWMat;
 
-        s_sailRotateCWMat = glm::translate(vec3(0.0f, 0.0f, k_sailFootLength * -0.5f)) * s_sailRotateCWMat;
+        s_sailRotateCWMat = glm::translate(-s_sailTack);
         s_sailRotateCWMat = glm::rotate(-k_sailRotateSpeed * k_updateDT, vec3(0.0f, 1.0f, 0.0f)) * s_sailRotateCWMat;
-        s_sailRotateCWMat = glm::translate(vec3(0.0f, 0.0f, k_sailFootLength * 0.5f)) * s_sailRotateCWMat;
+        s_sailRotateCWMat = glm::translate(s_sailTack) * s_sailRotateCWMat;
+        
+        // Create the mesh
+        unq<SoftMesh> mesh(Clothier::createTriangle(s_sailTack, s_sailClew, s_sailHead, k_sailLOD, s_clothMass, s_workGroupSize, bvec3(true, true, true), bvec3(false, false, true)));
+        // Assign luff to group 1
+        for (int i(0); i <= k_sailLOD; ++i) {
+            mesh->vertices()[Clothier::triI(ivec2(i, i))].group = 1;
+        }
+        // Assign clew to group 2
+        mesh->vertices()[Clothier::triI(ivec2(0, k_sailLOD))].group = 2;
 
-        s_sailClewDist = 2.0f * s_sailArea / k_sailLuffLength;
-        s_sailMaxClewDist = s_sailClewDist * 2.0f;
-
-        unq<Mesh> mesh(Clothier::createSail(k_sailLuffLength, k_sailLeechLength, k_sailFootLength, k_sailAreaDensity, k_sailLOD, s_workGroupSize));
         if (!mesh->load()) {
             std::cerr << "Failed to load mesh" << std::endl;
             return false;
@@ -236,10 +243,11 @@ static bool setupObject() {
         s_model.reset(new Model(SubModel("Sail", move(mesh))));
         s_mesh = &static_cast<const SoftMesh &>(s_model->subModels().front().mesh());
 
+        // Set RLD constants
         s_rldLiftC = 1.0f;
         s_rldDragC = 1.0f;
-        s_windframeWidth = glm::max(k_sailFootLength * 2, s_sailHeight) * 1.125f;
-        s_windframeDepth = k_sailFootLength * 1.125f;
+        s_windframeWidth = glm::max(depth * 2, height) * 1.125f;
+        s_windframeDepth = depth * 1.125f;
         s_windSpeed = 10.0f;
         s_turbulenceDist = 0.5f;
         s_windShadDist = 0.1f;
@@ -376,8 +384,10 @@ static void updateCloth() {
 
     // Transform sail
     if (k_object == Object::sail) {
+        // Handle rotation
         if (s_sailRotateCCW != s_sailRotateCW) {
             s_sailAngle += (s_sailRotateCCW ? k_sailRotateSpeed : -k_sailRotateSpeed) * k_updateDT;
+            detSailPoints();
 
             s_transformShader->bind();
             s_transformShader->uniform("u_groups", ivec4(1, 1, 1, 2));
@@ -386,17 +396,20 @@ static void updateCloth() {
             glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
             Shader::unbind();
         }
+        // Handle clew draw
         if (s_sailClewIn != s_sailClewOut) {
-            float delta(k_sailDrawSpeed * k_updateDT);
-            if (s_sailClewIn) delta = -delta;
-            float newDist(glm::clamp(s_sailClewDist + delta, 0.0f, s_sailMaxClewDist));
-            delta = newDist - s_sailClewDist;
-            if (!util::isZero(delta)) {
-                s_sailClewDist = newDist;
-                vec3 dir(glm::normalize(vec3(std::sin(s_sailAngle), s_sailDrawY, std::cos(s_sailAngle))));
+            float deltaDraw(k_sailDrawSpeed * k_updateDT);
+            if (s_sailClewIn) deltaDraw = -deltaDraw;
+            float newDraw(glm::clamp(s_sailDraw + deltaDraw, k_sailDrawMin, k_sailDrawMax));
+            deltaDraw = newDraw - s_sailDraw;
+            if (!util::isZero(deltaDraw)) {
+                vec3 prevClew(s_sailClew);
+                s_sailDraw = newDraw;
+                detSailPoints();
+
                 s_transformShader->bind();
                 s_transformShader->uniform("u_groups", ivec4(2));
-                s_transformShader->uniform("u_transformMat", glm::translate(dir * -delta));
+                s_transformShader->uniform("u_transformMat", glm::translate(s_sailClew - prevClew));
                 glDispatchCompute(1, 1, 1);
                 glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: is this necessary?
                 Shader::unbind();
