@@ -524,7 +524,7 @@ static void setupUI() {
     f18Group->add(shr<ui::String>(new ui::String("Rudder: ", 1, vec4(1.0f))));
     s_rudderNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
     s_rudderNum->actionCallback([]() {
-        setRudderAngle(s_rudderNum->value());
+        setRudderAngle(float(s_rudderNum->value()));
         s_isVariableChange = true;
         doSweep();
     });
@@ -533,7 +533,7 @@ static void setupUI() {
     f18Group->add(shr<ui::String>(new ui::String("Elevator: ", 1, vec4(1.0f))));
     s_elevatorNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
     s_elevatorNum->actionCallback([]() {
-        setElevatorAngle(s_elevatorNum->value());
+        setElevatorAngle(float(s_elevatorNum->value()));
         s_isVariableChange = true;
         doSweep();
     });
@@ -542,7 +542,7 @@ static void setupUI() {
     f18Group->add(shr<ui::String>(new ui::String("Aileron: ", 1, vec4(1.0f))));
     s_aileronNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
     s_aileronNum->actionCallback([]() {
-        setAileronAngle(s_aileronNum->value());
+        setAileronAngle(float(s_aileronNum->value()));
         s_isVariableChange = true;
         doSweep();
     });
@@ -678,7 +678,6 @@ static bool setup() {
         s_flowback,
         s_initVelC,
         true,
-        false,
         false
     )) {
         std::cerr << "Failed to setup RLD" << std::endl;

@@ -157,6 +157,10 @@ vec3 safeNormalize(vec3 v) {
     return d > 0.0f ? v / sqrt(d) : vec3(0.0f);
 }
 
+bool isInTexture(ivec2 p, ivec2 texSize) {
+    return all(bvec4(greaterThanEqual(p, ivec2(0)), lessThan(p, texSize)));
+}
+
 vec2 windToScreen(vec2 wind) {
     return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
 }
@@ -292,9 +296,20 @@ void prospect(ivec2 texCoord) {
     }
 
     // Check if we're on edge
+    bool onEdge = false;
     ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
     uvec4 nextColor = imageLoad(u_frontImg, nextTexCoord);
-    if ((nextColor.r & k_geoBit) != 0) {
+    if ((nextColor.r & k_geoBit) == 0) {
+        onEdge = true;
+    }
+    if (false && k_doCloth && !onEdge) {
+        nextTexCoord = texCoord + getPixelDelta(-geoNormal.xy);
+        nextColor = imageLoad(u_frontImg, nextTexCoord);
+        if ((nextColor.r & k_geoBit) == 0) {
+            onEdge = true;
+        }
+    }
+    if (!onEdge) {
         return;
     }
 
@@ -315,7 +330,7 @@ void draw(int prevAirI) {
     ivec2 airTexCoord = ivec2(windToScreen(air.windPos));
 
     // Check if in texture
-    if (airTexCoord.x < 0 || airTexCoord.y < 0 || airTexCoord.x >= u_screenSize || airTexCoord.y >= u_screenSize) {
+    if (!isInTexture(airTexCoord, ivec2(u_screenSize))) {
         return;
     }
 
