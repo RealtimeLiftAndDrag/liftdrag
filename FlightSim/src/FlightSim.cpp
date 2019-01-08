@@ -72,6 +72,7 @@ static unq<Model> s_model;
 static unq<SimObject> s_simObject;
 static unq<Shader> s_planeShader;
 static unq<SkyBox> s_skyBox;
+static unq<PID> s_aileronPID;
 
 static mat4 s_modelMat;
 static mat3 s_normalMat;
@@ -401,6 +402,13 @@ static bool setupObject() {
     float dryThrust(71616.368f * 2.0f); // thrust in N without afterburners pulled from wiki (62.3kN per enginer)
 
     s_simObject.reset(new SimObject(mass, inertiaTensor, dryThrust, k_initPos, k_initDir, k_initSpeed, k_initThrust));
+
+	float k_p = 0.1f;
+	float k_i = 0.3f;
+	float k_d = 0.1f;
+
+	s_aileronPID.reset(new PID(k_p, k_i, k_d));
+
     return true;
 }
 
@@ -476,6 +484,8 @@ static bool setup() {
     Controller::poll(1);
     Controller::stickCallback(stickCallback);
     Controller::triggerCallback(triggerCallback);
+
+	
 
     // Setup sky box
     std::string skyBoxPath(g_resourcesDir + "/FlightSim/textures/sky_florida_1024/");
@@ -568,6 +578,9 @@ static void updatePlane(float dt) {
     s_simObject->addAngularForce(torq);
     s_simObject->update(dt);
 
+	float aileronCorrection = s_aileronPID->calcCorrection(0.f, glm::dot(glm::normalize(s_simObject->v()), vec3(0, 1, 0)), dt);
+	std::cout << "Aileron Correction: " << aileronCorrection << std::endl;
+	changeAileronAngle(aileronCorrection);
     s_textComp->string(createTextString(lift, drag, torq, windSpeed, s_elevatorAngle + k_elevatorTrim, s_aileronAngle + k_aileronTrim, s_rudderAngle + k_rudderTrim));
 }
 
