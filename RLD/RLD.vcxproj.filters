@@ -44,5 +44,14 @@
     <None Include="..\resources\RLD\shaders\prospect.comp">
       <Filter>resources\shaders</Filter>
     </None>
+    <None Include="..\resources\RLD\shaders\draw.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\RLD\shaders\move.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\RLD\shaders\outline.comp">
+      <Filter>resources\shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

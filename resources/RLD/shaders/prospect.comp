@@ -234,13 +234,13 @@ void prospect(ivec2 texCoord) {
 
 void main() {
     int workI = int(gl_LocalInvocationIndex);
+    ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
 
     // Zero accumulation array
     if (!k_doCloth) {
         s_accumulationArray[workI] = vec3(0.0f);
     }
 
-    ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
     // If inside texture
     if (all(lessThan(texCoord, ivec2(u_screenSize)))) {
         prospect(texCoord);

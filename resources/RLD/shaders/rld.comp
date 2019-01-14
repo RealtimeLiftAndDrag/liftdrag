@@ -41,7 +41,6 @@ struct SoftVertex {
 // Constants -------------------------------------------------------------------
 
 // External
-const ivec2 k_workGroupSize2D = WORK_GROUP_SIZE_2D;
 const bool k_debug = DEBUG;
 const bool k_doWindShadow = DO_WIND_SHADOW;
 const bool k_distinguishActivePixels = DISTINGUISH_ACTIVE_PIXELS; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
@@ -260,89 +259,6 @@ void applySoftForce(ivec2 texCoord, vec3 lift, vec3 drag) {
         atomicAdd(u_softVertices[i2].force1.y, drag.y);
         atomicAdd(u_softVertices[i2].force1.z, drag.z);
     }
-}
-
-// Draw ------------------------------------------------------------------------
-
-void draw(int prevAirI) {
-    AirPixel air = u_prevAirPixels[prevAirI];
-    ivec2 airTexCoord = ivec2(windToScreen(air.windPos));
-
-    // Check if in texture
-    if (!isInTexture(airTexCoord, ivec2(u_screenSize))) {
-        return;
-    }
-
-    uvec4 color = imageLoad(u_frontImg, airTexCoord);
-
-    // If in geometry, follow the geo normals to find the edge
-    if ((color.r & k_geoBit) != 0) {
-        ivec2 pixel = airTexCoord;
-        int steps = 0;
-        while (true) {
-            vec3 geoNormal = imageLoad(u_fboNormImg, airTexCoord).xyz;
-            if (abs(geoNormal.z) > k_maxNormalZ) {
-                return;
-            }
-            ivec2 nextPixel = pixel + getPixelDelta(geoNormal.xy);
-            uvec4 nextColor = imageLoad(u_frontImg, nextPixel);
-
-            // We found the edge, move air to it
-            if ((nextColor.r & k_geoBit) == 0) {
-                airTexCoord = pixel;
-
-                //vec3 tangentVel = cross(geoNormal, cross(geoNormal, vec3(0.0f, 0.0f, 1.0f))); // TODO
-                //vec2 tangentVel = geoNormal.xy * geoNormal.z; // Equivalent to above
-                //tangentVel = tangentVel * u_windSpeed;
-
-                // Set air to same position as geometry
-                air.windPos = screenToWind(vec2(airTexCoord) + vec2(imageLoad(u_frontImg, airTexCoord).gb) / 255.0f);
-
-                vec2 norm = normalize(geoNormal.xy);
-                if (geoNormal.z > 0.0f) {
-                    air.velocity = max(dot(air.velocity, norm), geoNormal.z * u_windSpeed) * norm;
-                }
-                else {
-                    air.velocity = geoNormal.z * u_windSpeed * norm;
-                }
-
-                air.backforce = vec2(0.0f);
-                air.turbulence = vec2(0.0f);
-                break;
-            }
-
-            // If air "inside" geometry, get rid of it, unless it's on the very edge
-            if (geoNormal.z < 0.0f) {
-                return;
-            }
-
-            pixel = nextPixel;
-            color = nextColor;
-            if (++steps >= k_maxEdgeSeekSteps) {
-                return;
-            }
-        }
-    }
-
-    // Air already exists at pixel
-    if ((color.r & k_airBit) != 0) {
-        return;
-    }
-
-    // Move to current air pixel buffer
-    int airI = atomicAdd(u_airCount, 1);
-    if (airI >= u_maxAirPixels) {
-        return;
-    }
-    u_airPixels[airI] = air;
-    u_airGeoMap[airI] = 0; // This air pixel is not yet associated with any geometry
-
-    // Store air index
-    imageStore(u_flagImg, airTexCoord, ivec4(airI + 1, 0, 0, 0));
-
-    // Draw to front view
-    color.r |= k_airBit;
-    imageStore(u_frontImg, airTexCoord, color);
 }
 
 // Outline ---------------------------------------------------------------------
@@ -661,18 +577,10 @@ void move(int airI) {
 
 void main() {
     int workI = int(gl_LocalInvocationIndex);
-    ivec2 workI2D = ivec2(workI % k_workGroupSize2D.x, workI / k_workGroupSize2D.x);
 
     // Zero accumulation array
     if (!k_doCloth) {
         s_accumulationArray[workI] = vec3(0.0f);
-    }
-
-    barrier();
-
-    // Draw
-    for (int prevAirI = workI; prevAirI < u_prevAirCount; prevAirI += k_workGroupSize) {
-        draw(prevAirI);
     }
 
     barrier();
