@@ -61,8 +61,8 @@ namespace rld {
 
     // Does a full sweep
     // Requires OpenGL state:
-    // - `GL_DEPTH_TEST` disabled
-    // - `GL_BLEND` enabled
+    // - `GL_DEPTH_TEST` enabled
+    // - `GL_BLEND` disabled
     void sweep();
 
     // Resets the sweep to the first slice

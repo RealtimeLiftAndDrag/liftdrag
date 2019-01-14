@@ -37,15 +37,6 @@ namespace ui {
     static bool s_isTooltipChange;
     static Component * s_focus;
 
-    /*
-    static fptr<void(int, int, int)> s_keyCallback;
-    static fptr<void(dvec2)> s_cursorPositionCallback;
-    static fptr<void(bool)> s_cursorEnterCallback;
-    static fptr<void(int, int, int)> s_mouseButtonCallback;
-    static fptr<void(dvec2)> s_scrollCallback;
-    static fptr<void()> s_exitCallback;
-    */
-
 
 
     static void glfwErrorCallback(int error, const char * description) {
@@ -62,8 +53,6 @@ namespace ui {
     static void glfwKeyCallback(GLFWwindow * window, int key, int scancode, int action, int mods) {
         if (s_focus) s_focus->keyEvent(key, action, mods);
         else s_root->keyEvent(key, action, mods);
-
-        //if (s_keyCallback) s_keyCallback(key, action, mods);
     }
 
     static void glfwCharCallback(GLFWwindow * window, unsigned int codepoint) {
@@ -88,20 +77,14 @@ namespace ui {
             s_root->cursorPositionEvent(s_cursorPos, ivec2());
         }
         else s_root->cursorExitEvent();
-
-        //if (s_cursorEnterCallback) s_cursorEnterCallback(entered);
     }
 
     static void glfwMouseButtonCallback(GLFWwindow * window, int button, int action, int mods) {
         s_root->mouseButtonEvent(button, action, mods);
-
-        //if (s_mouseButtonCallback) s_mouseButtonCallback(button, action, mods);
     }
 
     static void glfwScrollCallback(GLFWwindow * window, double xoffset, double yoffset) {
         s_root->scrollEvent(ivec2(int(xoffset), int(yoffset)));
-
-        //if (s_scrollCallback) s_scrollCallback(dvec2(xoffset, yoffset));
     }
 
     static void controllerStickCallback(int player, Controller::Stick stick, vec2 val) {
@@ -380,9 +363,6 @@ namespace ui {
 
     void poll() {
         glfwPollEvents();
-        //if (glfwWindowShouldClose(s_window)) {
-        //    if (s_exitCallback) s_exitCallback();
-        //}
     }
 
     const ivec2 & size() {

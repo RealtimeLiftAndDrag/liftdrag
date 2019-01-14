@@ -21,7 +21,7 @@ struct Vertex {
 
 // Constants -------------------------------------------------------------------
 
-const int k_workGroupSize = WORK_GROUP_SIZE;
+const int k_workGroupSize = int(gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z);
 
 // Uniforms --------------------------------------------------------------------
 
@@ -66,14 +66,18 @@ void main() {
     for (int pi = workI; pi < u_vertexCount; pi += k_workGroupSize) {
         u_vertices[pi].normal = vec3(0.0f);
     }
+
     barrier();
+
     // Calculate new normals
     int triCount = u_indexCount / 3;
     for (int ti = workI; ti < triCount; ti += k_workGroupSize) {
         int ii = ti * 3;
         calcNorm(u_indices[ii + 0], u_indices[ii + 1], u_indices[ii + 2]);
     }
+
     barrier();
+
     // Normalize new normals
     for (int pi = workI; pi < u_vertexCount; pi += k_workGroupSize) {
         u_vertices[pi].normal = safeNormalize(u_vertices[pi].normal);

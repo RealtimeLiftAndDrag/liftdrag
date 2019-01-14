@@ -9,8 +9,8 @@
 
 
 
-static constexpr bool k_viewConstraints(false);
-static constexpr bool k_viewForces(true);
+static constexpr bool k_viewConstraints(false); // View the cloth vertices and constraints (red: stretched, blue: compressed)
+static constexpr bool k_viewForces(true); // View lift (green) and drag (red) force vectors for each vertex
 
 static const float k_fov(glm::radians(90.0f));
 static const float k_camPanAngle(0.01f);

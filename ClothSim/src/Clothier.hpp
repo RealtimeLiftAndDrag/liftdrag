@@ -15,7 +15,7 @@ namespace Clothier {
     // Converts triangular vertex point to triangular index
     u32 triI(ivec2 p);
 
-    unq<Model> createRectangle(
+    unq<SoftMesh> createRectangle(
         ivec2 lod,
         float weaveSize,
         float totalMass,

@@ -11,6 +11,10 @@ namespace Clothier {
 
 
 
+    // Reorganizes constraints from a dense array to an array with chunks sized
+    // 'groupSize', where each chunk contains as many constraints as possible
+    // such that no vertex is used more than once. This is to avoid race
+    // conditions when processing constraints in parallel in the shader
     static void decouple(const std::vector<Vertex> & vertices, std::vector<Constraint> & constraints, int groupSize) {
         std::list<Constraint> cList(constraints.cbegin(), constraints.cend());
         constraints.clear();
@@ -40,7 +44,7 @@ namespace Clothier {
 
 
 
-    constexpr float k_h(0.866025404f); // height of an equilateral triangle
+    constexpr float k_h(0.866025404f); // height of an equilateral triangle of side length 1
 
     vec2 triToCart(vec2 p) {
         return vec2(p.y - p.x * 0.5f, p.x * k_h);
@@ -50,7 +54,7 @@ namespace Clothier {
         return (p.y + 1) * p.y / 2 + p.x;
     }
 
-    unq<Model> createRectangle(
+    unq<SoftMesh> createRectangle(
         ivec2 lod,
         float weaveSize,
         float totalMass,
@@ -182,11 +186,7 @@ namespace Clothier {
 
         if (groupSize) decouple(vertices, constraints, groupSize);
 
-        unq<Mesh> mesh(new SoftMesh(move(vertices), move(indices), move(constraints)));
-        if (!mesh->load()) {
-            return {};
-        }
-        return unq<Model>(new Model(SubModel("ClothRectangle", move(mesh))));
+        return unq<SoftMesh>(new SoftMesh(move(vertices), move(indices), move(constraints)));
     }
 
     unq<SoftMesh> createTriangle(

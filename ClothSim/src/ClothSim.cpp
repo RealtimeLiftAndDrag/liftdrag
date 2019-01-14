@@ -42,13 +42,13 @@ enum class State { free, sweeping, autoStepping, stepping };
 
 static constexpr Object k_object(Object::sail);
 
-static const ivec2 k_flagLOD(50, 25);
+static const ivec2 k_flagLOD(50, 25); // Detail of rectangle mesh along each side
 static const float k_flagLength(1.0f);
 static const float k_flagWeaveSize(k_flagLength / float(k_flagLOD.x));
 static const vec2 k_flagSize(vec2(k_flagLOD) * k_flagWeaveSize);
 static const float k_flagAreaDensity(0.25f); // kg per square meter
 
-static const int k_sailLOD(50);
+static const int k_sailLOD(50); // Detail of triangle mesh along each side
 static const float k_sailLuffLength(13.0f);
 static const float k_sailLeechLength(12.0f);
 static const float k_sailFootLength(8.0f);
@@ -59,19 +59,19 @@ static const float k_sailDrawSpeed(0.25f);
 static const float k_sailDrawMin(k_sailLuffLength / (k_sailLeechLength + k_sailFootLength) * 1.01f);
 static const float k_sailDrawMax(1.5f);
 
-static constexpr bool k_doTouch(true);
+static constexpr bool k_doTouch(true); // The right click force application thing
 static const vec3 k_gravity(0.0f, -9.8f, 0.0f);
-static const int k_constraintPasses(16);
+static const int k_constraintPasses(16); // More iterations == better cloth simulation
+static const float k_damping(0.01f); // How much of the cloth's energy is lost each frame. Lower == more "watery"
 
 static const ivec2 k_defWindowSize(1280, 720);
 static const std::string k_windowTitle("Cloth Simulation");
 static constexpr bool k_useAllCores(true); // Will utilize as many gpu cores as possible
 static constexpr int k_coresToUse(1024); // Otherwise, use this many
 static constexpr int k_warpSize(64); // Should correspond to target architecture
-static const ivec2 k_warpSize2D(8, 8); // The components multiplied must equal warp size
 static const float k_targetFPS(60.0f);
 static const float k_targetDT(1.0f / k_targetFPS);
-static const float k_updateDT(1.0f / 60.0f);
+static const float k_updateDT(1.0f / 60.0f); // Simulation time for each frame
 
 static const int k_rldTexSize(1024);
 static const int k_rldSliceCount(100);
@@ -99,7 +99,6 @@ static float s_flowback;
 static float s_initVelC;
 
 static int s_workGroupSize;
-static ivec2 s_workGroupSize2D;
 
 static unq<Model> s_model;
 static const SoftMesh * s_mesh;
@@ -184,6 +183,8 @@ static void detSailPoints() {
 }
 
 static bool setupObject() {
+    unq<SoftMesh> mesh;
+
     if (k_object == Object::flag) {
         s_clothScale = k_flagLength;
         float clothArea(k_flagSize.x * k_flagSize.y);
@@ -192,7 +193,7 @@ static bool setupObject() {
         mat4 transform;
         transform = glm::translate(vec3(-0.5f * k_flagSize, 0.0f)) * transform;
         transform = glm::rotate(glm::pi<float>() * 0.5f, vec3(0.0f, 1.0f, 0.0f)) * transform;
-        s_model = Clothier::createRectangle(k_flagLOD, k_flagWeaveSize, s_clothMass, s_workGroupSize, transform, bvec4(false, false, false, false), bvec4(false, false, true, true));
+        mesh = Clothier::createRectangle(k_flagLOD, k_flagWeaveSize, s_clothMass, s_workGroupSize, transform, bvec4(false, false, false, false), bvec4(false, false, false, true));
 
         s_rldLiftC = 1.0f;
         s_rldDragC = 1.0f;
@@ -228,20 +229,13 @@ static bool setupObject() {
         s_sailRotateCWMat = glm::translate(s_sailTack) * s_sailRotateCWMat;
 
         // Create the mesh
-        unq<SoftMesh> mesh(Clothier::createTriangle(s_sailTack, s_sailClew, s_sailHead, k_sailLOD, s_clothMass, s_workGroupSize, bvec3(true, true, true), bvec3(false, false, true)));
+        mesh = Clothier::createTriangle(s_sailTack, s_sailClew, s_sailHead, k_sailLOD, s_clothMass, s_workGroupSize, bvec3(true, true, true), bvec3(false, false, true));
         // Assign luff to group 1
         for (int i(0); i <= k_sailLOD; ++i) {
             mesh->vertices()[Clothier::triI(ivec2(i, i))].group = 1;
         }
         // Assign clew to group 2
         mesh->vertices()[Clothier::triI(ivec2(0, k_sailLOD))].group = 2;
-
-        if (!mesh->load()) {
-            std::cerr << "Failed to load mesh" << std::endl;
-            return false;
-        }
-        s_model.reset(new Model(SubModel("Sail", move(mesh))));
-        s_mesh = &static_cast<const SoftMesh &>(s_model->subModels().front().mesh());
 
         // Set RLD constants
         s_rldLiftC = 1.0f;
@@ -255,6 +249,13 @@ static bool setupObject() {
         s_flowback = 0.01f;
         s_initVelC = 1.0f;
     }
+
+    if (!mesh->load()) {
+        std::cerr << "Failed to load mesh" << std::endl;
+        return false;
+    }
+    s_model.reset(new Model(SubModel("Cloth", move(mesh))));
+    s_mesh = &static_cast<const SoftMesh &>(s_model->subModels().front().mesh());
 
     if (!s_model) {
         return false;
@@ -278,6 +279,7 @@ static bool setupShaders() {
     s_clothShader->bind();
     s_clothShader->uniform("u_vertexCount", s_mesh->vertexCount());
     s_clothShader->uniform("u_constraintCount", s_mesh->constraintCount());
+    s_clothShader->uniform("u_damping", k_damping);
     s_clothShader->uniform("u_dt", k_updateDT);
     s_clothShader->uniform("u_gravity", k_gravity);
     Shader::unbind();
@@ -333,9 +335,6 @@ static bool setup() {
     else coreCount = k_coresToUse;
     int warpCount(coreCount / k_warpSize);
     s_workGroupSize = warpCount * k_warpSize; // we want workgroups to be a warp multiple
-    s_workGroupSize2D.x = int(std::round(std::sqrt(float(warpCount))));
-    s_workGroupSize2D.y = warpCount / s_workGroupSize2D.x;
-    s_workGroupSize2D *= k_warpSize2D;
 
     // Setup object
     if (!setupObject()) {
@@ -529,7 +528,6 @@ int main(int argc, char ** argv) {
         if (accumDT >= k_targetDT) {
             float renderDT(float(now - prevRenderTime));
             prevRenderTime = now;
-            //std::cout << (1.0f / renderDT) << std::endl;
             update();
             ui::update();
             ui::render();

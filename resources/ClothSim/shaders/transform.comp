@@ -19,8 +19,7 @@ struct Vertex {
 
 // Constants -------------------------------------------------------------------
 
-// External
-const int k_workGroupSize = WORK_GROUP_SIZE;
+const int k_workGroupSize = int(gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z);
 
 // Uniforms --------------------------------------------------------------------
 

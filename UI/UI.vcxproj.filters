@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\UI\Combo.hpp">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="include\UI\Graph.hpp">
       <Filter>include</Filter>
     </ClInclude>
@@ -70,9 +67,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Combo.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\Graph.cpp">
       <Filter>src</Filter>
     </ClCompile>
