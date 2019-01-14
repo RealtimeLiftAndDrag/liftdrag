@@ -35,9 +35,6 @@
     <None Include="..\resources\RLD\shaders\pretty.comp">
       <Filter>resources\shaders</Filter>
     </None>
-    <None Include="..\resources\RLD\shaders\rld.comp">
-      <Filter>resources\shaders</Filter>
-    </None>
     <None Include="..\resources\RLD\shaders\side.comp">
       <Filter>resources\shaders</Filter>
     </None>

@@ -100,7 +100,7 @@ layout (binding = 6, std430) restrict buffer Indices {
 
 // Shared ----------------------------------------------------------------------
 
-shared vec3 s_accumulationArray[gl_WorkGroupSize.x * gl_WorkGroupSize.y];
+shared vec3 s_accumulationArray[k_workGroupSize];
 
 // Invocation variables --------------------------------------------------------
 

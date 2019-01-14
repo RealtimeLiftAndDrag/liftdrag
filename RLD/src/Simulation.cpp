@@ -127,7 +127,6 @@ namespace rld {
     static unq<Shader> s_drawShader, s_drawShaderDebug;
     static unq<Shader> s_outlineShader, s_outlineShaderDebug;
     static unq<Shader> s_moveShader, s_moveShaderDebug;
-    static unq<Shader> s_shader, s_shaderDebug;
     static unq<Shader> s_prettyShader, s_sideShader;
 
     static Constants s_constants;
@@ -179,16 +178,6 @@ namespace rld {
             return false;
         }
 
-        // RLD Shader
-        if (!(s_shader = Shader::load(shadersPath + "rld.comp", defines))) {
-            std::cerr << "Failed to load rld shader" << std::endl;
-            return false;
-        }
-        if (!(s_shaderDebug = Shader::load(shadersPath + "rld.comp", debugDefines))) {
-            std::cerr << "Failed to load rld debug shader" << std::endl;
-            return false;
-        }
-
         // Prospect Shader
         if (!(s_prospectShader = Shader::load(shadersPath + "prospect.comp", defines))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
@@ -220,14 +209,14 @@ namespace rld {
         }
 
         // Move Compute Shader
-        //if (!(s_moveShader = Shader::load(shadersPath + "move.comp", defines))) {
-        //    std::cerr << "Failed to load move shader" << std::endl;
-        //    return false;
-        //}
-        //if (!(s_moveShaderDebug = Shader::load(shadersPath + "move.comp", debugDefines))) {
-        //    std::cerr << "Failed to load debug move shader" << std::endl;
-        //    return false;
-        //}
+        if (!(s_moveShader = Shader::load(shadersPath + "move.comp", defines))) {
+            std::cerr << "Failed to load move shader" << std::endl;
+            return false;
+        }
+        if (!(s_moveShaderDebug = Shader::load(shadersPath + "move.comp", debugDefines))) {
+            std::cerr << "Failed to load debug move shader" << std::endl;
+            return false;
+        }
 
         // Pretty Shader
         if (!(s_prettyShader = Shader::load(shadersPath + "pretty.comp", defines))) {
@@ -366,14 +355,6 @@ namespace rld {
         return true;
     }
 
-    static void compute() {
-        Shader & shader(s_debug ? *s_shaderDebug : *s_shader);
-        shader.bind();
-
-        glDispatchCompute(1, 1, 1);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
-    }
-
     static void computeProspect() {
         Shader & prospectShader(s_debug ? *s_prospectShaderDebug : *s_prospectShader);
         prospectShader.bind();
@@ -398,13 +379,13 @@ namespace rld {
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
-    //static void computeMove() {
-    //    Shader & moveShader(s_debug ? *s_moveShaderDebug : *s_moveShader);
-    //    moveShader.bind();
-    //
-    //    glDispatchCompute(1, 1, 1);
-    //    glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
-    //}
+    static void computeMove() {
+        Shader & moveShader(s_debug ? *s_moveShaderDebug : *s_moveShader);
+        moveShader.bind();
+    
+        glDispatchCompute(1, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+    }
 
     static void computePretty() {
         s_prettyShader->bind();
@@ -747,12 +728,10 @@ namespace rld {
         computeProspect(); // Scan fbo and generate geo pixels
         glCopyImageSubData(s_turbTex, GL_TEXTURE_2D, 0, 0, 0, 0, s_prevTurbTex, GL_TEXTURE_2D, 0, 0, 0, 0, s_texSize / 4, s_texSize / 4, 1); // copy turb tex to prev turb tex
         computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
-        computeOutline();
-        compute();
-        //computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
-        //computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
+        computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
+        computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
         if (s_debug) computePretty(); // transforms the contents of the fbo, turb, and shad textures into a comprehensible front and side view
-        if (s_debug && s_doSide) computeSide();
+        if (s_debug && s_doSide) computeSide(); // Projects the front texture onto one column of the side texture
         Shader::unbind();
 
         ++s_currentSlice;

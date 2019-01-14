@@ -37,7 +37,6 @@
     <None Include="..\resources\RLD\shaders\outline.comp" />
     <None Include="..\resources\RLD\shaders\pretty.comp" />
     <None Include="..\resources\RLD\shaders\prospect.comp" />
-    <None Include="..\resources\RLD\shaders\rld.comp" />
     <None Include="..\resources\RLD\shaders\side.comp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
