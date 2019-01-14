@@ -48,7 +48,7 @@ const bool k_doTurbulence = DO_TURBULENCE;
 const bool k_doCloth = DO_CLOTH;
 
 const int k_workGroupSize = int(gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z);
-const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4; // Must also change in other shaders
+const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4;
 const float k_airDensity = 1.0f;
 const float k_inactiveVal = k_distinguishActivePixels && k_debug ? 1.0f / 3.0f : 1.0f;
 const int k_maxEdgeSeekSteps = 64; // Necessary in pathological cases where normals form a loop
@@ -261,151 +261,6 @@ void applySoftForce(ivec2 texCoord, vec3 lift, vec3 drag) {
     }
 }
 
-// Outline ---------------------------------------------------------------------
-
-// Looks for a geo pixel from given point in given direction
-// searchDir is normalized xy in screen space
-// returns airI if air is found, -1 if nothing is found, and -2 if turbulence is found
-int findAir(vec2 geoScreenPos, ivec2 geoTexCoord, vec2 searchDir) {
-    vec2 searchScreenPos = geoScreenPos;
-    ivec2 searchPixel = geoTexCoord;
-    vec2 corner = step(vec2(0.0f), searchDir);
-    float totalDist = 0.0f;
-
-    // Check for air on geometry
-    uvec4 color = imageLoad(u_frontImg, searchPixel);
-    if ((color.r & k_airBit) != 0) {
-        int airI = imageLoad(u_flagImg, searchPixel).x;
-        if (airI != 0) { // TODO: this should not be necessary, just here for sanity
-            return airI - 1;
-        }
-    }
-
-    // Search along line in searchDir
-    while (true) {
-        // TODO: potentially optimize line search
-        vec2 delta = corner - (searchScreenPos - vec2(searchPixel));
-        vec2 dist = abs(delta / searchDir);
-        if (dist.x < dist.y) {
-            searchScreenPos += searchDir * dist.x;
-            searchPixel.x += int(sign(searchDir.x));
-            totalDist += screenToWindDist(dist.x);
-        }
-        else {
-            searchScreenPos += searchDir * dist.y;
-            searchPixel.y += int(sign(searchDir.y));
-            totalDist += screenToWindDist(dist.y);
-        }
-
-        if (totalDist > u_maxSearchDist) {
-            return -1;
-        }
-
-        // If find turbulence, stop looking and mark turbulence
-        if (k_doTurbulence && isScreenTurbulent(searchScreenPos)) {
-            // Write turbulence pixel half way between found turbulence and geometry
-            setScreenTurbulent((geoScreenPos + searchScreenPos) * 0.5f);
-            return -2;
-        }
-
-        color = imageLoad(u_frontImg, searchPixel);
-
-        // Visualize the search
-        //if (k_debug) {
-        //    imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
-        //}
-
-        if ((color.r & k_geoBit) != 0) { // we found a geo pixel
-            return -1;
-        }
-        if ((color.r & k_airBit) != 0) { // we found an air pixel
-            int airI = imageLoad(u_flagImg, searchPixel).x;
-            if (airI != 0) { // TODO: this should not be necessary, just here for sanity
-                --airI;
-
-                // If past turbulence distance, set air as turbulent and mark turbulance
-                if (k_doTurbulence && totalDist > u_turbulenceDist) {
-                    // Set air pixel to be turbulent
-                    u_airPixels[airI].turbulence.x = 1.0f;
-                    return -2;
-                }
-
-                return airI;
-            }
-        }
-    }
-
-}
-
-void outline(int geoI) {
-    vec2 geoWindPos = u_geoPixels[geoI].windPos;
-    vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-    ivec2 geoTexCoord = u_geoPixels[geoI].texCoord; // Need exact texture coord because rasterization math and our wind-to-screen math don't always align
-    vec2 geoScreenPos = windToScreen(geoWindPos);
-    geoScreenPos = clamp(geoScreenPos, vec2(geoTexCoord), vec2(geoTexCoord + 1)); // necessary for edge cases
-
-    bool shouldSpawn = geoNormal.z >= k_minNormalZ && geoNormal.z <= k_maxNormalZ;
-    bool shouldSearch = abs(geoNormal.z) <= k_maxNormalZ;
-
-    // If geo is in turbulence, forget it
-    if (k_doTurbulence && isScreenTurbulent(geoScreenPos)) {
-        shouldSearch = false;
-        shouldSpawn = false;
-    }
-
-    // Look for existing air pixel
-    if (shouldSearch) {
-        vec2 searchDir = normalize(geoNormal.xy);
-        int res = findAir(geoScreenPos, geoTexCoord, searchDir);
-        shouldSpawn = shouldSpawn && res == -1;
-        if (res >= 0) u_airGeoMap[res] = geoI + 1;
-
-        if (k_doCloth) {
-            res = findAir(geoScreenPos, geoTexCoord, -searchDir);
-            if (res >= 0) u_airGeoMap[res] = geoI + 1;
-        }
-    }
-
-    barrier();
-
-    // Overwrite flag image with geometry index
-    imageStore(u_flagImg, geoTexCoord, ivec4(geoI + 1, 0, 0, 0));
-
-    // Make a new air pixel
-    if (shouldSpawn) {
-        int airI = atomicAdd(u_airCount, 1);
-        if (airI >= u_maxAirPixels) {
-            return;
-        }
-
-        u_airGeoMap[airI] = geoI + 1;
-
-        vec2 airWindPos = geoWindPos;
-        vec3 refl = reflect(vec3(0.0f, 0.0f, -1.0f), geoNormal);
-        vec2 airVelocity = refl.xy * u_windSpeed;
-        airVelocity *= u_initVelC;
-
-        u_airPixels[airI].windPos = airWindPos;
-        u_airPixels[airI].velocity = airVelocity;
-        u_airPixels[airI].backforce = vec2(0.0f);
-        u_airPixels[airI].turbulence = vec2(0.0f);
-
-        // Draw to fbo to avoid another draw later, only necessary for seeing the results immediately
-        if (k_debug) {
-            uvec4 color = imageLoad(u_frontImg, geoTexCoord);
-            color.g |= k_airBit;
-            imageStore(u_frontImg, geoTexCoord, color);
-        }
-    }
-
-    // Color active geo pixels more brightly
-    if (k_debug && k_distinguishActivePixels) {
-        uvec4 color = imageLoad(u_frontImg, geoTexCoord);
-        color.r |= k_activeBit;
-        imageStore(u_frontImg, geoTexCoord, color);
-    }
-}
-
 // Move ------------------------------------------------------------------------
 
 void move(int airI) {
@@ -582,15 +437,6 @@ void main() {
     if (!k_doCloth) {
         s_accumulationArray[workI] = vec3(0.0f);
     }
-
-    barrier();
-
-    // Outline
-    for (int geoI = workI; geoI < u_geoCount; geoI += k_workGroupSize) {
-        outline(geoI);
-    }
-
-    barrier();
 
     // Move
     for (int airI = workI; airI < u_airCount; airI += k_workGroupSize) {

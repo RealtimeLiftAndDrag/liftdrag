@@ -44,7 +44,7 @@ struct SoftVertex {
 const bool k_debug = DEBUG;
 
 const int k_workGroupSize = int(gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z);
-const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4; // Must also change in other shaders
+const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4;
 const int k_maxEdgeSeekSteps = 64; // Necessary in pathological cases where normals form a loop
 const float k_minNormalZ = 1.0f / 1000000.0f;
 const float k_maxNormalZ = 1.0f - k_minNormalZ;

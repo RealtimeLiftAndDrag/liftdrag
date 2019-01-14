@@ -125,6 +125,8 @@ namespace rld {
     static unq<Shader> s_foilShader, s_foilShaderDebug;
     static unq<Shader> s_prospectShader, s_prospectShaderDebug;
     static unq<Shader> s_drawShader, s_drawShaderDebug;
+    static unq<Shader> s_outlineShader, s_outlineShaderDebug;
+    static unq<Shader> s_moveShader, s_moveShaderDebug;
     static unq<Shader> s_shader, s_shaderDebug;
     static unq<Shader> s_prettyShader, s_sideShader;
 
@@ -208,14 +210,14 @@ namespace rld {
         }
 
         // Outline Compute Shader
-        //if (!(s_outlineShader = Shader::load(shadersPath + "outline.comp", defines))) {
-        //    std::cerr << "Failed to load outline shader" << std::endl;
-        //    return false;
-        //}
-        //if (!(s_outlineShaderDebug = Shader::load(shadersPath + "outline.comp", debugDefines))) {
-        //    std::cerr << "Failed to load debug outline shader" << std::endl;
-        //    return false;
-        //}
+        if (!(s_outlineShader = Shader::load(shadersPath + "outline.comp", defines))) {
+            std::cerr << "Failed to load outline shader" << std::endl;
+            return false;
+        }
+        if (!(s_outlineShaderDebug = Shader::load(shadersPath + "outline.comp", debugDefines))) {
+            std::cerr << "Failed to load debug outline shader" << std::endl;
+            return false;
+        }
 
         // Move Compute Shader
         //if (!(s_moveShader = Shader::load(shadersPath + "move.comp", defines))) {
@@ -388,13 +390,13 @@ namespace rld {
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
-    //static void computeOutline() {
-    //    Shader & outlineShader(s_debug ? *s_outlineShaderDebug : *s_outlineShader);
-    //    outlineShader.bind();
-    //
-    //    glDispatchCompute(1, 1, 1);
-    //    glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
-    //}
+    static void computeOutline() {
+        Shader & outlineShader(s_debug ? *s_outlineShaderDebug : *s_outlineShader);
+        outlineShader.bind();
+    
+        glDispatchCompute(1, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+    }
 
     //static void computeMove() {
     //    Shader & moveShader(s_debug ? *s_moveShaderDebug : *s_moveShader);
@@ -745,6 +747,7 @@ namespace rld {
         computeProspect(); // Scan fbo and generate geo pixels
         glCopyImageSubData(s_turbTex, GL_TEXTURE_2D, 0, 0, 0, 0, s_prevTurbTex, GL_TEXTURE_2D, 0, 0, 0, 0, s_texSize / 4, s_texSize / 4, 1); // copy turb tex to prev turb tex
         computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
+        computeOutline();
         compute();
         //computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         //computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
