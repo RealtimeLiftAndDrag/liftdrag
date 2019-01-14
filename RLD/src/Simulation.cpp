@@ -742,6 +742,7 @@ namespace rld {
         clearFlagTex();
         renderGeometry(); // Render geometry to fbo
         computeProspect(); // Scan fbo and generate geo pixels
+        glCopyImageSubData(s_turbTex, GL_TEXTURE_2D, 0, 0, 0, 0, s_prevTurbTex, GL_TEXTURE_2D, 0, 0, 0, 0, s_texSize / 4, s_texSize / 4, 1); // copy turb tex to prev turb tex
         compute();
         //computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
         //computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo

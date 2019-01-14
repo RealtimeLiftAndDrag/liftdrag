@@ -668,13 +668,6 @@ void main() {
         s_accumulationArray[workI] = vec3(0.0f);
     }
 
-    // Copy turbulence textue to previous turbulence texture
-    for (ivec2 texCoord = ivec2(0, workI2D.y); texCoord.y < u_screenSize / 4; texCoord.y += k_workGroupSize2D.y) {
-        for (texCoord.x = workI2D.x; texCoord.x < u_screenSize / 4; texCoord.x += k_workGroupSize2D.x) {
-            imageStore(u_prevTurbImg, texCoord, imageLoad(u_turbImg, texCoord));
-        }
-    }
-
     barrier();
 
     // Draw
