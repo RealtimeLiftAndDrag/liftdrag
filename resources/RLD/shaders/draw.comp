@@ -59,7 +59,7 @@ layout (binding = 2,         r32i) uniform restrict iimage2D u_flagImg;
 layout (binding = 0, std140) uniform Constants {
     int u_maxGeoPixels;
     int u_maxAirPixels;
-    int u_screenSize;
+    int u_texSize;
     float u_liftC;
     float u_dragC;
     float u_windframeSize;
@@ -104,12 +104,12 @@ bool isInTexture(ivec2 p, ivec2 texSize) {
     return all(bvec4(greaterThanEqual(p, ivec2(0)), lessThan(p, texSize)));
 }
 
-vec2 windToScreen(vec2 wind) {
-    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
+vec2 windToTex(vec2 windPos) {
+    return (windPos / u_windframeSize + 0.5f) * float(u_texSize);
 }
 
-vec2 screenToWind(vec2 screen) {
-    return (screen / u_screenSize - 0.5f) * u_windframeSize;
+vec2 texToWind(vec2 texPos) {
+    return (texPos / u_texSize - 0.5f) * u_windframeSize;
 }
 
 // Returns one of <1, 0>, <-1, 0>, <0, 1>, <0, -1> corresponding to dir
@@ -128,10 +128,10 @@ ivec2 getPixelDelta(vec2 dir) {
 
 void draw(int prevAirI) {
     AirPixel air = u_prevAirPixels[prevAirI];
-    ivec2 airTexCoord = ivec2(windToScreen(air.windPos));
+    ivec2 airTexCoord = ivec2(windToTex(air.windPos));
 
     // Check if in texture
-    if (!isInTexture(airTexCoord, ivec2(u_screenSize))) {
+    if (!isInTexture(airTexCoord, ivec2(u_texSize))) {
         return;
     }
 
@@ -158,7 +158,7 @@ void draw(int prevAirI) {
                 //tangentVel = tangentVel * u_windSpeed;
 
                 // Set air to same position as geometry
-                air.windPos = screenToWind(vec2(airTexCoord) + vec2(imageLoad(u_frontImg, airTexCoord).gb) / 255.0f);
+                air.windPos = texToWind(vec2(airTexCoord) + vec2(imageLoad(u_frontImg, airTexCoord).gb) / 255.0f);
 
                 vec2 norm = normalize(geoNormal.xy);
                 if (geoNormal.z > 0.0f) {

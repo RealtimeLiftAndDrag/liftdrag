@@ -44,7 +44,7 @@ layout (binding = 1) uniform sampler2D u_prevTurbTex;
 layout (binding = 0, std140) uniform Constants {
     int u_maxGeoPixels;
     int u_maxAirPixels;
-    int u_screenSize;
+    int u_texSize;
     float u_liftC;
     float u_dragC;
     float u_windframeSize;
@@ -85,39 +85,39 @@ layout (binding = 3, std430) restrict buffer AirGeoMap {
 
 // Functions -------------------------------------------------------------------
 
-vec2 windToScreen(vec2 wind) {
-    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
+vec2 windToTex(vec2 windPos) {
+    return (windPos / u_windframeSize + 0.5f) * float(u_texSize);
 }
 
-vec2 screenToWind(vec2 screen) {
-    return (screen / u_screenSize - 0.5f) * u_windframeSize;
+vec2 texToWind(vec2 texPos) {
+    return (texPos / u_texSize - 0.5f) * u_windframeSize;
 }
 
-float screenToWindDist(float screenDist) {
-    return screenDist / float(u_screenSize) * u_windframeSize;
+float texToWindDist(float texDist) {
+    return texDist / float(u_texSize) * u_windframeSize;
 }
 
-bool isScreenTurbulent(vec2 screenPos) {
-    return texture2D(u_prevTurbTex, screenPos / u_screenSize).r > 0.0f;
+bool isTexTurbulent(vec2 texPos) {
+    return texture2D(u_prevTurbTex, texPos / u_texSize).r > 0.0f;
 }
 
 bool isWindTurbulent(vec2 windPos) {
-    return isScreenTurbulent(windToScreen(windPos));
+    return isTexTurbulent(windToTex(windPos));
 }
 
-void setScreenTurbulent(vec2 screenPos) {
-    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(1.0f, 0.0f, 0.0f, 0.0f));
+void setTexTurbulent(vec2 texPos) {
+    imageStore(u_turbImg, ivec2(texPos * 0.25f), vec4(1.0f, 0.0f, 0.0f, 0.0f));
 }
 
 void setWindTurbulent(vec2 windPos) {
-    setScreenTurbulent(windToScreen(windPos));
+    setTexTurbulent(windToTex(windPos));
 }
 
 // Looks for a geo pixel from given point in given direction
-// searchDir is normalized xy in screen space
+// searchDir is normalized xy in tex space
 // returns airI if air is found, -1 if nothing is found, and -2 if turbulence is found
-int findAir(vec2 geoScreenPos, ivec2 geoTexCoord, vec2 searchDir) {
-    vec2 searchScreenPos = geoScreenPos;
+int findAir(vec2 geoTexPos, ivec2 geoTexCoord, vec2 searchDir) {
+    vec2 searchTexPos = geoTexPos;
     ivec2 searchPixel = geoTexCoord;
     vec2 corner = step(vec2(0.0f), searchDir);
     float totalDist = 0.0f;
@@ -133,17 +133,17 @@ int findAir(vec2 geoScreenPos, ivec2 geoTexCoord, vec2 searchDir) {
 
     // Search along line in searchDir
     while (true) {
-        vec2 delta = corner - (searchScreenPos - vec2(searchPixel));
+        vec2 delta = corner - (searchTexPos - vec2(searchPixel));
         vec2 dist = abs(delta / searchDir);
         if (dist.x < dist.y) {
-            searchScreenPos += searchDir * dist.x;
+            searchTexPos += searchDir * dist.x;
             searchPixel.x += int(sign(searchDir.x));
-            totalDist += screenToWindDist(dist.x);
+            totalDist += texToWindDist(dist.x);
         }
         else {
-            searchScreenPos += searchDir * dist.y;
+            searchTexPos += searchDir * dist.y;
             searchPixel.y += int(sign(searchDir.y));
-            totalDist += screenToWindDist(dist.y);
+            totalDist += texToWindDist(dist.y);
         }
 
         if (totalDist > u_maxSearchDist) {
@@ -151,9 +151,9 @@ int findAir(vec2 geoScreenPos, ivec2 geoTexCoord, vec2 searchDir) {
         }
 
         // If find turbulence, stop looking and mark turbulence
-        if (k_doTurbulence && isScreenTurbulent(searchScreenPos)) {
+        if (k_doTurbulence && isTexTurbulent(searchTexPos)) {
             // Write turbulence pixel half way between found turbulence and geometry
-            setScreenTurbulent((geoScreenPos + searchScreenPos) * 0.5f);
+            setTexTurbulent((geoTexPos + searchTexPos) * 0.5f);
             return -2;
         }
 
@@ -184,15 +184,15 @@ int findAir(vec2 geoScreenPos, ivec2 geoTexCoord, vec2 searchDir) {
 void outline(int geoI) {
     vec2 geoWindPos = u_geoPixels[geoI].windPos;
     vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-    ivec2 geoTexCoord = u_geoPixels[geoI].texCoord; // Need exact texture coord because rasterization math and our wind-to-screen math don't always align
-    vec2 geoScreenPos = windToScreen(geoWindPos);
-    geoScreenPos = clamp(geoScreenPos, vec2(geoTexCoord), vec2(geoTexCoord + 1)); // necessary for edge cases
+    ivec2 geoTexCoord = u_geoPixels[geoI].texCoord; // Need exact texture coord because rasterization math and our wind-to-tex math don't always align
+    vec2 geoTexPos = windToTex(geoWindPos);
+    geoTexPos = clamp(geoTexPos, vec2(geoTexCoord), vec2(geoTexCoord + 1)); // necessary for edge cases
 
     bool shouldSpawn = geoNormal.z >= k_minNormalZ && geoNormal.z <= k_maxNormalZ;
     bool shouldSearch = abs(geoNormal.z) <= k_maxNormalZ;
 
     // If geo is in turbulence, forget it
-    if (k_doTurbulence && isScreenTurbulent(geoScreenPos)) {
+    if (k_doTurbulence && isTexTurbulent(geoTexPos)) {
         shouldSearch = false;
         shouldSpawn = false;
     }
@@ -200,12 +200,12 @@ void outline(int geoI) {
     // Look for existing air pixel
     if (shouldSearch) {
         vec2 searchDir = normalize(geoNormal.xy);
-        int res = findAir(geoScreenPos, geoTexCoord, searchDir);
+        int res = findAir(geoTexPos, geoTexCoord, searchDir);
         shouldSpawn = shouldSpawn && res == -1;
         if (res >= 0) u_airGeoMap[res] = geoI + 1;
 
         if (k_doCloth) {
-            res = findAir(geoScreenPos, geoTexCoord, -searchDir);
+            res = findAir(geoTexPos, geoTexCoord, -searchDir);
             if (res >= 0) u_airGeoMap[res] = geoI + 1;
         }
     }

@@ -704,11 +704,6 @@ static bool setup() {
     return true;
 }
 
-static void cleanup() {
-    rld::cleanup();
-    glfwTerminate();
-}
-
 static void updateInfoText() {
     s_angleField->value(s_angleOfAttack);
     s_sliceField->value(rld::slice());
@@ -892,8 +887,6 @@ int main(int argc, char ** argv) {
         ui::render();
         glEnable(GL_DEPTH_TEST);
     }
-
-    cleanup();
 
     return EXIT_SUCCESS;
 }

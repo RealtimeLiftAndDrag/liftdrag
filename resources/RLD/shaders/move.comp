@@ -66,7 +66,7 @@ layout (binding = 2) uniform sampler2D u_shadTex;
 layout (binding = 0, std140) uniform Constants {
     int u_maxGeoPixels;
     int u_maxAirPixels;
-    int u_screenSize;
+    int u_texSize;
     float u_liftC;
     float u_dragC;
     float u_windframeSize;
@@ -140,36 +140,36 @@ vec3 safeNormalize(vec3 v) {
     return d > 0.0f ? v / sqrt(d) : vec3(0.0f);
 }
 
-vec2 windToScreen(vec2 wind) {
-    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
+vec2 windToTex(vec2 windPos) {
+    return (windPos / u_windframeSize + 0.5f) * float(u_texSize);
 }
 
-vec2 screenToWind(vec2 screen) {
-    return (screen / u_screenSize - 0.5f) * u_windframeSize;
+vec2 texToWind(vec2 texPos) {
+    return (texPos / u_texSize - 0.5f) * u_windframeSize;
 }
 
-float screenToWindDist(float screenDist) {
-    return screenDist / float(u_screenSize) * u_windframeSize;
+float texToWindDist(float texDist) {
+    return texDist / float(u_texSize) * u_windframeSize;
 }
 
-bool isScreenInShadow(vec2 screenPos) {
-    return texture2D(u_shadTex, screenPos / u_screenSize).r > 0.0f;
+bool isTexInShadow(vec2 texPos) {
+    return texture2D(u_shadTex, texPos / u_texSize).r > 0.0f;
 }
 
-bool isScreenTurbulent(vec2 screenPos) {
-    return texture2D(u_prevTurbTex, screenPos / u_screenSize).r > 0.0f;
+bool isTexTurbulent(vec2 texPos) {
+    return texture2D(u_prevTurbTex, texPos / u_texSize).r > 0.0f;
 }
 
 bool isWindTurbulent(vec2 windPos) {
-    return isScreenTurbulent(windToScreen(windPos));
+    return isTexTurbulent(windToTex(windPos));
 }
 
-void setScreenTurbulent(vec2 screenPos) {
-    imageStore(u_turbImg, ivec2(screenPos * 0.25f), vec4(1.0f, 0.0f, 0.0f, 0.0f));
+void setTexTurbulent(vec2 texPos) {
+    imageStore(u_turbImg, ivec2(texPos * 0.25f), vec4(1.0f, 0.0f, 0.0f, 0.0f));
 }
 
 void setWindTurbulent(vec2 windPos) {
-    setScreenTurbulent(windToScreen(windPos));
+    setTexTurbulent(windToTex(windPos));
 }
 
 float getShadFactor(float shad) {
@@ -178,12 +178,12 @@ float getShadFactor(float shad) {
     return float(shad != 0.0f) * max((1.0f - (currDepth - shadDepth) / u_windShadDist), 0.0f);
 }
 
-float getScreenShadFactor(vec2 screenPos) {
-    return getShadFactor(texture2D(u_shadTex, screenPos / u_screenSize).r);
+float getTexShadFactor(vec2 texPos) {
+    return getShadFactor(texture2D(u_shadTex, texPos / u_texSize).r);
 }
 
 float getWindShadFactor(vec2 windPos) {
-    return getScreenShadFactor(windToScreen(windPos));
+    return getTexShadFactor(windToTex(windPos));
 }
 
 void accumulate() {
@@ -236,25 +236,25 @@ void move(int airI) {
     int geoI = u_airGeoMap[airI];
     bool isGeo = false;
     if (geoI > 0) { --geoI; isGeo = true; }
-    vec2 airScreenPos = windToScreen(airWindPos);
+    vec2 airTexPos = windToTex(airWindPos);
 
     bool shouldSearch = !isGeo;
 
     // Check if air pixel is within turbulence
-    if (k_doTurbulence && isScreenTurbulent(airScreenPos)) {
+    if (k_doTurbulence && isTexTurbulent(airTexPos)) {
         airTurbulence = 1.0f;
         u_airPixels[airI].turbulence.x = 1.0f;
     }
     // If air pixel is turbulent, write turbulence
     if (k_doTurbulence && airTurbulence > 0.0f) {
-        setScreenTurbulent(airScreenPos);
+        setTexTurbulent(airTexPos);
         shouldSearch = false;
     }
 
     // If not turbulent and no geo found for this air, search for geo
     if (shouldSearch) {
-        vec2 searchScreenPos = airScreenPos;
-        ivec2 searchPixel = ivec2(searchScreenPos);
+        vec2 searchTexPos = airTexPos;
+        ivec2 searchPixel = ivec2(searchTexPos);
 
         vec2 searchDir = u_airPixels[airI].backforce.xy;
         if (searchDir != vec2(0.0f)) {
@@ -263,17 +263,17 @@ void move(int airI) {
             float totalDist = 0.0f;
             while (true) {
                 // TODO: potentially optimize line search
-                vec2 delta = corner - (searchScreenPos - vec2(searchPixel));
+                vec2 delta = corner - (searchTexPos - vec2(searchPixel));
                 vec2 dist = abs(delta / searchDir);
                 if (dist.x < dist.y) {
-                    searchScreenPos += searchDir * dist.x;
+                    searchTexPos += searchDir * dist.x;
                     searchPixel.x += int(sign(searchDir.x));
-                    totalDist += screenToWindDist(dist.x);
+                    totalDist += texToWindDist(dist.x);
                 }
                 else {
-                    searchScreenPos += searchDir * dist.y;
+                    searchTexPos += searchDir * dist.y;
                     searchPixel.y += int(sign(searchDir.y));
-                    totalDist += screenToWindDist(dist.y);
+                    totalDist += texToWindDist(dist.y);
                 }
 
                 if (totalDist > u_maxSearchDist) {
@@ -281,14 +281,14 @@ void move(int airI) {
                 }
 
                 // If find turbulence, stop looking and mark turbulence
-                if (k_doTurbulence && isScreenTurbulent(searchScreenPos)) {
+                if (k_doTurbulence && isTexTurbulent(searchTexPos)) {
                     // Mark air as turbulent
                     airTurbulence = 1.0f;
                     u_airPixels[airI].turbulence.x = 1.0f;
                     // Write turbulence at air
-                    setScreenTurbulent(airScreenPos);
+                    setTexTurbulent(airTexPos);
                     // Write turbulence pixel half way between found turbulence and air
-                    setScreenTurbulent((airScreenPos + searchScreenPos) * 0.5f);
+                    setTexTurbulent((airTexPos + searchTexPos) * 0.5f);
                     break;
                 }
 
@@ -312,9 +312,9 @@ void move(int airI) {
                             airTurbulence = 1.0f;
                             u_airPixels[airI].turbulence.x = 1.0f;
                             // Write turbulence at air
-                            setScreenTurbulent(airScreenPos);
+                            setTexTurbulent(airTexPos);
                             // Write turbulence pixel at air and half way between air and geometry
-                            setScreenTurbulent((airScreenPos + searchScreenPos) * 0.5f);
+                            setTexTurbulent((airTexPos + searchTexPos) * 0.5f);
                         }
                     }
 
@@ -356,7 +356,7 @@ void move(int airI) {
         vec3 torq = cross(vec3(geoWindPos, u_sliceZ), lift);
 
         if (k_doCloth) {
-            applySoftForce(ivec2(windToScreen(geoWindPos)), lift, vec3(0.0f));
+            applySoftForce(ivec2(windToTex(geoWindPos)), lift, vec3(0.0f));
         }
         else {
             i_lift += lift;
@@ -366,7 +366,7 @@ void move(int airI) {
 
     // Color active air pixels more brightly
     if (k_debug && k_distinguishActivePixels && isGeo) {
-        ivec2 texCoord = ivec2(windToScreen(airWindPos));
+        ivec2 texCoord = ivec2(windToTex(airWindPos));
         uvec4 color = imageLoad(u_frontImg, texCoord);
         color.r |= k_airBit | k_activeBit;
         imageStore(u_frontImg, texCoord, color);
@@ -377,7 +377,8 @@ void move(int airI) {
     // Sweep back by diminishing xy components
     float factor;
     if (k_doWindShadow) {
-        factor = mix(u_flowback, 1.0f, getScreenShadFactor(airScreenPos));
+        // Swept less back in wind shadow
+        factor = mix(u_flowback, 1.0f, getTexShadFactor(airTexPos));
     }
     else {
         factor = u_flowback;

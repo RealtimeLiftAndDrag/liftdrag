@@ -482,11 +482,6 @@ static bool setup() {
     return true;
 }
 
-static void cleanup() {
-    rld::cleanup();
-    glfwTerminate();
-}
-
 static mat4 getWindViewMatrix(const vec3 & wind) {
     return glm::lookAt(vec3(), wind, vec3(0.0f, 1.0f, 0.0f));
 }
@@ -641,8 +636,6 @@ int main(int argc, char ** argv) {
         ui::update();
         ui::render();
     }
-
-    cleanup();
 
     return EXIT_SUCCESS;
 }

@@ -32,7 +32,7 @@ layout (binding = 7, rgba8) uniform restrict image2D u_sideImg;
 layout (binding = 0, std140) uniform Constants {
     int u_maxGeoPixels;
     int u_maxAirPixels;
-    int u_screenSize;
+    int u_texSize;
     float u_liftC;
     float u_dragC;
     float u_windframeSize;
@@ -53,8 +53,8 @@ layout (binding = 0, std140) uniform Constants {
 
 // Functions -------------------------------------------------------------------
 
-vec2 windToScreen(vec2 wind) {
-    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
+vec2 windToTex(vec2 windPos) {
+    return (windPos / u_windframeSize + 0.5f) * float(u_texSize);
 }
 
 void main() {
@@ -67,7 +67,7 @@ void main() {
     if (k_doCloth && !gl_FrontFacing) norm = -norm; // the normal is always facing forward, extremely necessary
 
     // Using the g and b channels to store wind position
-    vec2 subPixelPos = windToScreen(in_pos.xy);
+    vec2 subPixelPos = windToTex(in_pos.xy);
     subPixelPos -= gl_FragCoord.xy - 0.5f;
     out_color = uvec4(k_geoBit, uvec2(round(subPixelPos * 255.0f)), 0);
     out_norm = vec4(norm, 0.0f);
@@ -75,8 +75,8 @@ void main() {
 
     // Side View
     if (k_debug) {
-        //if (windToScreen(vec2(in_pos.x, 0.0f)).x > u_screenSize * 2 / 3) {
-        vec2 sideTexPos = windToScreen(vec2(-in_pos.z, in_pos.y));
+        //if (windToTex(vec2(in_pos.x, 0.0f)).x > u_texSize * 2 / 3) {
+        vec2 sideTexPos = windToTex(vec2(-in_pos.z, in_pos.y));
         imageStore(u_sideImg, ivec2(sideTexPos), vec4(vec3(k_inactiveVal * 0.5f), 0.0f));
         //}
     }

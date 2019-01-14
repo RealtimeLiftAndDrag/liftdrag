@@ -57,7 +57,7 @@ layout (binding = 2) uniform sampler2D u_shadTex;
 layout (binding = 0, std140) uniform Constants {
     int u_maxGeoPixels;
     int u_maxAirPixels;
-    int u_screenSize;
+    int u_texSize;
     float u_liftC;
     float u_dragC;
     float u_windframeSize;
@@ -109,16 +109,16 @@ vec3 i_torq = vec3(0.0f);
 
 // Functions -------------------------------------------------------------------
 
-vec2 windToScreen(vec2 wind) {
-    return (wind / u_windframeSize + 0.5f) * float(u_screenSize);
+vec2 windToTex(vec2 windPos) {
+    return (windPos / u_windframeSize + 0.5f) * float(u_texSize);
 }
 
-vec2 screenToWind(vec2 screen) {
-    return (screen / u_screenSize - 0.5f) * u_windframeSize;
+vec2 texToWind(vec2 texPos) {
+    return (texPos / u_texSize - 0.5f) * u_windframeSize;
 }
 
-bool isScreenInShadow(vec2 screenPos) {
-    return texture2D(u_shadTex, screenPos / u_screenSize).r > 0.0f;
+bool isTexInShadow(vec2 texPos) {
+    return texture2D(u_shadTex, texPos / u_texSize).r > 0.0f;
 }
 
 // Returns one of <1, 0>, <-1, 0>, <0, 1>, <0, -1> corresponding to dir
@@ -184,7 +184,7 @@ void prospect(ivec2 texCoord) {
         return;
     }
 
-    vec2 geoWindPos = screenToWind(vec2(texCoord) + color.gb / 255.0f);
+    vec2 geoWindPos = texToWind(vec2(texCoord) + color.gb / 255.0f);
     vec3 geoNormal = imageLoad(u_fboNormImg, texCoord).xyz;
 
     // Set wind shadow
@@ -192,7 +192,7 @@ void prospect(ivec2 texCoord) {
         imageStore(u_shadImg, texCoord / 4, vec4(u_slice * u_sliceSize / u_windframeDepth, 0.0f, 0.0f, 0.0f));
     }
     // Calculate drag and torque
-    else if (k_doCloth || !isScreenInShadow(vec2(texCoord) + 0.5f)) {
+    else if (k_doCloth || !isTexInShadow(vec2(texCoord) + 0.5f)) {
         float dragFactor = 0.5f * k_airDensity * u_windSpeed * u_windSpeed * u_pixelSize * u_pixelSize * geoNormal.z;
         dragFactor *= u_dragC;
         i_drag += -geoNormal * dragFactor;
@@ -242,7 +242,7 @@ void main() {
     }
 
     // If inside texture
-    if (all(lessThan(texCoord, ivec2(u_screenSize)))) {
+    if (all(lessThan(texCoord, ivec2(u_texSize)))) {
         prospect(texCoord);
     }
 
