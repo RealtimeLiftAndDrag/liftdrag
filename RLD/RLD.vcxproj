@@ -33,6 +33,7 @@
     <None Include="..\resources\RLD\shaders\foil.frag" />
     <None Include="..\resources\RLD\shaders\foil.vert" />
     <None Include="..\resources\RLD\shaders\pretty.comp" />
+    <None Include="..\resources\RLD\shaders\prospect.comp" />
     <None Include="..\resources\RLD\shaders\rld.comp" />
     <None Include="..\resources\RLD\shaders\side.comp" />
   </ItemGroup>

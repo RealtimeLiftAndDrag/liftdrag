@@ -123,6 +123,7 @@ namespace rld {
     static int s_swap;
 
     static unq<Shader> s_shader, s_shaderDebug;
+    static unq<Shader> s_prospectShader, s_prospectShaderDebug;
     static unq<Shader> s_foilShader, s_foilShaderDebug;
     static unq<Shader> s_prettyShader, s_sideShader;
 
@@ -175,7 +176,7 @@ namespace rld {
             return false;
         }
 
-        // Compute Shader
+        // RLD Shader
         if (!(s_shader = Shader::load(shadersPath + "rld.comp", defines))) {
             std::cerr << "Failed to load rld shader" << std::endl;
             return false;
@@ -185,8 +186,7 @@ namespace rld {
             return false;
         }
 
-        /*
-        // Prospect Compute Shader
+        // Prospect Shader
         if (!(s_prospectShader = Shader::load(shadersPath + "prospect.comp", defines))) {
             std::cerr << "Failed to load prospect shader" << std::endl;
             return false;
@@ -197,35 +197,34 @@ namespace rld {
         }
 
         // Outline Compute Shader
-        if (!(s_outlineShader = Shader::load(shadersPath + "outline.comp", defines))) {
-            std::cerr << "Failed to load outline shader" << std::endl;
-            return false;
-        }
-        if (!(s_outlineShaderDebug = Shader::load(shadersPath + "outline.comp", debugDefines))) {
-            std::cerr << "Failed to load debug outline shader" << std::endl;
-            return false;
-        }
+        //if (!(s_outlineShader = Shader::load(shadersPath + "outline.comp", defines))) {
+        //    std::cerr << "Failed to load outline shader" << std::endl;
+        //    return false;
+        //}
+        //if (!(s_outlineShaderDebug = Shader::load(shadersPath + "outline.comp", debugDefines))) {
+        //    std::cerr << "Failed to load debug outline shader" << std::endl;
+        //    return false;
+        //}
 
         // Move Compute Shader
-        if (!(s_moveShader = Shader::load(shadersPath + "move.comp", defines))) {
-            std::cerr << "Failed to load move shader" << std::endl;
-            return false;
-        }
-        if (!(s_moveShaderDebug = Shader::load(shadersPath + "move.comp", debugDefines))) {
-            std::cerr << "Failed to load debug move shader" << std::endl;
-            return false;
-        }
+        //if (!(s_moveShader = Shader::load(shadersPath + "move.comp", defines))) {
+        //    std::cerr << "Failed to load move shader" << std::endl;
+        //    return false;
+        //}
+        //if (!(s_moveShaderDebug = Shader::load(shadersPath + "move.comp", debugDefines))) {
+        //    std::cerr << "Failed to load debug move shader" << std::endl;
+        //    return false;
+        //}
 
         // Draw Compute Shader
-        if (!(s_drawShader = Shader::load(shadersPath + "draw.comp", defines))) {
-            std::cerr << "Failed to load draw shader" << std::endl;
-            return false;
-        }
-        if (!(s_drawShaderDebug = Shader::load(shadersPath + "draw.comp", debugDefines))) {
-            std::cerr << "Failed to load debug draw shader" << std::endl;
-            return false;
-        }
-        */
+        //if (!(s_drawShader = Shader::load(shadersPath + "draw.comp", defines))) {
+        //    std::cerr << "Failed to load draw shader" << std::endl;
+        //    return false;
+        //}
+        //if (!(s_drawShaderDebug = Shader::load(shadersPath + "draw.comp", debugDefines))) {
+        //    std::cerr << "Failed to load debug draw shader" << std::endl;
+        //    return false;
+        //}
 
         // Pretty Shader
         if (!(s_prettyShader = Shader::load(shadersPath + "pretty.comp", defines))) {
@@ -372,40 +371,37 @@ namespace rld {
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
-    /*
     static void computeProspect() {
         Shader & prospectShader(s_debug ? *s_prospectShaderDebug : *s_prospectShader);
         prospectShader.bind();
 
-        //glDispatchCompute((s_texSize + 7) / 8, (s_texSize + 7) / 8, 1); // Must also tweak in shader
-        glDispatchCompute(1, 1, 1);
+        glDispatchCompute((s_texSize + 7) / 8, (s_texSize + 7) / 8, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
     }
 
-    static void computeOutline() {
-        Shader & outlineShader(s_debug ? *s_outlineShaderDebug : *s_outlineShader);
-        outlineShader.bind();
+    //static void computeOutline() {
+    //    Shader & outlineShader(s_debug ? *s_outlineShaderDebug : *s_outlineShader);
+    //    outlineShader.bind();
+    //
+    //    glDispatchCompute(1, 1, 1);
+    //    glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+    //}
 
-        glDispatchCompute(1, 1, 1);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
-    }
+    //static void computeMove() {
+    //    Shader & moveShader(s_debug ? *s_moveShaderDebug : *s_moveShader);
+    //    moveShader.bind();
+    //
+    //    glDispatchCompute(1, 1, 1);
+    //    glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+    //}
 
-    static void computeMove() {
-        Shader & moveShader(s_debug ? *s_moveShaderDebug : *s_moveShader);
-        moveShader.bind();
-
-        glDispatchCompute(1, 1, 1);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
-    }
-
-    static void computeDraw() {
-        Shader & drawShader(s_debug ? *s_drawShaderDebug : *s_drawShader);
-        drawShader.bind();
-
-        glDispatchCompute(1, 1, 1);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
-    }
-    */
+    //static void computeDraw() {
+    //    Shader & drawShader(s_debug ? *s_drawShaderDebug : *s_drawShader);
+    //    drawShader.bind();
+    //
+    //    glDispatchCompute(1, 1, 1);
+    //    glMemoryBarrier(GL_ALL_BARRIER_BITS); // TODO: don't need all
+    //}
 
     static void computePretty() {
         s_prettyShader->bind();
@@ -476,6 +472,13 @@ namespace rld {
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_airPixelsSSBO[1]);
             glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(s32), &zero);
         }
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    }
+
+    static void clearResults() {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_resultsSSBO);
+        vec4 zero;
+        glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_RGBA32F, GL_RGBA, GL_FLOAT, &zero);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
@@ -717,6 +720,7 @@ namespace rld {
             resetCounters(true);
             clearTurbTex();
             clearShadTex();
+            clearResults();
             if (s_debug && s_doSide) clearSideTex();
             s_lift = vec3();
             s_drag = vec3();
@@ -737,8 +741,8 @@ namespace rld {
 
         clearFlagTex();
         renderGeometry(); // Render geometry to fbo
+        computeProspect(); // Scan fbo and generate geo pixels
         compute();
-        //computeProspect(); // Scan fbo and generate geo pixels
         //computeDraw(); // Draw any existing air pixels to the fbo and save their indices in the flag texture
         //computeOutline(); // Map air pixels to geometry, and generate new air pixels and draw them to the fbo
         //computeMove(); // Calculate lift/drag and move any existing air pixels in relation to the geometry
