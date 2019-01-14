@@ -9,7 +9,8 @@ layout (local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 struct GeoPixel {
     vec2 windPos;
     ivec2 texCoord;
-    vec4 normal;
+    vec3 normal;
+    int edge; // 1 if is leading edge, 2 if is trailing edge, 3 if both
 };
 
 struct AirPixel {
@@ -34,9 +35,9 @@ const float k_maxNormalZ = 1.0f - k_minNormalZ;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 0,      rgba8ui) uniform restrict uimage2D u_frontImg;
-layout (binding = 2,         r32i) uniform restrict iimage2D u_flagImg;
-layout (binding = 3,           r8) uniform restrict  image2D u_turbImg;
+layout (binding = 0, rgba8ui) uniform restrict uimage2D u_frontImg;
+layout (binding = 2,    r32i) uniform restrict iimage2D u_flagImg;
+layout (binding = 3,      r8) uniform restrict  image2D u_turbImg;
 
 layout (binding = 1) uniform sampler2D u_prevTurbTex;
 
@@ -113,7 +114,7 @@ void setWindTurbulent(vec2 windPos) {
     setTexTurbulent(windToTex(windPos));
 }
 
-// Looks for a geo pixel from given point in given direction
+// Looks for an air pixel from given point in given direction
 // searchDir is normalized xy in tex space
 // returns airI if air is found, -1 if nothing is found, and -2 if turbulence is found
 int findAir(vec2 geoTexPos, ivec2 geoTexCoord, vec2 searchDir) {
@@ -183,10 +184,11 @@ int findAir(vec2 geoTexPos, ivec2 geoTexCoord, vec2 searchDir) {
 
 void outline(int geoI) {
     vec2 geoWindPos = u_geoPixels[geoI].windPos;
-    vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
+    vec3 geoNormal = u_geoPixels[geoI].normal;
     ivec2 geoTexCoord = u_geoPixels[geoI].texCoord; // Need exact texture coord because rasterization math and our wind-to-tex math don't always align
     vec2 geoTexPos = windToTex(geoWindPos);
     geoTexPos = clamp(geoTexPos, vec2(geoTexCoord), vec2(geoTexCoord + 1)); // necessary for edge cases
+    int geoEdge = u_geoPixels[geoI].edge;
 
     bool shouldSpawn = geoNormal.z >= k_minNormalZ && geoNormal.z <= k_maxNormalZ;
     bool shouldSearch = abs(geoNormal.z) <= k_maxNormalZ;
@@ -204,7 +206,8 @@ void outline(int geoI) {
         shouldSpawn = shouldSpawn && res == -1;
         if (res >= 0) u_airGeoMap[res] = geoI + 1;
 
-        if (k_doCloth) {
+        // If cloth, must find air from trailing edge as well
+        if (k_doCloth && (geoEdge & 2) != 0) {
             res = findAir(geoTexPos, geoTexCoord, -searchDir);
             if (res >= 0) u_airGeoMap[res] = geoI + 1;
         }

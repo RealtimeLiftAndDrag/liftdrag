@@ -24,10 +24,10 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Simulation.cpp" />
+    <ClCompile Include="src\RLD.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\RLD\Simulation.hpp" />
+    <ClInclude Include="include\RLD\RLD.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\resources\RLD\shaders\draw.comp" />

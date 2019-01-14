@@ -15,7 +15,8 @@ struct Result {
 struct GeoPixel {
     vec2 windPos;
     ivec2 texCoord;
-    vec4 normal;
+    vec3 normal;
+    int edge; // 1 if is leading edge, 2 if is trailing edge, 3 if both
 };
 
 struct SoftVertex {
@@ -133,6 +134,7 @@ ivec2 getPixelDelta(vec2 dir) {
     }
 }
 
+// Sums values of accumulation buffer in parallel
 void accumulate() {
     int workI = int(gl_LocalInvocationIndex);
     for (int n = k_workGroupSize / 2; n > 0; n /= 2) {
@@ -178,8 +180,8 @@ void applySoftForce(ivec2 texCoord, vec3 lift, vec3 drag) {
 }
 
 void prospect(ivec2 texCoord) {
-    // If not geometry, ignore
     uvec4 color = imageLoad(u_frontImg, texCoord);
+    // If not geometry, ignore
     if ((color.r & k_geoBit) == 0) {
         return;
     }
@@ -204,21 +206,22 @@ void prospect(ivec2 texCoord) {
         }
     }
 
-    // Check if we're on edge
-    bool onEdge = false;
+    // Check if we're on leading edge
+    int edge = 0;
     ivec2 nextTexCoord = texCoord + getPixelDelta(geoNormal.xy);
     uvec4 nextColor = imageLoad(u_frontImg, nextTexCoord);
     if ((nextColor.r & k_geoBit) == 0) {
-        onEdge = true;
+        edge |= 1;
     }
-    if (false && k_doCloth && !onEdge) {
+    // If doing cloth, check if we're on trailing edge
+    if (k_doCloth) {
         nextTexCoord = texCoord + getPixelDelta(-geoNormal.xy);
         nextColor = imageLoad(u_frontImg, nextTexCoord);
         if ((nextColor.r & k_geoBit) == 0) {
-            onEdge = true;
+            edge |= 2;
         }
     }
-    if (!onEdge) {
+    if (edge == 0) {
         return;
     }
 
@@ -228,8 +231,9 @@ void prospect(ivec2 texCoord) {
         return;
     }
     u_geoPixels[geoI].windPos = geoWindPos.xy;
-    u_geoPixels[geoI].normal = vec4(geoNormal, 0.0f);
-    u_geoPixels[geoI].texCoord = texCoord;
+    u_geoPixels[geoI].texCoord = texCoord; // Need exact texture coord because rasterization math and our wind-to-tex math don't always align
+    u_geoPixels[geoI].normal = geoNormal;
+    u_geoPixels[geoI].edge = edge;
 }
 
 void main() {

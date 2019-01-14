@@ -25,7 +25,7 @@ extern "C" {
 #include "Common/Shader.hpp"
 #include "Common/Camera.hpp"
 #include "Common/Util.hpp"
-#include "RLD/Simulation.hpp"
+#include "RLD/RLD.hpp"
 #include "UI/Group.hpp"
 #include "UI/TexViewer.hpp"
 

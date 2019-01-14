@@ -1,4 +1,4 @@
-#include "Simulation.hpp"
+#include "RLD.hpp"
 
 #include <memory>
 #include <iostream>
@@ -30,7 +30,8 @@ namespace rld {
     struct GeoPixel {
         vec2 windPos;
         ivec2 texCoord;
-        vec4 normal;
+        vec3 normal;
+        int edge;
     };
 
     // Mirrors GPU struct

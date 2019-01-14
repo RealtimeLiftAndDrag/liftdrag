@@ -9,7 +9,7 @@ const bool k_debug = DEBUG;
 const bool k_distinguishActivePixels = DISTINGUISH_ACTIVE_PIXELS; // Makes certain "active" pixels brigher for visual clarity, but lowers performance
 const bool k_doCloth = DO_CLOTH;
 
-const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4; // Must also change in other shaders
+const uint k_geoBit = 1, k_airBit = 2, k_activeBit = 4;
 const float k_inactiveVal = k_distinguishActivePixels && k_debug ? 1.0f / 3.0f : 1.0f;
 
 // Inputs ----------------------------------------------------------------------
@@ -75,9 +75,7 @@ void main() {
 
     // Side View
     if (k_debug) {
-        //if (windToTex(vec2(in_pos.x, 0.0f)).x > u_texSize * 2 / 3) {
         vec2 sideTexPos = windToTex(vec2(-in_pos.z, in_pos.y));
         imageStore(u_sideImg, ivec2(sideTexPos), vec4(vec3(k_inactiveVal * 0.5f), 0.0f));
-        //}
     }
 }

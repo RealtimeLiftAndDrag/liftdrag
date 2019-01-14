@@ -15,7 +15,8 @@ struct Result {
 struct GeoPixel {
     vec2 windPos;
     ivec2 texCoord;
-    vec4 normal;
+    vec3 normal;
+    int edge; // 1 if is leading edge, 2 if is trailing edge, 3 if both
 };
 
 struct AirPixel {
@@ -53,11 +54,11 @@ const float k_airDensity = 1.0f;
 
 // Uniforms --------------------------------------------------------------------
 
-layout (binding = 0,      rgba8ui) uniform restrict uimage2D u_frontImg;
-layout (binding = 2,         r32i) uniform restrict iimage2D u_flagImg;
-layout (binding = 3,           r8) uniform restrict  image2D u_turbImg;
-layout (binding = 4,           r8) uniform restrict  image2D u_prevTurbImg;
-layout (binding = 6,        r32ui) uniform restrict uimage2D u_indexImg;
+layout (binding = 0, rgba8ui) uniform restrict uimage2D u_frontImg;
+layout (binding = 2,    r32i) uniform restrict iimage2D u_flagImg;
+layout (binding = 3,      r8) uniform restrict  image2D u_turbImg;
+layout (binding = 4,      r8) uniform restrict  image2D u_prevTurbImg;
+layout (binding = 6,   r32ui) uniform restrict uimage2D u_indexImg;
 
 layout (binding = 1) uniform sampler2D u_prevTurbTex;
 layout (binding = 2) uniform sampler2D u_shadTex;
@@ -186,6 +187,7 @@ float getWindShadFactor(vec2 windPos) {
     return getTexShadFactor(windToTex(windPos));
 }
 
+// Sums values of accumulation buffer in parallel
 void accumulate() {
     int workI = int(gl_LocalInvocationIndex);
     for (int n = k_workGroupSize / 2; n > 0; n /= 2) {
@@ -194,6 +196,7 @@ void accumulate() {
     }
 }
 
+// Applies given lift and drag forces to cloth at given texture coordinate
 void applySoftForce(ivec2 texCoord, vec3 lift, vec3 drag) {
     uint ii = imageLoad(u_indexImg, texCoord).x * 3;
     if (ii == 0) {
@@ -262,7 +265,6 @@ void move(int airI) {
             vec2 corner = step(vec2(0.0f), searchDir);
             float totalDist = 0.0f;
             while (true) {
-                // TODO: potentially optimize line search
                 vec2 delta = corner - (searchTexPos - vec2(searchPixel));
                 vec2 dist = abs(delta / searchDir);
                 if (dist.x < dist.y) {
@@ -293,11 +295,6 @@ void move(int airI) {
                 }
 
                 uvec4 color = imageLoad(u_frontImg, searchPixel);
-
-                // Visualize the search
-                //if (k_debug) {
-                //    imageStore(u_fboImg, pixel, vec4(color.r, color.g, 0.5f, color.a));
-                //}
 
                 if ((color.r & k_geoBit) != 0) { // we found a geo pixel
                     geoI = imageLoad(u_flagImg, searchPixel).x;
@@ -331,13 +328,14 @@ void move(int airI) {
     // For each associated geo pixel, update backforce, lift, and drag
     if (isGeo) {
         vec2 geoWindPos = u_geoPixels[geoI].windPos;
-        vec3 geoNormal = u_geoPixels[geoI].normal.xyz;
-        float dist = distance(airWindPos, geoWindPos);
+        vec3 geoNormal = u_geoPixels[geoI].normal;
+        float dist = distance(geoWindPos, airWindPos);
+        float dirSign = sign(dot(geoNormal.xy, airWindPos - geoWindPos)); // 1 if air is in front of geometry, -1 if behind (for cloth)
 
         float area = u_pixelSize * u_sliceSize * (1.0f - abs(dot(geoNormal, normalize(vec3(airVelocity, -u_windSpeed)))));
 
         // Calculate backforce
-        vec2 thisBackforce = safeNormalize(-geoNormal.xy) * dist;// * dist;// = dist*dist*a + dist*b + c;
+        vec2 thisBackforce = safeNormalize(-geoNormal.xy) * dirSign * dist;// * dist;// = dist*dist*a + dist*b + c;
         thisBackforce *= u_backforceC;
         backforce += thisBackforce;
 
@@ -346,11 +344,7 @@ void move(int airI) {
         liftFactor *= dist / u_turbulenceDist;
         liftFactor *= u_liftC;
         if (airTurbulence > 0.0f) liftFactor = 0.0f;
-        vec3 lift = geoNormal * liftFactor;
-        if (k_doCloth) {
-            // If cloth, air could be on "wrong" side of geometry
-            lift *= sign(dot(airWindPos - geoWindPos, geoNormal.xy));
-        }
+        vec3 lift = geoNormal * dirSign * liftFactor; // TODO: should lift depend on z component of normal or just xy?
 
         // Calculate torque
         vec3 torq = cross(vec3(geoWindPos, u_sliceZ), lift);

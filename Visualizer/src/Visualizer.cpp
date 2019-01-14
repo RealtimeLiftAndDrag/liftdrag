@@ -38,7 +38,7 @@ extern "C" {
 #include "UI/Graph.hpp"
 #include "UI/TexViewer.hpp"
 
-#include "RLD/Simulation.hpp"
+#include "RLD/RLD.hpp"
 
 #include "Results.hpp"
 #include "Viewer.hpp"
@@ -59,7 +59,7 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::f18);
 
 static const int k_simTexSize(1024);
 static const int k_simSliceCount(100);

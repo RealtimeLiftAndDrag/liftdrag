@@ -29,7 +29,7 @@ extern "C" {
 #include "Common/Camera.hpp"
 #include "UI/Text.hpp"
 #include "UI/Group.hpp"
-#include "RLD/Simulation.hpp"
+#include "RLD/RLD.hpp"
 
 #include "SimObject.hpp"
 #include "ProgTerrain.hpp"
