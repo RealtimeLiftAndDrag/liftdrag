@@ -62,7 +62,7 @@ void main() {
     out_stress = stress;
     gl_Position = u_projMat * u_viewMat * u_modelMat * vec4(p1, 1.0f);
     EmitVertex();
-    
+
     out_stress = stress;
     gl_Position = u_projMat * u_viewMat * u_modelMat * vec4(p2, 1.0f);
     EmitVertex();

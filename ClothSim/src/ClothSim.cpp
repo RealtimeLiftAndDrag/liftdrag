@@ -122,7 +122,7 @@ static bool s_isClothUpdateNeeded(false);
 
 
 
-class RootComp : public ui::HorizontalGroup {    
+class RootComp : public ui::HorizontalGroup {
 
     public:
 
@@ -226,7 +226,7 @@ static bool setupObject() {
         s_sailRotateCWMat = glm::translate(-s_sailTack);
         s_sailRotateCWMat = glm::rotate(-k_sailRotateSpeed * k_updateDT, vec3(0.0f, 1.0f, 0.0f)) * s_sailRotateCWMat;
         s_sailRotateCWMat = glm::translate(s_sailTack) * s_sailRotateCWMat;
-        
+
         // Create the mesh
         unq<SoftMesh> mesh(Clothier::createTriangle(s_sailTack, s_sailClew, s_sailHead, k_sailLOD, s_clothMass, s_workGroupSize, bvec3(true, true, true), bvec3(false, false, true)));
         // Assign luff to group 1
@@ -447,13 +447,13 @@ static void updateCloth() {
     s_time += k_targetDT;
 }
 
-static void update() {    
+static void update() {
     if (s_state == State::free) {
         // Finish if mid-sweep
         if (rld::slice()) {
             glEnable(GL_DEPTH_TEST);
             glDisable(GL_BLEND);
-            
+
             while (!rld::step());
 
             glDisable(GL_DEPTH_TEST);
@@ -476,14 +476,14 @@ static void update() {
 
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
-        
+
         s_isClothUpdateNeeded = true;
 
     }
     else if (s_state == State::autoStepping || s_state == State::stepping && s_doStep) {
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
-        
+
         bool done(rld::step());
 
         glDisable(GL_DEPTH_TEST);

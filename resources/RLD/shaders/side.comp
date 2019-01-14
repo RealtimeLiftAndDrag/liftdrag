@@ -29,7 +29,7 @@ void accumulate() {
     }
 }
 
-void main() {    
+void main() {
     s_sideVals[k_localID.y] = vec4(0.0f);
 
     int iterations = (u_texSize + k_groupSize.x - 1) / k_groupSize.x;

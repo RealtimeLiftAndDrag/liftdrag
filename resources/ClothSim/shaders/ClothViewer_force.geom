@@ -51,14 +51,14 @@ void main() {
         out_mag = mag;
         gl_Position = u_projMat * u_viewMat * u_modelMat * vec4(vertex.position, 1.0f);
         EmitVertex();
-    
+
         out_mag = mag;
         gl_Position = u_projMat * u_viewMat * u_modelMat * vec4(p2, 1.0f);
         EmitVertex();
 
         EndPrimitive();
     }
-    
+
     if (vertex.force1 != vec3(0.0f)) {
         vec3 acc = vertex.force1 / vertex.mass;
         float mag = length(acc);
@@ -67,7 +67,7 @@ void main() {
         out_mag = -mag;
         gl_Position = u_projMat * u_viewMat * u_modelMat * vec4(vertex.position, 1.0f);
         EmitVertex();
-    
+
         out_mag = -mag;
         gl_Position = u_projMat * u_viewMat * u_modelMat * vec4(p2, 1.0f);
         EmitVertex();

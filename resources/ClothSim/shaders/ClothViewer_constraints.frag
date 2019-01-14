@@ -19,7 +19,7 @@ const float k_multiplier = 3.0f;
 
 void main() {
     out_color.rgb = in_stress > 0.0f ?
-        mix(k_neutralColor, k_stretchColor, in_stress * k_multiplier) : 
+        mix(k_neutralColor, k_stretchColor, in_stress * k_multiplier) :
         mix(k_neutralColor, k_compressColor, -in_stress * k_multiplier);
     out_color.a = 1.0f;
 }

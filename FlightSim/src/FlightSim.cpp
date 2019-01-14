@@ -132,7 +132,7 @@ class MainComp : public ui::Single {
         m_camera.far(k_camFar);
     }
 
-    virtual void pack() override {        
+    virtual void pack() override {
         vec2 aspect(aspect());
         m_camera.fov(k_fov * aspect);
         m_windViewViewMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -k_windframeDepth * 0.5f));

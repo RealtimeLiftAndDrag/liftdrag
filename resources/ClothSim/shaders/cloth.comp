@@ -119,7 +119,7 @@ void main() {
             float dist2 = dot(delta, delta);
             float strength = max(1.0f - dist2 / (k_touchRad * k_touchRad), 0.0f);
             u_vertices[vi].force0 += u_touchForce * strength;
-        }        
+        }
     }
     barrier();
 

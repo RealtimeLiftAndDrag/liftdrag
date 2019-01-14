@@ -38,7 +38,7 @@ namespace Clothier {
         }
     }
 
-    
+
 
     constexpr float k_h(0.866025404f); // height of an equilateral triangle
 
@@ -182,10 +182,10 @@ namespace Clothier {
 
         if (groupSize) decouple(vertices, constraints, groupSize);
 
-        unq<Mesh> mesh(new SoftMesh(move(vertices), move(indices), move(constraints)));      
+        unq<Mesh> mesh(new SoftMesh(move(vertices), move(indices), move(constraints)));
         if (!mesh->load()) {
             return {};
-        }  
+        }
         return unq<Model>(new Model(SubModel("ClothRectangle", move(mesh))));
     }
 

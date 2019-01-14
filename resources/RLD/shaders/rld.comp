@@ -507,7 +507,7 @@ void outline(int geoI) {
 
         if (k_doCloth) {
             res = findAir(geoScreenPos, geoTexCoord, -searchDir);
-            if (res >= 0) u_airGeoMap[res] = geoI + 1;            
+            if (res >= 0) u_airGeoMap[res] = geoI + 1;
         }
     }
 

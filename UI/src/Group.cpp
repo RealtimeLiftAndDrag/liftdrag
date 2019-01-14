@@ -121,7 +121,7 @@ namespace ui {
 
         return { minSize, maxSize };
     }
-    
+
 
 
     void LayerGroup::pack() {
