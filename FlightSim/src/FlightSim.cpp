@@ -236,7 +236,7 @@ class MainComp : public ui::Single {
         else if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
             s_simObject->reset(k_initPos, k_initDir, k_initSpeed);
         }
-        // R resets the object
+        // P to pause
         else if (key == GLFW_KEY_P && action == GLFW_RELEASE) {
             s_unpaused = !s_unpaused;
         }
