@@ -24,7 +24,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\UI\Combo.hpp" />
     <ClInclude Include="include\UI\Field.hpp" />
     <ClInclude Include="include\UI\Graph.hpp" />
     <ClInclude Include="include\UI\Group.hpp" />
@@ -45,7 +44,6 @@
     <None Include="..\resources\UI\shaders\ui_comp.vert" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Combo.cpp" />
     <ClCompile Include="src\Field.cpp" />
     <ClCompile Include="src\Graph.cpp" />
     <ClCompile Include="src\Group.cpp" />

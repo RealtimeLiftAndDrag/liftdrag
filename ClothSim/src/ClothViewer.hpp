@@ -37,7 +37,7 @@ class ClothViewerComponent : public ui::Single {
     private:
 
     void detTouchPoint();
-    
+
     const Model & m_model;
     ThirdPersonCamera m_camera;
     bool m_isTouch;

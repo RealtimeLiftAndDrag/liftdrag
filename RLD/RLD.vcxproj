@@ -24,16 +24,19 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Simulation.cpp" />
+    <ClCompile Include="src\RLD.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\RLD\Simulation.hpp" />
+    <ClInclude Include="include\RLD\RLD.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\resources\RLD\shaders\draw.comp" />
     <None Include="..\resources\RLD\shaders\foil.frag" />
     <None Include="..\resources\RLD\shaders\foil.vert" />
+    <None Include="..\resources\RLD\shaders\move.comp" />
+    <None Include="..\resources\RLD\shaders\outline.comp" />
     <None Include="..\resources\RLD\shaders\pretty.comp" />
-    <None Include="..\resources\RLD\shaders\rld.comp" />
+    <None Include="..\resources\RLD\shaders\prospect.comp" />
     <None Include="..\resources\RLD\shaders\side.comp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

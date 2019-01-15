@@ -38,7 +38,7 @@ extern "C" {
 #include "UI/Graph.hpp"
 #include "UI/TexViewer.hpp"
 
-#include "RLD/Simulation.hpp"
+#include "RLD/RLD.hpp"
 
 #include "Results.hpp"
 #include "Viewer.hpp"
@@ -59,13 +59,12 @@ enum class SimModel { airfoil, f18, sphere };
 
 
 
-static constexpr SimModel k_simModel(SimModel::airfoil);
+static constexpr SimModel k_simModel(SimModel::f18);
 
 static const int k_simTexSize(1024);
 static const int k_simSliceCount(100);
 static const float k_simLiftC(1.0f);
 static const float k_simDragC(1.0f);
-static const float k_defWindSpeed(100.0f);
 
 static const ivec2 k_defWindowSize(1280, 720);
 
@@ -95,7 +94,7 @@ static mat3 s_normalMat; // Particular to model, does not change
 static mat4 s_windModelMat; // Changes based on angle of attack
 static mat3 s_windNormalMat; // Changes based on angle of attack
 static float s_windframeWidth, s_windframeDepth;
-static float s_windSpeed = k_defWindSpeed;
+static float s_windSpeed;
 static float s_turbulenceDist;
 static float s_maxSearchDist;
 static float s_windShadDist;
@@ -104,7 +103,7 @@ static float s_flowback;
 static float s_initVelC;
 static vec2 s_angleGraphRange, s_sliceGraphRange;
 
-//all in degrees
+// All in degrees
 static float s_angleOfAttack(0.0f);
 static float s_aileronAngle(0.0f);
 static float s_rudderAngle(0.0f);
@@ -431,6 +430,7 @@ static bool setupModel() {
             s_modelMat = glm::scale(mat4(), vec3(0.5f, 1.0f, 1.0f)) * s_modelMat;
             s_windframeWidth = 1.25f;
             s_windframeDepth = 1.5f;
+            s_windSpeed = 100.0f;
             s_turbulenceDist = 0.045f;
             s_windShadDist = 0.1f;
             s_backforceC = 1000000.0f;
@@ -444,6 +444,7 @@ static bool setupModel() {
             s_modelMat = glm::rotate(mat4(), glm::pi<float>(), vec3(0.0f, 0.0f, 1.0f)) * s_modelMat;
             s_windframeWidth = 14.5f;
             s_windframeDepth = 22.0f;
+            s_windSpeed = 100.0f;
             s_turbulenceDist = 0.225f;
             s_windShadDist = 1.5f;
             s_backforceC = 50000.0f;
@@ -457,6 +458,7 @@ static bool setupModel() {
         case SimModel::sphere:
             s_windframeWidth = 2.5f;
             s_windframeDepth = 2.5f;
+            s_windSpeed = 100.0f;
             s_turbulenceDist = 0.045f;
             s_windShadDist = 0.1f;
             s_backforceC = 1000000.0f;
@@ -524,7 +526,7 @@ static void setupUI() {
     f18Group->add(shr<ui::String>(new ui::String("Rudder: ", 1, vec4(1.0f))));
     s_rudderNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
     s_rudderNum->actionCallback([]() {
-        setRudderAngle(s_rudderNum->value());
+        setRudderAngle(float(s_rudderNum->value()));
         s_isVariableChange = true;
         doSweep();
     });
@@ -533,7 +535,7 @@ static void setupUI() {
     f18Group->add(shr<ui::String>(new ui::String("Elevator: ", 1, vec4(1.0f))));
     s_elevatorNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
     s_elevatorNum->actionCallback([]() {
-        setElevatorAngle(s_elevatorNum->value());
+        setElevatorAngle(float(s_elevatorNum->value()));
         s_isVariableChange = true;
         doSweep();
     });
@@ -542,7 +544,7 @@ static void setupUI() {
     f18Group->add(shr<ui::String>(new ui::String("Aileron: ", 1, vec4(1.0f))));
     s_aileronNum.reset(new ui::BoundedNumberField(0.0, 1, vec4(1.0f), 4, 4, false, 2, -90.0f, 90.0f));
     s_aileronNum->actionCallback([]() {
-        setAileronAngle(s_aileronNum->value());
+        setAileronAngle(float(s_aileronNum->value()));
         s_isVariableChange = true;
         doSweep();
     });
@@ -652,7 +654,6 @@ static bool setup() {
         std::cerr << "Failed to setup UI" << std::endl;
         return false;
     }
-    //ui::exitCallback(exitCallback);
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glEnable(GL_BLEND);
@@ -678,7 +679,6 @@ static bool setup() {
         s_flowback,
         s_initVelC,
         true,
-        false,
         false
     )) {
         std::cerr << "Failed to setup RLD" << std::endl;
@@ -703,11 +703,6 @@ static bool setup() {
     setupUI();
 
     return true;
-}
-
-static void cleanup() {
-    rld::cleanup();
-    glfwTerminate();
 }
 
 static void updateInfoText() {
@@ -893,8 +888,6 @@ int main(int argc, char ** argv) {
         ui::render();
         glEnable(GL_DEPTH_TEST);
     }
-
-    cleanup();
 
     return EXIT_SUCCESS;
 }

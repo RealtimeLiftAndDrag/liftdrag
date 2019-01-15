@@ -23,7 +23,7 @@ layout (binding = 2) uniform sampler2D u_shadTex;
 layout (binding = 0, std140) uniform Constants {
     int u_maxGeoPixels;
     int u_maxAirPixels;
-    int u_screenSize;
+    int u_texSize;
     float u_liftC;
     float u_dragC;
     float u_windframeSize;
@@ -52,7 +52,7 @@ float getShadFactor(float shad) {
 
 void main() {
     ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(texCoord, ivec2(u_screenSize)))) {
+    if (any(greaterThanEqual(texCoord, ivec2(u_texSize)))) {
         return;
     }
 
@@ -60,8 +60,8 @@ void main() {
     float activeFactor = float(bool(frontVal & k_activeBit)) * (1.0f - k_inactiveVal) + k_inactiveVal;
     float geo = float(bool(frontVal & k_geoBit)) * activeFactor;
     float air = float(bool(frontVal & k_airBit)) * activeFactor;
-    float turb = texture(u_turbTex, (vec2(texCoord) + 0.5f) / float(u_screenSize)).r;
-    float shad = texture(u_shadTex, (vec2(texCoord) + 0.5f) / float(u_screenSize)).r;
+    float turb = texture(u_turbTex, (vec2(texCoord) + 0.5f) / float(u_texSize)).r;
+    float shad = texture(u_shadTex, (vec2(texCoord) + 0.5f) / float(u_texSize)).r;
 
     vec4 color;
     color.rgb = vec3(geo * 0.5f);

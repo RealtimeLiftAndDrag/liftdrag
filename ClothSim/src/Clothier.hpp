@@ -8,7 +8,14 @@
 
 namespace Clothier {
 
-    unq<Model> createRectangle(
+    // Converts triangular coordinates to cartesian coordinates
+    // A is the origin, AB is the x axis, and AC is a ray at 60 degrees
+    vec2 triToCart(vec2 p);
+
+    // Converts triangular vertex point to triangular index
+    u32 triI(ivec2 p);
+
+    unq<SoftMesh> createRectangle(
         ivec2 lod,
         float weaveSize,
         float totalMass,
@@ -27,15 +34,6 @@ namespace Clothier {
         int groupSize,
         const bvec3 & pinVerts,
         const bvec3 & pinEdges
-    );
-
-    unq<SoftMesh> createSail(
-        float luffLength,
-        float leechLength,
-        float footLength,
-        float areaDensity,
-        int lod,
-        int groupSize
     );
 
 }

@@ -185,31 +185,6 @@ namespace ui {
 
     void disableCursor();
 
-    /*
-    // Called when a key is pressed, held, or released
-    // Args: key code, action, mods
-    void keyCallback(fptr<void(int, int, int)> callback);
-
-    // Called when the mouse is moved in the client area
-    // Args: cursor position relative to client area
-    void cursorPositionCallback(fptr<void(dvec2)> callback);
-
-    // Called when the cursor enters or exits the client area
-    // Args: true if entered, false if exited
-    void cursorEnterCallback(fptr<void(bool)> callback);
-
-    // Called when a mouse button is pressed or released
-    // Args: button, action, mods
-    void mouseButtonCallback(fptr<void(int, int, int)> callback);
-
-    // Called when the scroll wheel is turned
-    // Args: x and y offset
-    void scrollCallback(fptr<void(dvec2)> callback);
-
-    // Called when a request has been made for the program to exit
-    void exitCallback(fptr<void()> callback);
-    */
-
     // Requires OpenGL state:
     // - `GL_DEPTH_TEST` disabled
     // - `GL_BLEND` enabled

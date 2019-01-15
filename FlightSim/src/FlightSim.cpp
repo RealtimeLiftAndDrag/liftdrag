@@ -29,7 +29,7 @@ extern "C" {
 #include "Common/Camera.hpp"
 #include "UI/Text.hpp"
 #include "UI/Group.hpp"
-#include "RLD/Simulation.hpp"
+#include "RLD/RLD.hpp"
 
 #include "SimObject.hpp"
 #include "ProgTerrain.hpp"
@@ -132,7 +132,7 @@ class MainComp : public ui::Single {
         m_camera.far(k_camFar);
     }
 
-    virtual void pack() override {        
+    virtual void pack() override {
         vec2 aspect(aspect());
         m_camera.fov(k_fov * aspect);
         m_windViewViewMat = glm::translate(mat4(), vec3(0.0f, 0.0f, -k_windframeDepth * 0.5f));
@@ -196,7 +196,6 @@ class MainComp : public ui::Single {
     }
 
     virtual void keyEvent(int key, int action, int mods) override {
-        // TODO: verify these axes
         // D and A control yaw
         if (key == GLFW_KEY_D) {
             if (action == GLFW_PRESS) s_keyboardYawCCW = true;
@@ -237,7 +236,7 @@ class MainComp : public ui::Single {
         else if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
             s_simObject->reset(k_initPos, k_initDir, k_initSpeed);
         }
-        // R resets the object
+        // P to pause
         else if (key == GLFW_KEY_P && action == GLFW_RELEASE) {
             s_unpaused = !s_unpaused;
         }
@@ -383,7 +382,7 @@ static bool setupObject() {
     // http://www.aem.umn.edu/~AerospaceControl/V&VWebpage/Papers/AIAALin.pdf
     float mass(15097.393f); // gross weight in kg pulled from wiki
     vec3 inertiaTensor(205125.765f, 230414.482f, 31183.813f); // pitch, yaw, roll
-    float dryThrust(71616.368f * 2.0f); // thrust in N without afterburners pulled from wiki (62.3kN per enginer)
+    float dryThrust(71616.368f * 2.0f); // thrust in N without afterburners pulled from wiki
 
     s_simObject.reset(new SimObject(mass, inertiaTensor, dryThrust, k_initPos, k_initDir, k_initSpeed));
 
@@ -482,11 +481,6 @@ static bool setup() {
     return true;
 }
 
-static void cleanup() {
-    rld::cleanup();
-    glfwTerminate();
-}
-
 static mat4 getWindViewMatrix(const vec3 & wind) {
     return glm::lookAt(vec3(), wind, vec3(0.0f, 1.0f, 0.0f));
 }
@@ -520,15 +514,14 @@ static float triggerVal(u08 v) {
 }
 
 static void updatePlane(float dt) {
-    vec3 wind(-s_simObject->velocity()); //wind is equivalent to opposite direction/speed of velocity
+    vec3 wind(-s_simObject->velocity()); // wind is equivalent to opposite direction/speed of velocity
     float windSpeed(glm::length(wind));
     vec3 windW(wind / -windSpeed); // Normalize. Negative because the W vector is opposite the direction "looked in"
     vec3 windU(glm::normalize(glm::cross(s_simObject->v(), windW))); // TODO: will break if wind direction is parallel to object's v
     vec3 windV(glm::cross(windW, windU));
     mat3 windBasis(windU, windV, windW);
 
-    //mat3 turnAroundMat(-1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f); // manual because I don't want the imprecision from the trig functions
-    mat3 rldOrientMat(glm::transpose(windBasis) * s_simObject->orientMatrix());// * turnAroundMat);
+    mat3 rldOrientMat(glm::transpose(windBasis) * s_simObject->orientMatrix());
     s_rldModelMat = mat4(rldOrientMat) * s_modelMat;
     s_rldNormalMat = rldOrientMat * s_normalMat;
 
@@ -542,7 +535,7 @@ static void updatePlane(float dt) {
     glEnable(GL_BLEND);
 
     rld::Result result(rld::result());
-    vec3 lift = windBasis * vec3(result.lift.x, result.lift.y, 0.0f); // TODO: figure out what is up with lift along z axis
+    vec3 lift = windBasis * vec3(result.lift.x, result.lift.y, 0.0f); // TODO: figure out what is up with lift along z axis (see move shader)
     vec3 drag = windBasis * result.drag;
     vec3 torq = windBasis * result.torq;
     //lift.x = lift.y = 0.0f;
@@ -641,8 +634,6 @@ int main(int argc, char ** argv) {
         ui::update();
         ui::render();
     }
-
-    cleanup();
 
     return EXIT_SUCCESS;
 }
