@@ -36,6 +36,7 @@ namespace ui {
     static shr<Component> s_tooltip;
     static bool s_isTooltipChange;
     static Component * s_focus;
+    static bool s_cursorEnabled = true;
 
 
 
@@ -263,6 +264,12 @@ namespace ui {
 
     void Group::detCursorOverComp(const ivec2 & cursorPos) const {
         m_cursorOverComp = nullptr;
+        
+        if (!s_cursorEnabled) {
+            if (m_components.size()) m_cursorOverComp = m_components.front().get();
+            return;
+        }
+
         for (const auto & comp : m_components) {
             if (comp->contains(cursorPos)) {
                 m_cursorOverComp = comp.get();
@@ -397,6 +404,7 @@ namespace ui {
 
     void disableCursor() {
         glfwSetInputMode(s_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        s_cursorEnabled = false;
     }
 
     void update() {

@@ -7,10 +7,12 @@
 
 #include "Global.hpp"
 
+// Used to render text
 class Text {
 
     public:
 
+    // Must be called once after OpenGL has been initialized
     static bool setup();
 
     static const ivec2 & fontSize();
@@ -25,7 +27,7 @@ class Text {
     private:
 
     std::string m_string;
-    ivec2 m_align;
+    ivec2 m_align; // Horizontal and vertical alignment. <1, 1> is left-justified and down
     vec4 m_color;
     std::vector<ivec2> m_lineSpecs; // starting index and length
     ivec2 m_dimensions; // width and height of string in characters
