@@ -42,7 +42,7 @@ UI (User Interface) is a static library designed to meet the GUI and user input 
 
 ### Visualizer
 
-Visualizer is an executable for visualizing the realtime lift and drag simulation at work. It features a front and side view of the model in its current simulation state. The simulation can be stepped through one slice at a time, or whole sweeps at once. Additionally, it shows curves of the lift, drag, and torq values per slice and per angle of attack. Visualizer depends on the Common, RLD, and UI projects.
+Visualizer is an executable for visualizing the realtime lift and drag simulation at work. It features a front and side view of the model in its current simulation state. The simulation can be stepped through one slice at a time, or whole sweeps at once. Additionally, it shows curves of the lift, drag, and torq values per slice and per angle of attack. Visualizer uses the Common, RLD, and UI projects.
 
 **Controls**
 - `space` to step to the next slice
@@ -67,3 +67,39 @@ Visualizer is an executable for visualizing the realtime lift and drag simulatio
   - `drag` to rotate the camera around the origin
   - `scroll` to zoom in or out
 - Many of the variable texts can be edited by clicking the value, typing whatever, and then pressing `enter`
+
+### FlightSim
+
+FlightSim is an executable and a basic flight simulator using the RLD technology. Uses the Common, RLD, and UI projects.
+
+**Controls**
+- `w` or `s` to pitch up or down
+- `a` or `d` to yaw left or right
+- `q` or `e` to roll left or right
+- `space` to thrust
+- `k` to toggle wind-view
+- `shift` when in wind-view to view orthographically
+- `r` to reset the simulation
+- `p` to pause the simulation
+- `drag` to rotate the camera
+- `esc` to exit
+
+### ClothSim
+
+ClothSim is an executable and cloth simulator using the RLD technology. Primarily set up for simulating a jib sail, but can be set up to simulate a flag or any other cloth object. Features option to see forces on each cloth vertex, or visualize the cloth vertex constraints. Additionally shows the front RLD texture. Uses the Common, RLD, and UI projects.
+
+**Controls**
+- `drag` to rotate the camera
+- `scroll` to zoom in or out
+- `left` or `right` to rotate the sail CCW or CW
+- `up` or `down` to extend or retract the clew
+- `right-click` to "blow" on sail
+- `z` to disable rld simulation
+- `x` to do one sweep per frame
+- `c` to do one slice per frame
+- `space` to step one slice
+- The texture viewer can be manipulated
+  - `drag` to move the texture
+  - `scroll` to zoom in or out
+  
+The cloth simulation is done via a basic varlet integration approach in a similar manner as described in [this](https://viscomp.alexandra.dk/?p=147) article. There are two key differences however. First, the data is stored on the GPU and the algorithm is performed in parallel using OpenGL. Second, while the approach in the article is tailored specifically for rectangular cloth, we support cloth of any shape, so long as appropriate constraints can be provided. Although lacking self-collision functionality, the result is performant and otherwise realistic.
